@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "agent-desk"
+version = "0.1.0"
+description = "A desktop for AI agents"
+authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
+license = "Apache 2.0"
+readme = "README.md"
+packages = [{include = "agent_desk"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+agent-tool = "^0.1.3"
+pillow = "^10.2.0"
+requests = "^2.31.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
