@@ -1,5 +1,9 @@
 import sys
 import time
 
-sys.path.append("../agent_desk")
+sys.path.append("../")
 # TODO
+
+from agent_desk import Desktop
+
+Desktop.create_local()

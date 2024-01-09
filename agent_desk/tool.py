@@ -1,5 +1,6 @@
 import base64
 import io
+import subprocess
 
 import requests
 from PIL import Image
@@ -26,6 +27,16 @@ class Desktop(Tool):
             raise SystemError(f"could not connect to desktop, is agentd running? {e}")
 
         print("connected to desktop via agentd")
+
+    @classmethod
+    def create_local(
+        cls, memory: int = 4096, cpus: int = 4, sockify_port: int = 6080
+    ) -> None:
+        command = f"""qemu-system-x86_64 -hda \
+              ~/vms/ubuntu_2204.qcow2 -m {memory} -smp {cpus} \ 
+              -netdev user,id=vmnet,hostfwd=tcp::6080-:{sockify_port},hostfwd=tcp::8000-:8000 \
+              -device e1000,netdev=vmnet -vnc :0"""
+        subprocess.Popen(command, shell=True)
 
     def health(self) -> dict:
         """Health of agentd
