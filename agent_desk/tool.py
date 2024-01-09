@@ -1,23 +1,36 @@
 import base64
 import io
 import subprocess
+from enum import Enum
+import time
+import os
 
 import requests
 from PIL import Image
+from google.cloud import storage
 from agent_tools import Tool, action, observation
+
+from .util import extract_file_path, extract_gcs_info, generate_random_string
+
+
+class StorageStrategy(Enum):
+    GCS = "gcs"
+    LOCAL = "local"
 
 
 class Desktop(Tool):
     """Desktop OS as a tool via agentd"""
 
-    def __init__(self, agentd_url: str) -> None:
+    def __init__(self, agentd_url: str, storage_uri: str = "file://.media") -> None:
         """Connect to an agent desktop
 
         Args:
             agentd_url (str): URL of a running agentd server
+            storage_uri (str): The directory where to store images or videos taken of the VM, supports gs:// or file://. Defaults to file://.media.
         """
         super().__init__()
         self.base_url = agentd_url
+        self.storage_uri = storage_uri
 
         try:
             resp = self.health()
@@ -29,13 +42,11 @@ class Desktop(Tool):
         print("connected to desktop via agentd")
 
     @classmethod
-    def create_local(
-        cls, memory: int = 4096, cpus: int = 4, sockify_port: int = 6080
-    ) -> None:
-        command = f"""qemu-system-x86_64 -hda \
-              ~/vms/ubuntu_2204.qcow2 -m {memory} -smp {cpus} \ 
-              -netdev user,id=vmnet,hostfwd=tcp::6080-:{sockify_port},hostfwd=tcp::8000-:8000 \
-              -device e1000,netdev=vmnet -vnc :0"""
+    def local(cls, memory: int = 4096, cpus: int = 4, sockify_port: int = 6080) -> None:
+        command = f"qemu-system-x86_64 -hda ~/vms/ubuntu_2204.qcow2 -m {memory} "
+        command += f"-smp {cpus} -netdev user,id=vmnet,hostfwd=tcp::6080-:{sockify_port},hostfwd=tcp::8000-:8000 "
+        command += "-device e1000,netdev=vmnet -vnc :0"
+
         subprocess.Popen(command, shell=True)
 
     def health(self) -> dict:
@@ -144,11 +155,11 @@ class Desktop(Tool):
         return
 
     @observation
-    def take_screenshot(self) -> Image:
+    def take_screenshot(self) -> str:
         """Take screenshot
 
         Returns:
-            Image: The image
+            str: URI of the image
         """
         response = requests.post(f"{self.base_url}/screenshot")
         jdict = response.json()
@@ -157,7 +168,27 @@ class Desktop(Tool):
         image_stream = io.BytesIO(image_data)
         image = Image.open(image_stream)
 
-        return image
+        filename = f"screen-{int(time.time())}-{generate_random_string()}.png"
+
+        if self.storage_uri.startswith("file://"):
+            filepath = extract_file_path(self.storage_uri)
+            save_path = os.path.join(filepath, filename)
+            image.save(save_path)
+            return save_path
+
+        elif self.storage_uri.startswith("gs://"):
+            bucket_name, object_path = extract_gcs_info(self.storage_uri)
+            object_path = os.path.join(object_path, filename)
+
+            client = storage.Client()
+            bucket = client.bucket(bucket_name)
+            blob = bucket.blob(object_path)
+            blob.upload_from_string(image_data, content_type="image/png")
+
+            blob.make_public()
+            return blob.public_url
+        else:
+            raise ValueError("Invalid store_type. Choose 'file' or 'gcs'.")
 
     def close(self):
         pass
