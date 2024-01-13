@@ -4,6 +4,7 @@ import subprocess
 from enum import Enum
 import time
 import os
+from typing import Tuple
 
 import requests
 from PIL import Image
@@ -202,6 +203,18 @@ class Desktop(Tool):
             return blob.public_url
         else:
             raise ValueError("Invalid store_type. Choose 'file' or 'gcs'.")
+
+    @observation
+    def mouse_coordinates(self) -> Tuple[int, int]:
+        """Get the current mouse coordinates
+
+        Returns:
+            Tuple[int, int]: x, y coordinates
+        """
+        response = requests.get(f"{self.base_url}/mouse_coordinates")
+        jdict = response.json()
+
+        return jdict["x"], jdict["y"]
 
     def close(self):
         pass
