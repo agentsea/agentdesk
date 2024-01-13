@@ -21,16 +21,32 @@ class StorageStrategy(Enum):
 class Desktop(Tool):
     """Desktop OS as a tool via agentd"""
 
-    def __init__(self, agentd_url: str, storage_uri: str = "file://.media") -> None:
+    def __init__(
+        self,
+        agentd_url: str,
+        storage_uri: str = "file://.media",
+        type_min_interval: float = 0.05,
+        type_max_interval: float = 0.25,
+        move_mouse_duration: float = 1.0,
+        mouse_tween: str = "easeInOutQuad",
+    ) -> None:
         """Connect to an agent desktop
 
         Args:
             agentd_url (str): URL of a running agentd server
             storage_uri (str): The directory where to store images or videos taken of the VM, supports gs:// or file://. Defaults to file://.media.
+            type_min_interval (float, optional): Min interval between pressing next key. Defaults to 0.05.
+            type_max_interval (float, optional): Max interval between pressing next key. Defaults to 0.25.
+            move_mouse_duration (float, optional): How long should it take to move. Defaults to 1.0.
+            mouse_tween (str, optional): The movement tween. Defaults to "easeInOutQuad".
         """
         super().__init__()
         self.base_url = agentd_url
         self.storage_uri = storage_uri
+        self._type_min_interval = type_min_interval
+        self._type_max_interval = type_max_interval
+        self._move_mouse_duration = move_mouse_duration
+        self._mouse_tween = mouse_tween
 
         try:
             resp = self.health()
@@ -69,20 +85,21 @@ class Desktop(Tool):
         return
 
     @action
-    def move_mouse_to(
-        self, x: int, y: int, duration: float = 1.0, tween: str = "easeInOutQuad"
-    ) -> None:
+    def move_mouse_to(self, x: int, y: int) -> None:
         """Move mouse to a position
 
         Args:
             x (int): x coordinate
             y (int): y coordiname
-            duration (float, optional): How long should it take to move. Defaults to 1.0.
-            tween (str, optional): The movement tween. Defaults to "easeInOutQuad".
         """
         requests.post(
             f"{self.base_url}/move_mouse_to",
-            json={"x": x, "y": y, "duration": duration, "tween": tween},
+            json={
+                "x": x,
+                "y": y,
+                "duration": self._move_mouse_duration,
+                "tween": self._mouse_tween,
+            },
         )
         return
 
@@ -134,22 +151,18 @@ class Desktop(Tool):
         return
 
     @action
-    def type_text(
-        self, text: str, min_interval: float = 0.05, max_interval: float = 0.25
-    ) -> None:
+    def type_text(self, text: str) -> None:
         """Type text
 
         Args:
             text (str): Text to type
-            min_interval (float, optional): Min interval between pressing next key. Defaults to 0.05.
-            max_interval (float, optional): Max interval between pressing next key. Defaults to 0.25.
         """
         requests.post(
             f"{self.base_url}/type_text",
             json={
                 "text": text,
-                "min_interval": min_interval,
-                "max_interval": max_interval,
+                "min_interval": self._type_min_interval,
+                "max_interval": self._type_max_interval,
             },
         )
         return
