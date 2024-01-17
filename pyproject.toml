@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agent-desk"
-version = "0.1.6"
+version = "0.1.7"
 description = "A desktop for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "Apache 2.0"
@@ -9,10 +9,10 @@ packages = [{include = "agent_desk"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-agent-tool = "^0.1.3"
 pillow = "^10.2.0"
 requests = "^2.31.0"
 google-cloud-storage = "^2.14.0"
+agent-tool = "^0.1.4"
 
 
 [build-system]
