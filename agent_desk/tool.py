@@ -4,7 +4,7 @@ import subprocess
 from enum import Enum
 import time
 import os
-from typing import Tuple
+from typing import Tuple, Optional
 
 import requests
 from PIL import Image
@@ -86,7 +86,7 @@ class Desktop(Tool):
         return
 
     @action
-    def move_mouse_to(self, x: int, y: int) -> None:
+    def move_mouse(self, x: int, y: int) -> None:
         """Move mouse to a position
 
         Args:
@@ -94,7 +94,7 @@ class Desktop(Tool):
             y (int): y coordiname
         """
         requests.post(
-            f"{self.base_url}/move_mouse_to",
+            f"{self.base_url}/move_mouse",
             json={
                 "x": x,
                 "y": y,
@@ -105,13 +105,21 @@ class Desktop(Tool):
         return
 
     @action
-    def click(self, button: str = "left") -> None:
+    def click(
+        self, button: str = "left", x: Optional[int] = None, y: Optional[int] = None
+    ) -> None:
         """Click mouse button
 
         Args:
-            button (str, optional): Which button to click. Defaults to "left".
+            button (str, optional): Button to click. Defaults to "left".
+            x (Optional[int], optional): X coordinate to move to, if not provided it will click on current location. Defaults to None.
+            y (Optional[int], optional): Y coordinate to move to, if not provided it will click on current location. Defaults to None.
         """
-        requests.post(f"{self.base_url}/click", json={"button": button})
+        body = {"button": button}
+        if x and y:
+            body["location"] = {"x": x, "y": y}
+
+        requests.post(f"{self.base_url}/click", json=body)
         return
 
     @action
