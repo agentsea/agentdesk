@@ -13,6 +13,9 @@ pillow = "^10.2.0"
 requests = "^2.31.0"
 google-cloud-storage = "^2.14.0"
 agent-tool = "^0.1.4"
+fastapi = {extras = ["all"], version = "^0.109.0"}
+sqlalchemy = "^2.0.25"
+psycopg2-binary = "^2.9.9"
 
 
 [build-system]
