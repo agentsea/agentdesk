@@ -1,0 +1,43 @@
+---
+# See: Config File Schema <https://eksctl.io/usage/schema/>
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: agentdesk
+  region: us-east-1
+
+managedNodeGroups:
+  - name: ng--metal
+    amiFamily: AmazonLinux2
+    instanceType: c6g.metal
+    availabilityZones:
+      - 
+    desiredCapacity: 1
+    maxSize: 3
+    minSize: 0
+    labels:
+      alpha.eksctl.io/cluster-name: agentdesk
+      alpha.eksctl.io/nodegroup-name: ng--metal
+      workload: vm
+    privateNetworking: false
+    ssh:
+      allow: true
+      publicKeyPath: patrick-agentdesk
+    volumeSize: 500
+    volumeIOPS: 10000
+    volumeThroughput: 750
+    volumeType: gp3
+    tags:
+      alpha.eksctl.io/nodegroup-name: ng--metal
+      alpha.eksctl.io/nodegroup-type: managed
+      k8s.io/cluster-autoscaler/agentdesk: owned
+      k8s.io/cluster-autoscaler/enabled: "true"
+      # The following tags help CAS determine that this node group is able
+      # to satisfy the label and resource requirements of the KubeVirt VMs.
+      # See: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#auto-discovery-setup
+      k8s.io/cluster-autoscaler/node-template/resources/devices.kubevirt.io/kvm: "1"
+      k8s.io/cluster-autoscaler/node-template/resources/devices.kubevirt.io/tun: "1"
+      k8s.io/cluster-autoscaler/node-template/resources/devices.kubevirt.io/vhost-net: "1"
+      k8s.io/cluster-autoscaler/node-template/resources/ephemeral-storage: 50M
+      k8s.io/cluster-autoscaler/node-template/label/kubevirt.io/schedulable: "true"

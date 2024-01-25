@@ -1,0 +1,75 @@
+apiVersion: eksctl.io/v1alpha5
+availabilityZones:
+  - us-east-1c
+  - us-east-1b
+cloudWatch:
+  clusterLogging: {}
+iam:
+  vpcResourceControllerPolicy: true
+  withOIDC: true
+kind: ClusterConfig
+kubernetesNetworkConfig:
+  ipFamily: IPv4
+managedNodeGroups:
+  - amiFamily: AmazonLinux2
+    desiredCapacity: 2
+    disableIMDSv1: true
+    disablePodIMDS: false
+    iam:
+      withAddonPolicies:
+        albIngress: false
+        appMesh: false
+        appMeshPreview: false
+        autoScaler: false
+        awsLoadBalancerController: false
+        certManager: false
+        cloudWatch: false
+        ebs: false
+        efs: false
+        externalDNS: false
+        fsx: false
+        imageBuilder: false
+        xRay: false
+    instanceSelector: {}
+    instanceType: m5.xlarge
+    labels:
+      alpha.eksctl.io/cluster-name: agentdesk
+      alpha.eksctl.io/nodegroup-name: ng-infra
+      workload: infra
+    maxSize: 2
+    minSize: 2
+    name: ng-infra
+    privateNetworking: false
+    releaseVersion: ""
+    securityGroups:
+      withLocal: null
+      withShared: null
+    ssh:
+      allow: true
+      publicKeyPath: patrick-agentdesk
+    tags:
+      alpha.eksctl.io/nodegroup-name: ng-infra
+      alpha.eksctl.io/nodegroup-type: managed
+    volumeIOPS: 3000
+    volumeSize: 80
+    volumeThroughput: 125
+    volumeType: gp3
+    taints:
+      - key: CriticalAddonsOnly
+        effect: NoSchedule
+metadata:
+  name: agentdesk
+  region: us-east-1
+  version: "1.27"
+privateCluster:
+  enabled: false
+  skipEndpointCreation: false
+vpc:
+  autoAllocateIPv6: false
+  cidr: 192.168.0.0/16
+  clusterEndpoints:
+    privateAccess: false
+    publicAccess: true
+  manageSharedNodeSecurityGroupRules: true
+  nat:
+    gateway: HighlyAvailable

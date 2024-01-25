@@ -8,12 +8,14 @@ Base = declarative_base()
 
 class V1HealthRecord(Base):
     __tablename__ = "v1_health"
+
     id = Column(Integer, primary_key=True)
     status = Column(String)
 
 
 class V1DesktopRecord(Base):
     __tablename__ = "v1_desktops"
+
     id = Column(Integer, primary_key=True)
     name = Column(String)
     addr = Column(String)

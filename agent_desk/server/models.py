@@ -14,7 +14,7 @@ class V1Info(BaseModel):
 class V1DesktopReqeust(BaseModel):
     name: Optional[str] = None
     memory: Optional[str] = None
-    cpu: Optional[str] = None
+    cpu: Optional[int] = None
     disk: Optional[str] = None
 
 
@@ -28,13 +28,13 @@ class V1Desktop(BaseModel):
     name: Optional[str] = None
     addr: Optional[str] = None
     status: Optional[str] = None
-    memory: Optional[str] = None
-    cpu: Optional[str] = None
-    disk: Optional[str] = None
     created: Optional[float] = None
-    memory_usage: Optional[str] = None
-    cpu_usage: Optional[str] = None
-    disk_usage: Optional[str] = None
+    memory: Optional[str] = None
+    cpu: Optional[int] = None
+    disk: Optional[str] = None
+    memory_usage: Optional[float] = None
+    cpu_usage: Optional[float] = None
+    disk_usage: Optional[float] = None
 
 
 class V1Desktops(BaseModel):

@@ -1,0 +1,43 @@
+---
+# See: Config File Schema <https://eksctl.io/usage/schema/>
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: ${RD_CLUSTER_NAME}
+  region: ${RD_REGION}
+
+managedNodeGroups:
+  - name: ng-${EKS_AZ}-metal
+    amiFamily: AmazonLinux2
+    instanceType: ${RD_INSTANCE_TYPE}
+    availabilityZones:
+      - ${EKS_AZ}
+    desiredCapacity: 1
+    maxSize: 3
+    minSize: 0
+    labels:
+      alpha.eksctl.io/cluster-name: ${RD_CLUSTER_NAME}
+      alpha.eksctl.io/nodegroup-name: ng-${EKS_AZ}-metal
+      workload: vm
+    privateNetworking: false
+    ssh:
+      allow: true
+      publicKeyPath: ${RD_EC2_KEYPAIR_NAME}
+    volumeSize: 500
+    volumeIOPS: 10000
+    volumeThroughput: 750
+    volumeType: gp3
+    tags:
+      alpha.eksctl.io/nodegroup-name: ng-${EKS_AZ}-metal
+      alpha.eksctl.io/nodegroup-type: managed
+      k8s.io/cluster-autoscaler/${RD_CLUSTER_NAME}: owned
+      k8s.io/cluster-autoscaler/enabled: "true"
+      # The following tags help CAS determine that this node group is able
+      # to satisfy the label and resource requirements of the KubeVirt VMs.
+      # See: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#auto-discovery-setup
+      k8s.io/cluster-autoscaler/node-template/resources/devices.kubevirt.io/kvm: "1"
+      k8s.io/cluster-autoscaler/node-template/resources/devices.kubevirt.io/tun: "1"
+      k8s.io/cluster-autoscaler/node-template/resources/devices.kubevirt.io/vhost-net: "1"
+      k8s.io/cluster-autoscaler/node-template/resources/ephemeral-storage: 50M
+      k8s.io/cluster-autoscaler/node-template/label/kubevirt.io/schedulable: "true"

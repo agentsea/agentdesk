@@ -1,5 +1,6 @@
 from __future__ import annotations
 import uuid
+import time
 
 from agent_desk.db.conn import WithDB
 from agent_desk.db.models import V1DesktopRecord
@@ -13,8 +14,9 @@ class Desktop(WithDB):
         self.name = name
         self.addr = addr
         self.id = str(uuid.uuid4())
+        self.created = time.time()
 
-        # TODO: check for health
+        # TODO: check for health, get stats
         self.status = "active"
         self.save()
 
@@ -73,7 +75,9 @@ class Desktop(WithDB):
             db.commit()
 
     @classmethod
-    def create(cls, name: str) -> Desktop:
+    def create(
+        cls, name: str, memory: str = "4gb", cpu: int = 2, disk: str = "30gb"
+    ) -> Desktop:
         pass
 
     def to_v1_schema(self) -> V1Desktop:
@@ -81,4 +85,5 @@ class Desktop(WithDB):
             id=self.id,
             name=self.name,
             addr=self.addr,
+            status=self.status,
         )
