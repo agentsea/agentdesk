@@ -6,7 +6,7 @@ steps:
         "-t",
         "us-central1-docker.pkg.dev/agentsea-dev/agent-desk/ui:$COMMIT_SHA",
         "-f",
-        "Dockerfile",
+        "./ui/agentdesk/Dockerfile",
         "./ui/agentdesk",
       ]
   # Build the second image
