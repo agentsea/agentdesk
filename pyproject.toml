@@ -16,7 +16,12 @@ agent-tool = "^0.1.4"
 fastapi = {extras = ["all"], version = "^0.109.0"}
 sqlalchemy = "^2.0.25"
 psycopg2-binary = "^2.9.9"
+psutil = "^5.9.8"
 
+
+[tool.poetry.group.gcp.dependencies]
+google-cloud-compute = "^1.15.0"
+google-cloud-container = "^2.38.0"
 
 [build-system]
 requires = ["poetry-core"]
