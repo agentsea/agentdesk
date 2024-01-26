@@ -127,6 +127,9 @@ class Desktop(WithDB):
             provider=self.provider,
         )
 
+    def view(self) -> None:
+        pass
+
 
 DP = TypeVar("DP", bound="DesktopProvider")
 

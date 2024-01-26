@@ -40,11 +40,26 @@ desktop = Desktop.ec2()
 img = desktop.take_screenshot()
 ```
 
+View the desktop in the UI
+
+```python
+desktop.view()
+```
+
+_\*requires docker_
+
+Embed the desktop in a React app
+
+```js
+import AgentDesk from "@agentsea/agent-desk";
+
+<AgentDesk addr="foo.bar" />;
+```
+
 ---
 
 Use with langchain TODO  
 Use with baby-agi TODO  
 Use with agentsea TODO
 
-View in the UI TODO  
 Record actions TODO

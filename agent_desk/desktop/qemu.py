@@ -13,7 +13,7 @@ class QemuProvider(DesktopProvider):
     def create(
         self,
         name: str,
-        image: str = "~/vms/ubuntu_2204.qcow2",
+        image: str,
         memory: str = "4gb",
         cpu: int = 2,
         disk: str = "30gb",

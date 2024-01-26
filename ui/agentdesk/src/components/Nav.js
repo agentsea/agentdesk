@@ -17,7 +17,7 @@ function NavList() {
         className="p-1 font-medium"
       >
         <a
-          href="#"
+          href="https://github.com/agentsea/agent-desk"
           className="flex items-center hover:text-blue-500 transition-colors"
         >
           Github
@@ -30,7 +30,7 @@ function NavList() {
         className="p-1 font-medium"
       >
         <a
-          href="#"
+          href="https://github.com/agentsea/agent-desk"
           className="flex items-center hover:text-blue-500 transition-colors"
         >
           Docs
@@ -63,7 +63,7 @@ export function Nav() {
           variant="h6"
           className="mr-4 cursor-pointer py-1.5"
         >
-          AgentDesk
+          Agent/Desk
         </Typography>
         <div className="hidden lg:block">
           <NavList />
