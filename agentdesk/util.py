@@ -4,7 +4,6 @@ from urllib.parse import urlparse
 import random
 import string
 
-
 from google.cloud import storage
 from PIL import Image
 

@@ -4,7 +4,7 @@ from typing import List, Optional
 from google.cloud import compute_v1
 
 from .base import Desktop, DesktopProvider
-from agent_desk.server.models import V1ProviderData
+from agentdesk.server.models import V1ProviderData
 
 
 class GCEProvider(DesktopProvider):

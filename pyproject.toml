@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "agent-desk"
+name = "agentdesk"
 version = "0.1.8"
 description = "A desktop for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "Apache 2.0"
 readme = "README.md"
-packages = [{include = "agent_desk"}]
+packages = [{include = "agentdesk"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"

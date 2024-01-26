@@ -4,7 +4,7 @@ import psutil
 from typing import List, Optional
 
 from .base import Desktop, DesktopProvider
-from agent_desk.server.models import V1ProviderData
+from agentdesk.server.models import V1ProviderData
 
 
 class QemuProvider(DesktopProvider):

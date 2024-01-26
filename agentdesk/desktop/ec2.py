@@ -6,7 +6,7 @@ from boto3.resources.base import ServiceResource
 from mypy_boto3_ec2.service_resource import EC2ServiceResource, Instance as EC2Instance
 
 from .base import Desktop, DesktopProvider
-from agent_desk.server.models import V1ProviderData
+from agentdesk.server.models import V1ProviderData
 
 
 class EC2Provider(DesktopProvider):

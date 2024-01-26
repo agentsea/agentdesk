@@ -2,7 +2,7 @@ from .ec2 import EC2Provider
 from .gce import GCEProvider
 from .qemu import QemuProvider
 from .base import DesktopProvider
-from agent_desk.server.models import V1ProviderData
+from agentdesk.server.models import V1ProviderData
 
 
 def load_provider(data: V1ProviderData) -> DesktopProvider:

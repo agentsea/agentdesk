@@ -9,7 +9,7 @@ Implements the [AgentToolsV1 protocol](https://github.com/AgentSea/agent-tools)
 ## Installation
 
 ```
-pip install agent-desk
+pip install agentdesk
 ```
 
 ## Usage
@@ -17,7 +17,7 @@ pip install agent-desk
 Create a local desktop
 
 ```python
-from agent_desk import Desktop
+from agentdesk import Desktop
 
 desktop = Desktop.local()
 
@@ -51,7 +51,7 @@ _\*requires docker_
 Embed the desktop in a React app
 
 ```js
-import AgentDesk from "@agentsea/agent-desk";
+import AgentDesk from "@agentsea/agentdesk";
 
 <AgentDesk addr="foo.bar" />;
 ```

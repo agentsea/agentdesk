@@ -6,9 +6,9 @@ import uuid
 import time
 import json
 
-from agent_desk.db.conn import WithDB
-from agent_desk.db.models import V1DesktopRecord
-from agent_desk.server.models import V1Desktop, V1Desktops, V1ProviderData
+from agentdesk.db.conn import WithDB
+from agentdesk.db.models import V1DesktopRecord
+from agentdesk.server.models import V1Desktop, V1Desktops, V1ProviderData
 
 
 class Desktop(WithDB):

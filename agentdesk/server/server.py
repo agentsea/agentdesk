@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import V1Desktop, V1Desktops, V1DesktopReqeust, V1DesktopRegistration
-from agent_desk.desktop import Desktop
+from agentdesk.desktop import Desktop
 
 app = FastAPI()
 
