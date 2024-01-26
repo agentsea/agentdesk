@@ -23,18 +23,25 @@ class V1DesktopRegistration(BaseModel):
     addr: Optional[str] = None
 
 
+class V1ProviderData(BaseModel):
+    type: Optional[str] = None
+    args: Optional[dict] = None
+
+
 class V1Desktop(BaseModel):
     id: Optional[int] = None
     name: Optional[str] = None
     addr: Optional[str] = None
     status: Optional[str] = None
     created: Optional[float] = None
+    image: Optional[str] = None
     memory: Optional[str] = None
     cpu: Optional[int] = None
     disk: Optional[str] = None
     memory_usage: Optional[float] = None
     cpu_usage: Optional[float] = None
     disk_usage: Optional[float] = None
+    provider: Optional[V1ProviderData] = None
 
 
 class V1Desktops(BaseModel):
