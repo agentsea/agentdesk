@@ -1,14 +1,20 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar
+from typing import List, Optional, TypeVar, Any
 from dataclasses import dataclass
 import uuid
 import time
 import json
+import webbrowser
+import random
+
+import docker
 
 from agentdesk.db.conn import WithDB
 from agentdesk.db.models import V1DesktopRecord
 from agentdesk.server.models import V1Desktop, V1Desktops, V1ProviderData
+
+UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:a85fde68ac9849d9301be702f2092a8a299abe52"
 
 
 class Desktop(WithDB):
@@ -128,7 +134,21 @@ class Desktop(WithDB):
         )
 
     def view(self) -> None:
-        pass
+        client = docker.from_env()
+
+        exists = False
+        for container in client.containers.list():
+            if container.image.tags[0] == UI_IMG:
+                exists = True
+                print("using existing UI container")
+
+        if not exists:
+            print("creating UI container...")
+            host_port = random.randint(1024, 65535)
+            container = client.containers.run(
+                UI_IMG, ports={3000: host_port}, detach=True
+            )
+        webbrowser.open(f"http://localhost:{host_port}")
 
 
 DP = TypeVar("DP", bound="DesktopProvider")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List, Optional
+import re
 
 from google.cloud import compute_v1
 
@@ -10,10 +11,16 @@ from agentdesk.server.models import V1ProviderData
 class GCEProvider(DesktopProvider):
     """A VM provider using GCE"""
 
-    def __init__(self, project_id: Optional[str] = None, zone: Optional[str] = None):
+    def __init__(
+        self,
+        project_id: Optional[str] = None,
+        zone: Optional[str] = None,
+        region: Optional[str] = None,
+    ):
         """Initialize the GCP VM Provider with project and zone details."""
         self.project_id = project_id
         self.zone = zone
+        self.region = region
 
     def reserve_static_ip(self, name: str) -> str:
         """Reserve a static external IP address."""
@@ -23,7 +30,7 @@ class GCEProvider(DesktopProvider):
         operation = addresses_client.insert(
             project=self.project_id, region=self.region, address_resource=address
         )
-        operation.result()  # Wait for the operation to complete
+        operation.result()
 
         reserved_address = addresses_client.get(
             project=self.project_id, region=self.region, address=name
@@ -57,6 +64,24 @@ class GCEProvider(DesktopProvider):
         reserve_ip: bool = False,
     ) -> Desktop:
         """Create a VM in GCP."""
+
+        bucket_name, image_file = self._parse_gcs_url(image)
+        image_name = self._generate_image_name_from_gcs_url(image)
+
+        images_client = compute_v1.ImagesClient()
+
+        # Check if the image exists
+        try:
+            images_client.get(project=self.project_id, image=image_name)
+        except Exception as e:
+            # Image does not exist, load it from the GCS URL
+            self._load_custom_image(
+                project_id=self.project_id,
+                image_name=image_name,
+                bucket_name=bucket_name,
+                image_file=image_file,
+            )
+
         instance_client = compute_v1.InstancesClient()
         machine_type = (
             f"zones/{self.zone}/machineTypes/custom-{cpu}-{int(memory[:-2])*1024}"
@@ -109,6 +134,30 @@ class GCEProvider(DesktopProvider):
         )
 
         return new_desktop
+
+    def _parse_gcs_url(self, gcs_url: str) -> (str, str):
+        """Extract the bucket name and image file from a GCS URL."""
+        match = re.match(r"gs://([^/]+)/(.+)", gcs_url)
+        if match:
+            return match.group(1), match.group(2)
+        raise ValueError("Invalid GCS URL format")
+
+    def _generate_image_name_from_gcs_url(self, gcs_url: str) -> str:
+        """Generate a unique image name based on the GCS URL."""
+        _, image_file = self._parse_gcs_url(gcs_url)
+        return re.sub(r"[^a-zA-Z0-9-]", "-", image_file)
+
+    def _load_custom_image(
+        self, project_id: str, image_name: str, bucket_name: str, image_file: str
+    ):
+        """Load a custom RAW image into GCE."""
+        images_client = compute_v1.ImagesClient()
+        image = compute_v1.Image()
+        image.name = image_name
+        image.raw_disk = compute_v1.RawDisk(source=f"gs://{bucket_name}/{image_file}")
+
+        operation = images_client.insert(project=project_id, image_resource=image)
+        operation.result()
 
     def _parse_machine_type(self, machine_type: str) -> (int, str):
         """Parse the machine type to extract CPU and memory info.
