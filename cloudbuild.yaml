@@ -21,7 +21,5 @@ steps:
       - "--push"
       - "./ui/agentdesk"
 
-images:
-  - "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:$COMMIT_SHA"
-
+# Removed the images field
 timeout: "1200s"
