@@ -18,8 +18,8 @@ from agentdesk.util import get_docker_host, check_command_availability
 UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:a85fde68ac9849d9301be702f2092a8a299abe52"
 
 
-class Desktop(WithDB):
-    """A remote desktop which is accesible for AI agents"""
+class DesktopVM(WithDB):
+    """A remote desktop VM which is accesible for AI agents"""
 
     def __init__(
         self,
@@ -70,8 +70,8 @@ class Desktop(WithDB):
             db.commit()
 
     @classmethod
-    def from_record(cls, record: V1DesktopRecord) -> Desktop:
-        out = cls.__new__(Desktop)
+    def from_record(cls, record: V1DesktopRecord) -> DesktopVM:
+        out = cls.__new__(DesktopVM)
         out.id = record.id
         out.name = record.name
         out.addr = record.addr
@@ -88,7 +88,7 @@ class Desktop(WithDB):
         return out
 
     @classmethod
-    def load(cls, id: str) -> Desktop:
+    def load(cls, id: str) -> DesktopVM:
         for db in cls.get_db():
             record = db.query(V1DesktopRecord).filter(V1DesktopRecord.id == id).first()
             if record is None:
@@ -96,11 +96,20 @@ class Desktop(WithDB):
             return cls.from_record(record)
 
     @classmethod
-    def list(cls) -> list[Desktop]:
+    def find(cls, name: str) -> Optional[DesktopVM]:
+        for db in cls.get_db():
+            record = (
+                db.query(V1DesktopRecord).filter(V1DesktopRecord.name == name).first()
+            )
+            if record is None:
+                return None
+            return cls.from_record(record)
+
+    @classmethod
+    def list(cls) -> list[DesktopVM]:
         out = []
         for db in cls.get_db():
             records = db.query(V1DesktopRecord).all()
-            print("desktop records: ", records)
             for record in records:
                 out.append(cls.from_record(record))
         return out
@@ -144,19 +153,28 @@ class Desktop(WithDB):
         os.environ["DOCKER_HOST"] = host
         client = docker.from_env()
 
+        host_port = None
         exists = False
         for container in client.containers.list():
-            print("a conatainer: ", container)
+            print("a container: ", container)
             if container.image.tags[0] == UI_IMG:
                 exists = True
                 print("using existing UI container")
+                # Retrieve the host port for the existing container
+                host_port = container.attrs["NetworkSettings"]["Ports"]["3000/tcp"][0][
+                    "HostPort"
+                ]
+                break
 
         if not exists:
             print("creating UI container...")
             host_port = random.randint(1024, 65535)
             container = client.containers.run(
-                UI_IMG, ports={3000: host_port}, detach=True
+                UI_IMG, ports={"3000/tcp": host_port}, detach=True
             )
+            print("waiting for UI container to start...")
+            time.sleep(10)
+
         webbrowser.open(f"http://localhost:{host_port}")
 
 
@@ -169,20 +187,20 @@ class DesktopProvider(ABC):
     @abstractmethod
     def create(
         self,
-        name: str,
-        image: str,
+        name: Optional[str] = None,
+        image: Optional[str] = None,
         memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
         tags: List[str] = None,
         reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
-    ) -> Desktop:
+    ) -> DesktopVM:
         """Create a Desktop
 
         Args:
-            name (str): Name of the VM
-            image (str): Image of the VM
+            name (str, optional): Name of the VM. Defaults to random generation.
+            image (str, optional): Image of the VM. Defaults to Ubuntu Jammy.
             memory (int): Memory allotment. Defaults to 4gb.
             cpu (int): CPU allotment. Defaults to 2.
             disk (str): Disk allotment. Defaults to 30gb.
@@ -223,7 +241,7 @@ class DesktopProvider(ABC):
         pass
 
     @abstractmethod
-    def list(self) -> List[Desktop]:
+    def list(self) -> List[DesktopVM]:
         """List VMs
 
         Returns:

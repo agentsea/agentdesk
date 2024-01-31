@@ -1,3 +1,4 @@
+from __future__ import annotations
 import base64
 import io
 import subprocess
@@ -11,6 +12,10 @@ from PIL import Image
 from google.cloud import storage
 from agent_tools import Tool, action, observation
 
+from .vm.base import DesktopVM, DesktopProvider
+from .vm.gce import GCEProvider
+from .vm.ec2 import EC2Provider
+from .vm.qemu import QemuProvider
 from .util import extract_file_path, extract_gcs_info, generate_random_string
 
 
@@ -59,12 +64,106 @@ class Desktop(Tool):
         print("connected to desktop via agentd")
 
     @classmethod
-    def local(cls, memory: int = 4096, cpus: int = 4, sockify_port: int = 6080) -> None:
-        command = f"qemu-system-x86_64 -hda ~/vms/ubuntu_2204.qcow2 -m {memory} "
-        command += f"-smp {cpus} -netdev user,id=vmnet,hostfwd=tcp::6080-:{sockify_port},hostfwd=tcp::8000-:8000 "
-        command += "-device e1000,netdev=vmnet -vnc :0"
+    def create(
+        cls,
+        name: Optional[str] = None,
+        provider: DesktopProvider = QemuProvider(),
+        image: Optional[str] = None,
+        memory: int = 4,
+        cpus: int = 2,
+        disk: str = "30gb",
+        reserve_ip: bool = True,
+        ssh_key: Optional[str] = None,
+    ) -> Desktop:
+        """Create a desktop VM"""
+        vm = provider.create(name, image, memory, cpus, disk, reserve_ip, ssh_key)
+        return cls.from_vm(vm)
 
-        subprocess.Popen(command, shell=True)
+    @classmethod
+    def ec2(
+        cls,
+        name: Optional[str] = None,
+        region: Optional[str] = None,
+        image: Optional[str] = None,
+        memory: int = 4,
+        cpus: int = 2,
+        disk: str = "30gb",
+        reserve_ip: bool = True,
+        ssh_key: Optional[str] = None,
+    ) -> Desktop:
+        """Create a desktop VM on EC2"""
+        return cls.create(
+            name=name,
+            provider=EC2Provider(region),
+            image=image,
+            memory=memory,
+            cpus=cpus,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            ssh_key=ssh_key,
+        )
+
+    @classmethod
+    def gce(
+        cls,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        zone: Optional[str] = None,
+        image: Optional[str] = None,
+        memory: int = 4,
+        cpus: int = 2,
+        disk: str = "30gb",
+        reserve_ip: bool = True,
+        ssh_key: Optional[str] = None,
+    ) -> Desktop:
+        """Create a desktop VM on GCE"""
+        return cls.create(
+            name=name,
+            provider=GCEProvider(project, zone),
+            image=image,
+            memory=memory,
+            cpus=cpus,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            ssh_key=ssh_key,
+        )
+
+    @classmethod
+    def local(
+        cls,
+        name: Optional[str] = None,
+        memory: int = 4,
+        cpus: int = 2,
+    ) -> Desktop:
+        """Create a local VM
+
+        Args:
+            name (str, optional): Name of the vm. Defaults to None.
+            memory (int, optional): Memory the VM has. Defaults to 4.
+            cpus (int, optional): CPUs the VM has. Defaults to 2.
+
+        Returns:
+            Desktop: A desktop
+        """
+        return cls.create(name=name, provider=QemuProvider(), memory=memory, cpus=cpus)
+
+    @classmethod
+    def from_vm(cls, vm: DesktopVM) -> Desktop:
+        """Create a desktop from a VM"""
+        return Desktop(agentd_url=vm.addr)
+
+    @classmethod
+    def find(cls, name: str) -> Desktop:
+        """Find a desktop by name"""
+        found = DesktopVM.find(name)
+        if not found:
+            raise ValueError(f"could not find desktop with name {name}")
+        return cls.from_vm(found)
+
+    @classmethod
+    def list(cls) -> list[DesktopVM]:
+        """List all desktops"""
+        return DesktopVM.list()
 
     def health(self) -> dict:
         """Health of agentd

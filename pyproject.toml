@@ -19,6 +19,7 @@ psutil = "^5.9.8"
 google-cloud-storage = "^2.14.0"
 docker = "^7.0.0"
 pycdlib = "^1.14.0"
+namesgenerator = "^0.3"
 
 
 [tool.poetry.group.gcp.dependencies]

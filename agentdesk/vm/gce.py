@@ -5,8 +5,10 @@ import time
 
 from google.cloud import compute_v1
 from google.cloud import _helpers
+from namesgenerator import get_random_name
 
-from .base import Desktop, DesktopProvider
+from .base import DesktopVM, DesktopProvider
+from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
 from agentdesk.util import find_ssh_public_key
 
@@ -58,16 +60,21 @@ class GCEProvider(DesktopProvider):
 
     def create(
         self,
-        name: str,
-        image: str,
+        name: Optional[str] = None,
+        image: Optional[str] = None,
         memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
         tags: List[str] = None,
         reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
-    ) -> Desktop:
+    ) -> DesktopVM:
         """Create a VM in GCP."""
+
+        if not name:
+            name = get_random_name()
+        if not image:
+            image = JAMMY.gce
 
         bucket_name, image_file = self._parse_gcs_url(image)
         image_name = self._generate_image_name_from_gcs_url(image)
@@ -142,7 +149,7 @@ class GCEProvider(DesktopProvider):
         )
         ip_address = created_instance.network_interfaces[0].access_configs[0].nat_ip
 
-        new_desktop = Desktop(
+        new_desktop = DesktopVM(
             name=name,
             addr=ip_address,
             cpu=cpu,
@@ -246,7 +253,7 @@ class GCEProvider(DesktopProvider):
         operation.result()  # Wait for operation to complete
 
         # Delete the Desktop record
-        Desktop.delete(name)
+        DesktopVM.delete(name)
 
     def start(self, name: str) -> None:
         instance_client = compute_v1.InstancesClient()
@@ -262,8 +269,8 @@ class GCEProvider(DesktopProvider):
         )
         operation.result()  # Wait for the operation to complete
 
-    def list(self) -> List[Desktop]:
-        desktops = Desktop.list()
+    def list(self) -> List[DesktopVM]:
+        desktops = DesktopVM.list()
         out = []
         for desktop in desktops:
             if desktop.provider.type == "gce":
@@ -271,9 +278,9 @@ class GCEProvider(DesktopProvider):
 
         return out
 
-    def get(self, name: str) -> Desktop:
+    def get(self, name: str) -> DesktopVM:
         try:
-            return Desktop.load(name)
+            return DesktopVM.load(name)
         except ValueError:
             return None
 

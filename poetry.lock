@@ -1695,6 +1695,16 @@ files = [
 typing-extensions = {version = ">=4.1.0", markers = "python_version < \"3.12\""}
 
 [[package]]
+name = "namesgenerator"
+version = "0.3"
+description = ""
+optional = false
+python-versions = "*"
+files = [
+    {file = "namesgenerator-0.3.tar.gz", hash = "sha256:50a03cc15e95edbf88a7ff86179f217f43eb2b2d6ee30fac3e9a20a54985b72e"},
+]
+
+[[package]]
 name = "nest-asyncio"
 version = "1.6.0"
 description = "Patch asyncio to allow nested event loops"
@@ -3156,4 +3166,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "d3a7edf76c5486e8a00cf70f0050755310ccf0e45ea1c0beba5eec1544dd88bc"
+content-hash = "0516d5fa38c470be7c5ab14b90ab9e94c73500b029a29e9878c5c2b348265c76"

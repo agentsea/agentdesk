@@ -3,10 +3,15 @@ import subprocess
 import psutil
 from typing import List, Optional
 import io
+import os
+from urllib.parse import urlparse
 
 import pycdlib
+import requests
+from namesgenerator import get_random_name
 
-from .base import Desktop, DesktopProvider
+from .base import DesktopVM, DesktopProvider
+from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
 from agentdesk.util import check_command_availability, find_ssh_public_key
 
@@ -16,14 +21,14 @@ class QemuProvider(DesktopProvider):
 
     def create(
         self,
-        name: str,
-        image: str,
+        name: Optional[str] = None,
+        image: Optional[str] = None,
         memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
         reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
-    ) -> Desktop:
+    ) -> DesktopVM:
         """Create a local QEMU VM locally"""
 
         if not check_command_availability("qemu-system-x86_64"):
@@ -31,11 +36,41 @@ class QemuProvider(DesktopProvider):
                 "qemu-system-x86_64 is not installed. Please install QEMU."
             )
 
+        if not name:
+            name = get_random_name()
+
+        # Directory to store VM images
+        vm_dir = os.path.expanduser(f"~/.agentsea/vms/{name}")
+        os.makedirs(vm_dir, exist_ok=True)
+
+        if not image:
+            image = JAMMY.qcow2
+            image_name = JAMMY.name
+        elif image.startswith("https://"):
+            parsed_url = urlparse(image)
+            image_name = parsed_url.hostname + parsed_url.path.replace("/", "_")
+        else:
+            if not os.path.exists(image):
+                raise FileNotFoundError(
+                    f"The specified image path '{image}' does not exist."
+                )
+            image_name = os.path.basename(image)
+
+        image_path = os.path.join(vm_dir, image_name)
+
+        # Download image only if it does not exist
+        if not os.path.exists(image_path) and image.startswith("https://"):
+            response = requests.get(image, stream=True)
+            with open(image_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
         # Find or generate an SSH key if not provided
         ssh_key = ssh_key or find_ssh_public_key()
         if not ssh_key:
             raise ValueError("SSH key not provided or found")
 
+        print("generating cloud config with ssh key: ", ssh_key)
         # Generate user-data
         user_data = f"""#cloud-config
 users:
@@ -66,7 +101,7 @@ runcmd:
         process = subprocess.Popen(command, shell=True)
 
         # Create and return a Desktop object
-        desktop = Desktop(
+        desktop = DesktopVM(
             name=name,
             addr="localhost",
             cpu=cpu,
@@ -86,7 +121,7 @@ runcmd:
         iso.new(interchange_level=3)
 
         # ISO9660 filename in the 8.3 format: 8 characters for name, 3 for extension
-        cloud_init_filename = "/USERDATA.;1"
+        cloud_init_filename = "/user-data"
 
         # Add the cloud-init user-data
         iso.add_fp(
@@ -97,12 +132,12 @@ runcmd:
 
     def delete(self, name: str) -> None:
         """Delete a local QEMU VM."""
-        desktop = Desktop.load(name)
+        desktop = DesktopVM.load(name)
         if psutil.pid_exists(desktop.pid):
             process = psutil.Process(desktop.pid)
             process.terminate()
             process.wait()
-        Desktop.delete(desktop.id)
+        DesktopVM.delete(desktop.id)
 
     def start(self, name: str) -> None:
         """Start a local QEMU VM."""
@@ -115,9 +150,9 @@ runcmd:
         """Stop a local QEMU VM."""
         self.delete(name)
 
-    def list(self) -> List[Desktop]:
+    def list(self) -> List[DesktopVM]:
         """List local QEMU VMs."""
-        desktops = Desktop.list()
+        desktops = DesktopVM.list()
         return [
             desktop
             for desktop in desktops
@@ -125,10 +160,10 @@ runcmd:
             and desktop.provider.type == "qemu"
         ]
 
-    def get(self, name: str) -> Optional[Desktop]:
+    def get(self, name: str) -> Optional[DesktopVM]:
         """Get a local QEMU VM."""
         try:
-            desktop = Desktop.load(name)
+            desktop = DesktopVM.load(name)
             if (
                 isinstance(desktop.provider, V1ProviderData)
                 and desktop.provider.type == "qemu"

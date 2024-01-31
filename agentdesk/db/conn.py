@@ -6,6 +6,9 @@ from sqlalchemy.orm import sessionmaker
 from .models import Base
 
 
+DB_TYPE = os.environ.get("DB_TYPE", "sqlite")
+
+
 def get_pg_conn() -> Engine:
     # Env Vars
     db_user = os.environ.get("DB_USER")
@@ -38,7 +41,10 @@ def get_sqlite_conn() -> Engine:
     return engine
 
 
-engine = get_sqlite_conn()
+if DB_TYPE == "postgres":
+    engine = get_pg_conn()
+else:
+    engine = get_sqlite_conn()
 SessionLocal = sessionmaker(bind=engine)
 
 Base.metadata.create_all(bind=engine)
