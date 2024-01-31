@@ -1,11 +1,14 @@
 from __future__ import annotations
 from typing import List, Optional
 import re
+import time
 
 from google.cloud import compute_v1
+from google.cloud import _helpers
 
 from .base import Desktop, DesktopProvider
 from agentdesk.server.models import V1ProviderData
+from agentdesk.util import find_ssh_public_key
 
 
 class GCEProvider(DesktopProvider):
@@ -18,7 +21,7 @@ class GCEProvider(DesktopProvider):
         region: Optional[str] = None,
     ):
         """Initialize the GCP VM Provider with project and zone details."""
-        self.project_id = project_id
+        self.project_id = project_id or _helpers._determine_default_project()
         self.zone = zone
         self.region = region
 
@@ -57,11 +60,12 @@ class GCEProvider(DesktopProvider):
         self,
         name: str,
         image: str,
-        memory: str = "4gb",
+        memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
         tags: List[str] = None,
         reserve_ip: bool = False,
+        ssh_key: Optional[str] = None,
     ) -> Desktop:
         """Create a VM in GCP."""
 
@@ -72,14 +76,19 @@ class GCEProvider(DesktopProvider):
 
         # Check if the image exists
         try:
-            images_client.get(project=self.project_id, image=image_name)
+            print("\nimage name: ", image_name)
+            print("project id: ", self.project_id)
+            img = images_client.get(project=self.project_id, image=image_name)
+            print("found img: ", img)
+            print("img status: ", img.status)
+            if img.status == "READY":
+                raise ValueError("Image is not ready")
         except Exception as e:
             # Image does not exist, load it from the GCS URL
+            print("\nloading custom image...")
             self._load_custom_image(
-                project_id=self.project_id,
                 image_name=image_name,
-                bucket_name=bucket_name,
-                image_file=image_file,
+                image_uri=image,
             )
 
         instance_client = compute_v1.InstancesClient()
@@ -112,6 +121,16 @@ class GCEProvider(DesktopProvider):
 
         if tags:
             instance.labels = {tag: "" for tag in tags}
+
+        if not ssh_key:
+            ssh_key = find_ssh_public_key()
+
+        if ssh_key:
+            instance.metadata = {
+                "items": [{"key": "ssh-keys", "value": f"agentsea:{ssh_key}"}]
+            }
+        else:
+            raise ValueError("No SSH key provided and could not find one")
 
         operation = instance_client.insert(
             project=self.project_id, zone=self.zone, instance_resource=instance
@@ -148,16 +167,61 @@ class GCEProvider(DesktopProvider):
         return re.sub(r"[^a-zA-Z0-9-]", "-", image_file)
 
     def _load_custom_image(
-        self, project_id: str, image_name: str, bucket_name: str, image_file: str
+        self,
+        image_name: str,
+        image_uri: str,
     ):
         """Load a custom RAW image into GCE."""
-        images_client = compute_v1.ImagesClient()
-        image = compute_v1.Image()
-        image.name = image_name
-        image.raw_disk = compute_v1.RawDisk(source=f"gs://{bucket_name}/{image_file}")
+        # NOTE: this may require enabling specific privileges to the cloud build service account
+        # command = [
+        #     "gcloud",
+        #     "compute",
+        #     "images",
+        #     "create",
+        #     image_name,
+        #     "--project=" + self.project_id,
+        #     "--source-uri=" + image_uri,
+        # ]
 
-        operation = images_client.insert(project=project_id, image_resource=image)
-        operation.result()
+        # subprocess.run(command, check=True)
+        client = compute_v1.ImagesClient()
+
+        image_resource = {
+            "name": "ubuntu-jammy-agentd-test",
+            "rawDisk": {"source": "gs://agentsea-vms/ubuntu_jammy.raw"},
+            "family": "ubuntu-jammy-agentd",
+            "guestOsFeatures": [{"type": "VIRTIO_SCSI_MULTIQUEUE"}],
+            "licenses": [
+                "projects/compute-image-tools/global/licenses/debian-10-buster"
+            ],
+        }
+
+        request = compute_v1.InsertImageRequest(
+            project=self.project_id, zone=self.zone, imageResource=image_resource
+        )
+
+        response = client.insert(request=request)
+        print(response)
+
+        images_client = compute_v1.ImagesClient()
+
+        ready = False
+        while not ready:
+            print("checking if image is ready...")
+            img = images_client.get(project=self.project_id, image=image_name)
+            print("found img: ", img)
+            print("img status: ", img.status)
+            # FAILED, PENDING, or READY
+            if img.status == "READY":
+                print("image ready")
+                break
+            elif img.status == "FAILED":
+                raise ValueError("Could not import VM image into GCE")
+            elif img.status == "PENDING":
+                print("image pending")
+                time.sleep(10)
+            else:
+                raise ValueError("Unknown image status")
 
     def _parse_machine_type(self, machine_type: str) -> (int, str):
         """Parse the machine type to extract CPU and memory info.
@@ -249,10 +313,14 @@ def create_custom_image(project_id, image_name, bucket_name, image_file):
     Returns:
     The operation result of creating the image.
     """
+    print("\n!image name: ", image_name)
     images_client = compute_v1.ImagesClient()
     image = compute_v1.Image()
     image.name = image_name
     image.source_image = f"gs://{bucket_name}/{image_file}"
+
+    print("image: ", image)
+    print("project: ", project_id)
 
     operation = images_client.insert(project=project_id, image_resource=image)
     return operation.result()

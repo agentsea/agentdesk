@@ -1,10 +1,10 @@
-# Agent Desk
+# AgentDesk
 
 A desktop for AI agents.
 
 Built on [agentd](https://github.com/AgentSea/agentd) to make desktop VMs accessible to AI agents.
 
-Implements the [AgentToolsV1 protocol](https://github.com/AgentSea/agent-tools)
+Implements the [ToolsV1 protocol](https://github.com/AgentSea/agent-tools)
 
 ## Installation
 

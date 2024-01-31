@@ -16,13 +16,13 @@ class V1HealthRecord(Base):
 class V1DesktopRecord(Base):
     __tablename__ = "v1_desktops"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String, primary_key=True)
     name = Column(String)
     addr = Column(String)
     status = Column(String)
     created = Column(Float)
     cpu = Column(Integer, nullable=True)
-    memory = Column(String, nullable=True)
+    memory = Column(Integer, nullable=True)
     disk = Column(String, nullable=True)
     pid = Column(Integer, nullable=True)
     image = Column(String, nullable=True)

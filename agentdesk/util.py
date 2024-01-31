@@ -3,6 +3,9 @@ import os
 from urllib.parse import urlparse
 import random
 import string
+import subprocess
+from typing import Optional
+from subprocess import CalledProcessError, DEVNULL
 
 from google.cloud import storage
 from PIL import Image
@@ -81,3 +84,45 @@ def generate_random_string(length: int = 8):
     """Generate a random string of fixed length."""
     letters = string.ascii_letters + string.digits
     return "".join(random.choices(letters, k=length))
+
+
+def get_docker_host() -> str:
+    try:
+        # Get the current Docker context
+        current_context = (
+            subprocess.check_output("docker context show", shell=True).decode().strip()
+        )
+
+        # Inspect the current Docker context and extract the host
+        context_info = subprocess.check_output(
+            f"docker context inspect {current_context}", shell=True
+        ).decode()
+        for line in context_info.split("\n"):
+            if '"Host"' in line:
+                return line.split('"')[3]
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e.output.decode()}")
+        return ""
+
+
+def find_ssh_public_key() -> Optional[str]:
+    """Try to find the SSH public key in the default location."""
+
+    default_ssh_key_path = os.path.expanduser("~/.ssh/id_rsa.pub")
+    if os.path.exists(default_ssh_key_path):
+        print("using ssh key in ~/.ssh/id_rsa.pub")
+        with open(default_ssh_key_path, "r") as file:
+            return file.read().strip()
+    return None
+
+
+def check_command_availability(command: str) -> bool:
+    """Check if a command is available in the system."""
+
+    try:
+        subprocess.run(
+            [command, "--version"], stdout=DEVNULL, stderr=DEVNULL, check=True
+        )
+        return True
+    except (FileNotFoundError, CalledProcessError):
+        return False

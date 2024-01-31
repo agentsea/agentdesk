@@ -20,10 +20,12 @@ class EC2Provider(DesktopProvider):
         self,
         name: str,
         image: str,
-        memory: str = "4gb",
+        memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
         tags: List[str] = None,
+        reserve_ip: bool = False,
+        ssh_key: Optional[str] = None,
     ) -> Desktop:
         instance_type = "t2.micro" if cpu == 2 else "t2.small"
 

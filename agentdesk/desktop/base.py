@@ -1,18 +1,19 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List, Optional, TypeVar, Any
-from dataclasses import dataclass
 import uuid
 import time
 import json
 import webbrowser
 import random
+import os
 
 import docker
 
 from agentdesk.db.conn import WithDB
 from agentdesk.db.models import V1DesktopRecord
 from agentdesk.server.models import V1Desktop, V1Desktops, V1ProviderData
+from agentdesk.util import get_docker_host, check_command_availability
 
 UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:a85fde68ac9849d9301be702f2092a8a299abe52"
 
@@ -48,7 +49,7 @@ class Desktop(WithDB):
     def to_record(self) -> V1DesktopRecord:
         provider = None
         if self.provider:
-            provider = json.dumps(provider.__dict__)
+            provider = json.dumps(self.provider.__dict__)
         return V1DesktopRecord(
             id=self.id,
             name=self.name,
@@ -99,6 +100,7 @@ class Desktop(WithDB):
         out = []
         for db in cls.get_db():
             records = db.query(V1DesktopRecord).all()
+            print("desktop records: ", records)
             for record in records:
                 out.append(cls.from_record(record))
         return out
@@ -134,10 +136,17 @@ class Desktop(WithDB):
         )
 
     def view(self) -> None:
+        """Opens the desktop in a browser window"""
+
+        check_command_availability("docker")
+
+        host = get_docker_host()
+        os.environ["DOCKER_HOST"] = host
         client = docker.from_env()
 
         exists = False
         for container in client.containers.list():
+            print("a conatainer: ", container)
             if container.image.tags[0] == UI_IMG:
                 exists = True
                 print("using existing UI container")
@@ -162,18 +171,24 @@ class DesktopProvider(ABC):
         self,
         name: str,
         image: str,
-        memory: str = "4gb",
+        memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
+        tags: List[str] = None,
+        reserve_ip: bool = False,
+        ssh_key: Optional[str] = None,
     ) -> Desktop:
         """Create a Desktop
 
         Args:
             name (str): Name of the VM
             image (str): Image of the VM
-            memory (str): Memory allotment. Defaults to 4gb.
+            memory (int): Memory allotment. Defaults to 4gb.
             cpu (int): CPU allotment. Defaults to 2.
             disk (str): Disk allotment. Defaults to 30gb.
+            tags (List[str], optional): Tags to apply to the VM. Defaults to None.
+            reserve_ip (bool, optional): Reserve an IP address. Defaults to False.
+            ssh_key (str, optional): SSH key to use. Defaults to None.
 
         Returns:
             VM: A VM
@@ -234,8 +249,8 @@ class DesktopProvider(ABC):
         """
         pass
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def from_data(cls, data: V1ProviderData) -> DP:
         """From provider data
 

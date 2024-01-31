@@ -2,9 +2,13 @@ from __future__ import annotations
 import subprocess
 import psutil
 from typing import List, Optional
+import io
+
+import pycdlib
 
 from .base import Desktop, DesktopProvider
 from agentdesk.server.models import V1ProviderData
+from agentdesk.util import check_command_availability, find_ssh_public_key
 
 
 class QemuProvider(DesktopProvider):
@@ -14,30 +18,82 @@ class QemuProvider(DesktopProvider):
         self,
         name: str,
         image: str,
-        memory: str = "4gb",
+        memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
-        sockify_port: int = 6080,
+        reserve_ip: bool = False,
+        ssh_key: Optional[str] = None,
     ) -> Desktop:
-        """Create a local QEMU VM."""
-        command = f"qemu-system-x86_64 -hda {image} -m {memory} "
-        command += f"-smp {cpu} -netdev user,id=vmnet,hostfwd=tcp::6080-:{sockify_port},hostfwd=tcp::8000-:8000 "
-        command += "-device e1000,netdev=vmnet -vnc :0"
+        """Create a local QEMU VM locally"""
 
+        if not check_command_availability("qemu-system-x86_64"):
+            raise EnvironmentError(
+                "qemu-system-x86_64 is not installed. Please install QEMU."
+            )
+
+        # Find or generate an SSH key if not provided
+        ssh_key = ssh_key or find_ssh_public_key()
+        if not ssh_key:
+            raise ValueError("SSH key not provided or found")
+
+        # Generate user-data
+        user_data = f"""#cloud-config
+users:
+  - name: agentsea
+    ssh_authorized_keys:
+      - {ssh_key}
+
+runcmd:
+  - ufw allow 6080/tcp
+  - ufw allow 8000/tcp
+  - ufw enable
+"""
+
+        # Create an ISO with user-data for cloud-init
+        self._create_cloud_init_iso(user_data)
+
+        # QEMU command
+        sockify_port: int = 6080
+        agentd_port: int = 8000
+        command = (
+            f"qemu-system-x86_64 -nographic -hda {image} -m {memory}G "
+            f"-smp {cpu} -netdev user,id=vmnet,hostfwd=tcp::{sockify_port}-:6080,hostfwd=tcp::{agentd_port}-:8000,hostfwd=tcp::2222-:22 "
+            "-device e1000,netdev=vmnet "
+            f"-drive file='user-data.iso',format=raw,if=virtio"
+        )
+
+        # Start the QEMU process
         process = subprocess.Popen(command, shell=True)
 
         # Create and return a Desktop object
         desktop = Desktop(
             name=name,
-            addr="localhost",  # Address is localhost for QEMU VMs
+            addr="localhost",
             cpu=cpu,
             memory=memory,
             disk=disk,
             pid=process.pid,
             image=image,
-            provider=self.to_data(),  # Create a V1ProviderData object representing this provider
+            provider=self.to_data(),
         )
         return desktop
+
+    def _create_cloud_init_iso(
+        self, user_data: str, iso_path: str = "user-data.iso"
+    ) -> None:
+        """Create an ISO with cloud-init user-data using pycdlib."""
+        iso = pycdlib.PyCdlib()
+        iso.new(interchange_level=3)
+
+        # ISO9660 filename in the 8.3 format: 8 characters for name, 3 for extension
+        cloud_init_filename = "/USERDATA.;1"
+
+        # Add the cloud-init user-data
+        iso.add_fp(
+            io.BytesIO(user_data.encode("utf-8")), len(user_data), cloud_init_filename
+        )
+        iso.write(iso_path)
+        iso.close()
 
     def delete(self, name: str) -> None:
         """Delete a local QEMU VM."""

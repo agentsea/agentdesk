@@ -1,17 +1,25 @@
 steps:
+  # Set up Docker Buildx
+  - name: "gcr.io/cloud-builders/docker"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        docker buildx create --name mybuilder --use
+        docker buildx inspect --bootstrap
+
+  # Build and push the image using Buildx
   - name: "gcr.io/cloud-builders/docker"
     args:
-      [
-        "build",
-        "-t",
-        "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:$COMMIT_SHA",
-        "-f",
-        "./ui/agentdesk/Dockerfile",
-        "./ui/agentdesk",
-      ]
-  # Build the second image
-  # - name: 'gcr.io/cloud-builders/docker'
-  #   args: ['build', '-t', 'gcr.io/$PROJECT_ID/my-image-2:$COMMIT_SHA', '-f', 'docker/Dockerfile2', '.']
+      - "buildx"
+      - "build"
+      - "--platform=linux/amd64,linux/arm64"
+      - "-t"
+      - "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:$COMMIT_SHA"
+      - "-f"
+      - "./ui/agentdesk/Dockerfile"
+      - "--push"
+      - "./ui/agentdesk"
 
 images:
   - "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:$COMMIT_SHA"
