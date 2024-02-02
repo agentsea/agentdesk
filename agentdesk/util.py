@@ -5,6 +5,7 @@ import random
 import string
 import subprocess
 from typing import Optional
+import socket
 from subprocess import CalledProcessError, DEVNULL
 
 from google.cloud import storage
@@ -126,3 +127,21 @@ def check_command_availability(command: str) -> bool:
         return True
     except (FileNotFoundError, CalledProcessError):
         return False
+
+
+def check_port_in_use(port: int) -> bool:
+    """Check if the port is currently in use"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(("localhost", port)) == 0
+
+
+def find_open_port(start_port: int = 1024, end_port: int = 65535) -> Optional[int]:
+    """Finds an open port on the machine"""
+    for port in range(start_port, end_port + 1):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("", port))
+                return port  # Port is open
+            except socket.error:
+                continue  # Port is in use, try the next one
+    return None  # No open port found

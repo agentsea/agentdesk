@@ -42,6 +42,7 @@ class V1Desktop(BaseModel):
     cpu_usage: Optional[float] = None
     disk_usage: Optional[float] = None
     provider: Optional[V1ProviderData] = None
+    meta: Optional[dict] = None
 
 
 class V1Desktops(BaseModel):

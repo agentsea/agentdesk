@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import V1Desktop, V1Desktops, V1DesktopReqeust, V1DesktopRegistration
-from agentdesk.desktop import Desktop
+from agentdesk.vm import DesktopVM
 
 app = FastAPI()
 
@@ -27,25 +27,25 @@ async def health():
 
 @app.get("/v1/desktops", response_model=V1Desktops)
 async def desktops() -> V1Desktops:
-    return Desktop.list_v1()
+    return DesktopVM.list_v1()
 
 
 @app.post("/v1/desktops", response_model=V1Desktop)
 async def create_desktop(desktop: V1DesktopReqeust) -> V1Desktop:
-    return Desktop.create(desktop.name).to_v1_schema()
+    return DesktopVM.create(desktop.name).to_v1_schema()
 
 
 @app.post("/v1/register", response_model=V1Desktop)
 async def register_desktop(desktop: V1DesktopRegistration) -> V1Desktop:
-    return Desktop(name=desktop.name, addr=desktop.addr).to_v1_schema()
+    return DesktopVM(name=desktop.name, addr=desktop.addr).to_v1_schema()
 
 
 @app.get("/v1/desktops/{id}", response_model=V1Desktop)
 async def get_desktop(id: str) -> V1Desktop:
-    desktop = Desktop.load(id)
+    desktop = DesktopVM.load(id)
     return desktop.to_v1_schema()
 
 
 @app.delete("/v1/desktops/{id}")
 async def delete_desktop(id: str) -> None:
-    Desktop.delete(id)
+    DesktopVM.delete(id)

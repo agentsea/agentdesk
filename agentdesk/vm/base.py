@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar, Any
+from typing import List, Optional, TypeVar, Any, Generic
 import uuid
 import time
 import json
@@ -31,6 +31,7 @@ class DesktopVM(WithDB):
         pid: Optional[int] = None,
         image: Optional[str] = None,
         provider: Optional[V1ProviderData] = None,
+        metadata: Optional[dict] = None,
     ) -> None:
         self.name = name
         self.addr = addr
@@ -43,6 +44,7 @@ class DesktopVM(WithDB):
         self.status = "active"
         self.image = image
         self.provider = provider
+        self.metadata = metadata
 
         self.save()
 
@@ -50,6 +52,10 @@ class DesktopVM(WithDB):
         provider = None
         if self.provider:
             provider = json.dumps(self.provider.__dict__)
+
+        metadata = None
+        if self.metadata:
+            metadata = json.dumps(self.metadata)
         return V1DesktopRecord(
             id=self.id,
             name=self.name,
@@ -62,6 +68,7 @@ class DesktopVM(WithDB):
             status=self.status,
             image=self.image,
             provider=provider,
+            meta=metadata,
         )
 
     def save(self) -> None:
@@ -85,6 +92,9 @@ class DesktopVM(WithDB):
         if record.provider:
             dct = json.loads(record.provider)
             out.provider = V1ProviderData(**dct)
+        if record.meta:
+            dct = json.loads(record.meta)
+            out.metadata = dct
         return out
 
     @classmethod
@@ -142,6 +152,7 @@ class DesktopVM(WithDB):
             disk=self.disk,
             image=self.image,
             provider=self.provider,
+            metadata=self.metadata,
         )
 
     def view(self) -> None:
@@ -181,7 +192,7 @@ class DesktopVM(WithDB):
 DP = TypeVar("DP", bound="DesktopProvider")
 
 
-class DesktopProvider(ABC):
+class DesktopProvider(ABC, Generic[DP]):
     """A provider of desktop virtual machines"""
 
     @abstractmethod
