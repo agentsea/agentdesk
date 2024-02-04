@@ -5,11 +5,9 @@ from typing import List, Optional
 import os
 from urllib.parse import urlparse
 import tempfile
-import time
 
 import pycdlib
 import requests
-import docker
 from namesgenerator import get_random_name
 
 from .base import DesktopVM, DesktopProvider
@@ -18,9 +16,7 @@ from agentdesk.server.models import V1ProviderData
 from agentdesk.util import (
     check_command_availability,
     find_ssh_public_key,
-    get_docker_host,
 )
-from agentdesk.proxy import ensure_ssh_proxy
 
 META_PYTHON_IMAGE = "python:3.9-slim"
 META_CONTAINER_NAME = "http_server"
@@ -97,8 +93,8 @@ local-hostname: {name}
 """
         sockify_port: int = 6080
         agentd_port: int = 8000
-        # meta_data_port = 8123
         ssh_port = 2222
+        # meta_data_port = 8123
 
         self._create_iso("cidata.iso", user_data, meta_data)
 
@@ -109,11 +105,6 @@ local-hostname: {name}
         # self._run_cloud_metadata_server(
         #     directory=cloud_init_dir, host_port=meta_data_port
         # )
-
-        ssh_user = "agentsea"
-        ssh_host = "localhost"
-
-        # ensure_ssh_proxy(6080, ssh_user, ssh_host)
 
         # QEMU command
         # command = (
@@ -144,7 +135,6 @@ local-hostname: {name}
             pid=process.pid,
             image=image,
             provider=self.to_data(),
-            metadata={},
         )
         return desktop
 

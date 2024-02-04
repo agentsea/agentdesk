@@ -10,6 +10,6 @@ from agentdesk.vm.img import JAMMY
 
 provider = GCEProvider()
 
-desktop = provider.create("test1", image=JAMMY.gce)
+desktop = provider.create(image=JAMMY.gce)
 
 desktop.view()

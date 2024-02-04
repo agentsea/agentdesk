@@ -9,4 +9,4 @@ from agentdesk.vm import QemuProvider
 
 provider = QemuProvider()
 
-desktop = provider.create("test1", "~/vms/ubuntu_2204.qcow2")
+desktop = provider.create()

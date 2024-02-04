@@ -169,13 +169,11 @@ class DesktopVM(WithDB):
         client = docker.from_env()
 
         host_port = None
-        exists = False
         ui_container: Optional[Container] = None
 
         for container in client.containers.list():
             print("a container: ", container)
             if container.image.tags[0] == UI_IMG:
-                exists = True
                 print("using existing UI container")
                 # Retrieve the host port for the existing container
                 host_port = container.attrs["NetworkSettings"]["Ports"]["3000/tcp"][0][
@@ -184,7 +182,7 @@ class DesktopVM(WithDB):
                 ui_container = container
                 break
 
-        if not exists:
+        if not ui_container:
             print("creating UI container...")
             host_port = random.randint(1024, 65535)
             ui_container = client.containers.run(
@@ -195,20 +193,21 @@ class DesktopVM(WithDB):
 
         webbrowser.open(f"http://localhost:{host_port}")
 
-        if not background:
+        if background:
+            return
 
-            def onexit():
-                print("stopping UI container...")
-                ui_container.stop()
-                print("removing UI container...")
-                ui_container.remove()
-                print("stopping ssh proxy...")
-                cleanup_proxy(proxy_pid)
+        def onexit():
+            print("stopping UI container...")
+            ui_container.stop()
+            print("removing UI container...")
+            ui_container.remove()
+            print("stopping ssh proxy...")
+            cleanup_proxy(proxy_pid)
 
-            atexit.register(onexit)
-            while True:
-                print(f"proxying desktop vnc '{self.name}' to localhost:6080...")
-                time.sleep(20)
+        atexit.register(onexit)
+        while True:
+            print(f"proxying desktop vnc '{self.name}' to localhost:6080...")
+            time.sleep(20)
 
 
 DP = TypeVar("DP", bound="DesktopProvider")
