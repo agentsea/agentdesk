@@ -1,9 +1,88 @@
+from __future__ import annotations
 import subprocess
-from typing import Optional
+from typing import Optional, NoReturn, Tuple
 
 import psutil
+import paramiko
+from paramiko import SSHClient, RSAKey
+import requests
 
-from .util import check_port_in_use
+from .util import check_port_in_use, find_open_port
+
+
+class SSHConnection:
+    """Establish an SSH connection to a remote host"""
+
+    def __init__(
+        self,
+        hostname: str = "localhost",
+        port: int = 2222,
+        username: str = "agentsea",
+        key_path: str = "~/.ssh/id_rsa",
+        local_bind_port: Optional[int] = None,
+        remote_bind_address: str = "localhost",
+        remote_bind_port: int = 8000,
+    ):
+        if not local_bind_port:
+            local_bind_port = find_open_port(8000)
+
+        self.hostname = hostname
+        self.port = port
+        self.username = username
+        self.key_path = key_path
+        self.local_bind_port = local_bind_port
+        self.remote_bind_address = remote_bind_address
+        self.remote_bind_port = remote_bind_port
+        self.client = SSHClient()
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    def connect(self) -> bool:
+        """Attempt to establish the SSH connection and set up port forwarding."""
+        try:
+            self.client = SSHClient()
+            self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self.rsa_key = RSAKey(filename=self.key_path)
+            self.client.connect(
+                hostname=self.hostname,
+                port=self.port,
+                username=self.username,
+                pkey=self.rsa_key,
+            )
+            self._forward_port()
+            return True
+        except Exception as e:
+            print("Could not connect to SSH server:", e)
+            return False
+
+    def __enter__(self) -> "SSHConnection":
+        # Assume connection is already established before entering the context
+        if self.client is None:
+            self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        if self.client:
+            self.client.close()
+
+    def _forward_port(self) -> None:
+        transport = self.client.get_transport()
+        transport.request_port_forward("", self.local_bind_port)
+        transport.open_channel(
+            "direct-tcpip",
+            (self.remote_bind_address, self.remote_bind_port),
+            ("localhost", self.local_bind_port),
+        )
+        print(
+            f"Port forwarding set up: localhost:{self.local_bind_port} -> {self.remote_bind_address}:{self.remote_bind_port}"
+        )
+
+    def check_connection(self) -> Optional[str]:
+        """Check if the SSH connection and port forwarding work by sending a request."""
+        try:
+            response = requests.get(f"http://localhost:{self.local_bind_port}")
+            return f"Connection successful: {response.status_code}"
+        except Exception as e:
+            return f"Connection failed: {e}"
 
 
 def check_ssh_proxy_running(port: int, ssh_user: str, ssh_host: str) -> Optional[int]:

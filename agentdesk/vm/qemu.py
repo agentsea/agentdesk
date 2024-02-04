@@ -5,6 +5,7 @@ from typing import List, Optional
 import os
 from urllib.parse import urlparse
 import tempfile
+import time
 
 import pycdlib
 import requests
@@ -67,6 +68,7 @@ class QemuProvider(DesktopProvider):
 
         # Download image only if it does not exist
         if not os.path.exists(image_path) and image.startswith("https://"):
+            print(f"downloading image '{image}'...")
             response = requests.get(image, stream=True)
             with open(image_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
@@ -124,6 +126,10 @@ local-hostname: {name}
 
         # Start the QEMU process
         process = subprocess.Popen(command, shell=True)
+
+        ready = False
+        while not ready:
+            time.sleep(10)
 
         # Create and return a Desktop object
         desktop = DesktopVM(

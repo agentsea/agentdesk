@@ -20,6 +20,7 @@ google-cloud-storage = "^2.14.0"
 docker = "^7.0.0"
 pycdlib = "^1.14.0"
 namesgenerator = "^0.3"
+paramiko = "^3.4.0"
 
 
 [tool.poetry.group.gcp.dependencies]
