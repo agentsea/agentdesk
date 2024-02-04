@@ -5,8 +5,8 @@ import time
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 # TODO
 
-from agentdesk.desktop import GCEProvider
-from agentdesk.desktop.img import JAMMY
+from agentdesk.vm import GCEProvider
+from agentdesk.vm.img import JAMMY
 
 provider = GCEProvider()
 

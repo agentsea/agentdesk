@@ -7,13 +7,16 @@ import json
 import webbrowser
 import random
 import os
+import atexit
 
 import docker
+from docker.models.containers import Container
 
 from agentdesk.db.conn import WithDB
 from agentdesk.db.models import V1DesktopRecord
 from agentdesk.server.models import V1Desktop, V1Desktops, V1ProviderData
 from agentdesk.util import get_docker_host, check_command_availability
+from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 
 UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:a85fde68ac9849d9301be702f2092a8a299abe52"
 
@@ -155,9 +158,10 @@ class DesktopVM(WithDB):
             metadata=self.metadata,
         )
 
-    def view(self) -> None:
+    def view(self, background: bool = False) -> None:
         """Opens the desktop in a browser window"""
 
+        proxy_pid = ensure_ssh_proxy(6080, "agentsea", "localhost")
         check_command_availability("docker")
 
         host = get_docker_host()
@@ -166,6 +170,8 @@ class DesktopVM(WithDB):
 
         host_port = None
         exists = False
+        ui_container: Optional[Container] = None
+
         for container in client.containers.list():
             print("a container: ", container)
             if container.image.tags[0] == UI_IMG:
@@ -175,18 +181,34 @@ class DesktopVM(WithDB):
                 host_port = container.attrs["NetworkSettings"]["Ports"]["3000/tcp"][0][
                     "HostPort"
                 ]
+                ui_container = container
                 break
 
         if not exists:
             print("creating UI container...")
             host_port = random.randint(1024, 65535)
-            container = client.containers.run(
+            ui_container = client.containers.run(
                 UI_IMG, ports={"3000/tcp": host_port}, detach=True
             )
             print("waiting for UI container to start...")
             time.sleep(10)
 
         webbrowser.open(f"http://localhost:{host_port}")
+
+        if not background:
+
+            def onexit():
+                print("stopping UI container...")
+                ui_container.stop()
+                print("removing UI container...")
+                ui_container.remove()
+                print("stopping ssh proxy...")
+                cleanup_proxy(proxy_pid)
+
+            atexit.register(onexit)
+            while True:
+                print(f"proxying desktop vnc '{self.name}' to localhost:6080...")
+                time.sleep(20)
 
 
 DP = TypeVar("DP", bound="DesktopProvider")
