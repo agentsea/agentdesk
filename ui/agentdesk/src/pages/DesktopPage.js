@@ -14,7 +14,7 @@ export default function DesktopPage() {
 
   return (
     <Layout>
-      <div className="flex flex-row mt-24 gap-6">
+      <div className="flex flex-row mt-16 gap-6">
         <div className="border border-black flex w-fit h-fit shadow-2xl">
           <VncScreen
             url={vncAddr}
@@ -22,7 +22,7 @@ export default function DesktopPage() {
             background="#000000"
             style={{
               width: "960px",
-              height: "600px",
+              height: "770px",
             }}
             ref={ref}
           />

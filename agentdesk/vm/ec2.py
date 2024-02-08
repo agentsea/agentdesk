@@ -33,25 +33,32 @@ class EC2Provider(DesktopProvider):
         if not name:
             name = get_random_name()
         if not image:
+            # Dynamically select the latest custom AMI based on a naming pattern
+            # custom_ami = self._get_latest_custom_ami()
+            # if not custom_ami:
+            #     raise ValueError("Custom AMI not found")
+            # image = custom_ami
             image = JAMMY.ec2
 
+        ssh_key = ssh_key or find_ssh_public_key()
         instance_type = self._choose_instance_type(cpu, memory)
 
-        ssh_key = ssh_key or find_ssh_public_key()
-        if not ssh_key:
-            raise ValueError("SSH key not provided or found")
+        ssh_key_name = self._ensure_ssh_key(name, ssh_key)
+        if not ssh_key_name:
+            raise ValueError("SSH key name not provided or found")
 
-        self._upload_ssh_key(name, ssh_key)
+        disk_size_gib = self._convert_disk_size_to_gib(disk)
 
         instances = self.ec2.create_instances(
             ImageId=image,
             MinCount=1,
             MaxCount=1,
             InstanceType=instance_type,
+            KeyName=ssh_key_name,  # Use the uploaded SSH key
             BlockDeviceMappings=[
                 {
                     "DeviceName": "/dev/sdh",
-                    "Ebs": {"VolumeSize": int(disk[:-2])},
+                    "Ebs": {"VolumeSize": disk_size_gib},
                 }
             ],
             TagSpecifications=[
@@ -62,7 +69,6 @@ class EC2Provider(DesktopProvider):
                 }
             ],
         )
-
         instance_id = instances[0].id
         instances[0].wait_until_running()
 
@@ -87,6 +93,23 @@ class EC2Provider(DesktopProvider):
             provider=self.to_data(),
         )
 
+    def _convert_disk_size_to_gib(self, disk_size: str) -> int:
+        """
+        Converts a disk size specification string with units (e.g., "30gb", "1tb")
+        to an integer representing the disk size in GiB.
+
+        :param disk_size: Disk size string with units.
+        :return: Disk size in GiB as an integer.
+        """
+        unit = disk_size[-2:].lower()
+        size = int(disk_size[:-2])
+        if unit == "gb":
+            return size  # Assuming input in GiB, direct conversion for simplicity
+        elif unit == "tb":
+            return size * 1024  # Convert TB to GiB
+        else:
+            raise ValueError(f"Unsupported disk size unit: {unit}")
+
     def _choose_instance_type(self, cpu: int, memory: int) -> str:
         """
         Choose an EC2 instance type based on CPU and memory requirements.
@@ -108,17 +131,52 @@ class EC2Provider(DesktopProvider):
             # Default to a larger instance for higher requirements
             return "t2.2xlarge"
 
-    def _upload_ssh_key(self, key_name: str, public_key_material: str) -> None:
+    def _ensure_ssh_key(self, key_name: str, public_key_material: str) -> str:
         """
-        Uploads an SSH public key to AWS EC2.
-
-        :param key_name: The name for the SSH key.
-        :param public_key_material: The public key material.
+        Uploads an SSH public key to AWS EC2, if it does not already exist.
         """
         ec2_client = boto3.client("ec2", region_name=self.region)
-        ec2_client.import_key_pair(
-            KeyName=key_name, PublicKeyMaterial=public_key_material
-        )
+        try:
+            ec2_client.describe_key_pairs(KeyNames=[key_name])
+            print(f"Key pair '{key_name}' already exists. Skipping import.")
+            return key_name
+        except ec2_client.exceptions.ClientError as e:
+            if "InvalidKeyPair.NotFound" in str(e):
+                ec2_client.import_key_pair(
+                    KeyName=key_name, PublicKeyMaterial=public_key_material
+                )
+                print(f"Key pair '{key_name}' successfully imported.")
+                return key_name
+            raise
+
+    def _get_latest_custom_ami(self) -> Optional[str]:
+        """
+        Find the latest custom AMI based on a specific naming pattern.
+
+        Returns:
+            The AMI ID of the latest custom AMI if found, otherwise None.
+        """
+        ec2_client = boto3.client("ec2", region_name=self.region)
+        filters = [
+            {"Name": "name", "Values": ["agentd-ubuntu-22.04-*"]},
+            {
+                "Name": "owner-id",
+                "Values": ["596381348884"],
+            },  # Ubuntu's owner ID, adjust if your AMI has a different owner
+        ]
+        # Describe images with the specified filters
+        response = ec2_client.describe_images(Filters=filters)
+
+        images = response.get("Images", [])
+        if not images:
+            return None
+
+        # Sort images by creation date in descending order
+        sorted_images = sorted(images, key=lambda x: x["CreationDate"], reverse=True)
+
+        # Return the AMI ID of the latest image
+        latest_ami = sorted_images[0]["ImageId"]
+        return latest_ami
 
     def delete(self, name: str) -> None:
         instance = self._get_instance_by_name(name)

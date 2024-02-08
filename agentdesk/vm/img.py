@@ -17,6 +17,6 @@ JAMMY = Image(
     "jammy",
     "Ubuntu 22.04 Jammy server",
     gce="gs://agentsea-vms/ubuntu_jammy.tar.gz",
-    ec2=None,
+    ec2="ami-0c829a94a14595c53",
     qcow2="https://storage.googleapis.com/agentsea-vms/jammy/latest/agentd-jammy.qcow2",
 )
