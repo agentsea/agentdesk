@@ -129,15 +129,15 @@ local-hostname: {name}
             print("waiting for desktop to be ready...")
             time.sleep(3)
             try:
-                with SSHPortForwarding() as connection:
-                    response = requests.get(
-                        f"http://localhost:{connection.local_port}/health"
-                    )
-                    if response.status_code == 200:
-                        print("\n---desktop ready!")
-                        ready = True
+                print("calling agentd...")
+                response = requests.get(f"http://localhost:{agentd_port}/health")
+                print("agentd response: ", response)
+                if response.status_code == 200:
+                    ready = True
             except:
                 pass
+
+        print("\ndesktop ready!")
 
         # Create and return a Desktop object
         desktop = DesktopVM(
@@ -149,6 +149,7 @@ local-hostname: {name}
             pid=process.pid,
             image=image,
             provider=self.to_data(),
+            requires_proxy=False,
         )
         return desktop
 

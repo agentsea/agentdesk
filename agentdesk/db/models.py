@@ -27,4 +27,5 @@ class V1DesktopRecord(Base):
     pid = Column(Integer, nullable=True)
     image = Column(String, nullable=True)
     provider = Column(String, nullable=True)
+    requires_proxy = Column(Boolean, nullable=True)
     meta = Column(String, nullable=True)

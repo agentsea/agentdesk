@@ -24,6 +24,9 @@ export default function DesktopPage() {
               width: "960px",
               height: "770px",
             }}
+            rfbOptions={{
+              credentials: { password: "agentsea123" },
+            }}
             ref={ref}
           />
         </div>

@@ -34,6 +34,7 @@ class DesktopVM(WithDB):
         pid: Optional[int] = None,
         image: Optional[str] = None,
         provider: Optional[V1ProviderData] = None,
+        requires_proxy: bool = True,
         metadata: Optional[dict] = None,
     ) -> None:
         self.name = name
@@ -47,6 +48,7 @@ class DesktopVM(WithDB):
         self.status = "active"
         self.image = image
         self.provider = provider
+        self.requires_proxy = requires_proxy
         self.metadata = metadata
 
         self.save()
@@ -71,6 +73,7 @@ class DesktopVM(WithDB):
             status=self.status,
             image=self.image,
             provider=provider,
+            requires_proxy=self.requires_proxy,
             meta=metadata,
         )
 
@@ -92,6 +95,7 @@ class DesktopVM(WithDB):
         out.pid = record.pid
         out.status = record.status
         out.image = record.image
+        out.requires_proxy = record.requires_proxy
         if record.provider:
             dct = json.loads(record.provider)
             out.provider = V1ProviderData(**dct)
@@ -160,8 +164,8 @@ class DesktopVM(WithDB):
 
     def view(self, background: bool = False) -> None:
         """Opens the desktop in a browser window"""
-
-        proxy_pid = ensure_ssh_proxy(6080, "agentsea", "localhost")
+        if self.requires_proxy:
+            proxy_pid = ensure_ssh_proxy(6080, "agentsea", "localhost")
         check_command_availability("docker")
 
         host = get_docker_host()

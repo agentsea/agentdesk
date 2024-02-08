@@ -167,9 +167,14 @@ def setup_ssh_proxy(
         f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
         f"-N -L {port}:localhost:{port} -p 2222 {ssh_user}@{ssh_host}"
     )
-    proxy_process = subprocess.Popen(
-        ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    print("executing command: ", ssh_command)
+    try:
+        proxy_process = subprocess.Popen(
+            ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    except Exception as e:
+        print(f"Error starting SSH proxy: {e}")
+        raise
     print(f"SSH proxy setup on port {port}")
     return proxy_process
 
