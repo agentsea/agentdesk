@@ -19,13 +19,115 @@ class GCEProvider(DesktopProvider):
     def __init__(
         self,
         project_id: Optional[str] = None,
-        zone: Optional[str] = None,
-        region: Optional[str] = None,
+        zone: str = "us-central1-a",
+        region: Optional[str] = "us-central1",
     ):
         """Initialize the GCP VM Provider with project and zone details."""
         self.project_id = project_id or _helpers._determine_default_project()
         self.zone = zone
         self.region = region
+
+        print("using project id: ", self.project_id)
+
+    def create(
+        self,
+        name: Optional[str] = None,
+        image: Optional[str] = None,
+        memory: int = 4,
+        cpu: int = 2,
+        disk: str = "30gb",
+        tags: List[str] = None,
+        reserve_ip: bool = False,
+        ssh_key: Optional[str] = None,
+    ) -> DesktopVM:
+        """Create a VM in GCP."""
+
+        if not name:
+            name = get_random_name()
+        if not image:
+            image = JAMMY.gce
+
+        # bucket_name, image_file = self._parse_gcs_url(image)
+        # image_name = self._generate_image_name_from_gcs_url(image)
+
+        images_client = compute_v1.ImagesClient()
+
+        # Check if the image exists
+        print("\nimage name: ", image)
+        print("project id: ", self.project_id)
+        img = images_client.get(project=self.project_id, image=image)
+        print("found img: ", img)
+        print("img status: ", img.status)
+        if img.status != "READY":
+            raise ValueError("Image is not ready")
+
+        instance_client = compute_v1.InstancesClient()
+        machine_type = f"zones/{self.zone}/machineTypes/custom-{cpu}-{memory*1024}"
+        image_project_id = "agentsea-dev"
+        source_image_url = f"projects/{image_project_id}/global/images/{image}"
+
+        disk_config = compute_v1.AttachedDiskInitializeParams(
+            disk_size_gb=int(disk[:-2]), source_image=source_image_url
+        )
+        disk = compute_v1.AttachedDisk(
+            boot=True, auto_delete=True, initialize_params=disk_config
+        )
+        access_configs = [compute_v1.AccessConfig(name="External NAT")]
+        network_interface = compute_v1.NetworkInterface(
+            name="global/networks/default",
+            access_configs=access_configs,
+        )
+
+        instance_name = name.replace("_", "-")
+        instance = compute_v1.Instance(
+            name=instance_name,
+            machine_type=machine_type,
+            disks=[disk],
+            network_interfaces=[network_interface],
+        )
+
+        if reserve_ip:
+            static_ip_name = f"{name.replace('_', '-')}-ip"
+            reserved_ip = self.reserve_static_ip(static_ip_name)
+            access_config = compute_v1.AccessConfig(
+                nat_ip=reserved_ip, name="External NAT"
+            )
+            instance.network_interfaces[0].access_configs = [access_config]
+
+        if tags:
+            instance.labels = {tag: "" for tag in tags}
+
+        if not ssh_key:
+            ssh_key = find_ssh_public_key()
+
+        if ssh_key:
+            instance.metadata = {
+                "items": [{"key": "ssh-keys", "value": f"agentsea:{ssh_key}"}]
+            }
+        else:
+            raise ValueError("No SSH key provided and could not find one")
+
+        operation = instance_client.insert(
+            project=self.project_id, zone=self.zone, instance_resource=instance
+        )
+        operation.result()
+
+        created_instance = instance_client.get(
+            project=self.project_id, zone=self.zone, instance=instance_name
+        )
+        ip_address = created_instance.network_interfaces[0].access_configs[0].nat_i_p
+
+        new_desktop = DesktopVM(
+            name=name,
+            addr=ip_address,
+            cpu=cpu,
+            memory=memory,
+            disk=disk,
+            image=image,
+            provider=self.to_data(),
+        )
+
+        return new_desktop
 
     def reserve_static_ip(self, name: str) -> str:
         """Reserve a static external IP address."""
@@ -57,109 +159,6 @@ class GCEProvider(DesktopProvider):
             project=self.project_id, firewall_resource=firewall
         )
         return operation.result()
-
-    def create(
-        self,
-        name: Optional[str] = None,
-        image: Optional[str] = None,
-        memory: int = 4,
-        cpu: int = 2,
-        disk: str = "30gb",
-        tags: List[str] = None,
-        reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
-    ) -> DesktopVM:
-        """Create a VM in GCP."""
-
-        if not name:
-            name = get_random_name()
-        if not image:
-            image = JAMMY.gce
-
-        bucket_name, image_file = self._parse_gcs_url(image)
-        image_name = self._generate_image_name_from_gcs_url(image)
-
-        images_client = compute_v1.ImagesClient()
-
-        # Check if the image exists
-        try:
-            print("\nimage name: ", image_name)
-            print("project id: ", self.project_id)
-            img = images_client.get(project=self.project_id, image=image_name)
-            print("found img: ", img)
-            print("img status: ", img.status)
-            if img.status == "READY":
-                raise ValueError("Image is not ready")
-        except Exception as e:
-            # Image does not exist, load it from the GCS URL
-            print("\nloading custom image...")
-            self._load_custom_image(
-                image_name=image_name,
-                image_uri=image,
-            )
-
-        instance_client = compute_v1.InstancesClient()
-        machine_type = (
-            f"zones/{self.zone}/machineTypes/custom-{cpu}-{int(memory[:-2])*1024}"
-        )
-
-        disk_config = compute_v1.AttachedDiskInitializeParams(
-            disk_size_gb=int(disk[:-2]), source_image=image
-        )
-        disk = compute_v1.AttachedDisk(
-            boot=True, auto_delete=True, initialize_params=disk_config
-        )
-        network_interface = compute_v1.NetworkInterface(name="global/networks/default")
-
-        instance = compute_v1.Instance(
-            name=name,
-            machine_type=machine_type,
-            disks=[disk],
-            network_interfaces=[network_interface],
-        )
-
-        if reserve_ip:
-            static_ip_name = f"{name}-ip"
-            reserved_ip = self.reserve_static_ip(static_ip_name)
-            access_config = compute_v1.AccessConfig(
-                nat_ip=reserved_ip, name="External NAT"
-            )
-            instance.network_interfaces[0].access_configs = [access_config]
-
-        if tags:
-            instance.labels = {tag: "" for tag in tags}
-
-        if not ssh_key:
-            ssh_key = find_ssh_public_key()
-
-        if ssh_key:
-            instance.metadata = {
-                "items": [{"key": "ssh-keys", "value": f"agentsea:{ssh_key}"}]
-            }
-        else:
-            raise ValueError("No SSH key provided and could not find one")
-
-        operation = instance_client.insert(
-            project=self.project_id, zone=self.zone, instance_resource=instance
-        )
-        operation.result()  # Wait for operation to complete
-
-        created_instance = instance_client.get(
-            project=self.project_id, zone=self.zone, instance=name
-        )
-        ip_address = created_instance.network_interfaces[0].access_configs[0].nat_ip
-
-        new_desktop = DesktopVM(
-            name=name,
-            addr=ip_address,
-            cpu=cpu,
-            memory=memory,
-            disk=disk,
-            image=image,
-            provider=self.to_data(),
-        )
-
-        return new_desktop
 
     def _parse_gcs_url(self, gcs_url: str) -> (str, str):
         """Extract the bucket name and image file from a GCS URL."""

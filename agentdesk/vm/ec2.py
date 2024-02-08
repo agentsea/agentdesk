@@ -41,6 +41,15 @@ class EC2Provider(DesktopProvider):
             image = JAMMY.ec2
 
         ssh_key = ssh_key or find_ssh_public_key()
+        user_data = f"""#cloud-config
+users:
+  - name: agentsea
+    ssh_authorized_keys:
+      - {ssh_key}
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    groups: ['sudo']
+    shell: /bin/bash
+"""
         instance_type = self._choose_instance_type(cpu, memory)
 
         ssh_key_name = self._ensure_ssh_key(name, ssh_key)
@@ -54,7 +63,7 @@ class EC2Provider(DesktopProvider):
             MinCount=1,
             MaxCount=1,
             InstanceType=instance_type,
-            KeyName=ssh_key_name,  # Use the uploaded SSH key
+            KeyName=ssh_key_name,
             BlockDeviceMappings=[
                 {
                     "DeviceName": "/dev/sdh",
@@ -68,6 +77,7 @@ class EC2Provider(DesktopProvider):
                     + [{"Key": tag, "Value": ""} for tag in (tags or [])],
                 }
             ],
+            UserData=user_data,
         )
         instance_id = instances[0].id
         instances[0].wait_until_running()
