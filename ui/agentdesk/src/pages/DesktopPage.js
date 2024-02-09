@@ -25,7 +25,7 @@ export default function DesktopPage() {
               height: "770px",
             }}
             rfbOptions={{
-              credentials: { password: "agentsea123" },
+              credentials: { password: "agentsea123" }, // this is fine, we tunnel everything through ssh, some vnc viewers require a password
             }}
             ref={ref}
           />

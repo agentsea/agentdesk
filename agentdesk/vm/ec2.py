@@ -1,10 +1,11 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import boto3
 from boto3.resources.base import ServiceResource
 from mypy_boto3_ec2.service_resource import EC2ServiceResource, Instance as EC2Instance
 from namesgenerator import get_random_name
+from botocore.exceptions import ClientError
 
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
@@ -18,6 +19,7 @@ class EC2Provider(DesktopProvider):
     def __init__(self, region: str) -> None:
         self.region = region
         self.ec2: EC2ServiceResource = boto3.resource("ec2", region_name=region)
+        self.ec2_client = boto3.client("ec2", region_name=self.region)
 
     def create(
         self,
@@ -26,7 +28,7 @@ class EC2Provider(DesktopProvider):
         memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
-        tags: List[str] = None,
+        tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
     ) -> DesktopVM:
@@ -41,6 +43,7 @@ class EC2Provider(DesktopProvider):
             image = JAMMY.ec2
 
         ssh_key = ssh_key or find_ssh_public_key()
+        print("using ssh key: ", ssh_key)
         user_data = f"""#cloud-config
 users:
   - name: agentsea
@@ -57,6 +60,21 @@ users:
             raise ValueError("SSH key name not provided or found")
 
         disk_size_gib = self._convert_disk_size_to_gib(disk)
+        security_group_id = self._ensure_sg(
+            "agentdesk-default", "agentdesk default vm sg"
+        )
+        print("sg id: ", security_group_id)
+
+        tag_specifications = [
+            {
+                "ResourceType": "instance",
+                "Tags": [
+                    {"Key": "Name", "Value": name},
+                    {"Key": "provisioner", "Value": "agentdesk"},
+                ]
+                + [{"Key": k, "Value": v} for k, v in (tags or {}).items()],
+            }
+        ]
 
         instances = self.ec2.create_instances(
             ImageId=image,
@@ -64,19 +82,14 @@ users:
             MaxCount=1,
             InstanceType=instance_type,
             KeyName=ssh_key_name,
+            SecurityGroupIds=[security_group_id],
             BlockDeviceMappings=[
                 {
                     "DeviceName": "/dev/sdh",
                     "Ebs": {"VolumeSize": disk_size_gib},
                 }
             ],
-            TagSpecifications=[
-                {
-                    "ResourceType": "instance",
-                    "Tags": [{"Key": "Name", "Value": name}]
-                    + [{"Key": tag, "Value": ""} for tag in (tags or [])],
-                }
-            ],
+            TagSpecifications=tag_specifications,
             UserData=user_data,
         )
         instance_id = instances[0].id
@@ -92,6 +105,7 @@ users:
 
         instance = self.ec2.Instance(instance_id)
         public_ip = instance.public_ip_address
+        print("successfully created instance: ", instance_id)
 
         return DesktopVM(
             name=name,
@@ -102,6 +116,54 @@ users:
             image=image,
             provider=self.to_data(),
         )
+
+    def _ensure_sg(self, name: str, description: str) -> str:
+        # Attempt to find the default VPC
+        vpcs = self.ec2_client.describe_vpcs(
+            Filters=[{"Name": "isDefault", "Values": ["true"]}]
+        )
+        if not vpcs["Vpcs"]:
+            raise Exception("No default VPC found in this region.")
+        default_vpc_id = vpcs["Vpcs"][0]["VpcId"]
+
+        print("default vpc id: ", default_vpc_id)
+
+        # Check if the security group already exists
+        try:
+            security_groups = self.ec2_client.describe_security_groups(
+                Filters=[
+                    {"Name": "group-name", "Values": [name]},
+                    {"Name": "vpc-id", "Values": [default_vpc_id]},
+                ]
+            )
+            if security_groups["SecurityGroups"]:
+                # Security group already exists
+                return security_groups["SecurityGroups"][0]["GroupId"]
+        except ClientError as e:
+            print(f"Error checking for existing security group: {e}")
+
+        # Security group does not exist, create it
+        try:
+            response = self.ec2_client.create_security_group(
+                GroupName=name, Description=description, VpcId=default_vpc_id
+            )
+            security_group_id = response["GroupId"]
+
+            # Add inbound rules
+            self.ec2_client.authorize_security_group_ingress(
+                GroupId=security_group_id,
+                IpPermissions=[
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 22,
+                        "ToPort": 22,
+                        "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
+                    },
+                ],
+            )
+            return security_group_id
+        except ClientError as e:
+            raise Exception(f"Failed to create security group: {e}")
 
     def _convert_disk_size_to_gib(self, disk_size: str) -> int:
         """

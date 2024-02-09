@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import List, Optional, Dict
 import re
 import time
 
@@ -36,7 +36,7 @@ class GCEProvider(DesktopProvider):
         memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
-        tags: List[str] = None,
+        tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
     ) -> DesktopVM:
@@ -78,7 +78,7 @@ class GCEProvider(DesktopProvider):
             access_configs=access_configs,
         )
 
-        instance_name = name.replace("_", "-")
+        instance_name = self._get_instance_name(name)
         instance = compute_v1.Instance(
             name=instance_name,
             machine_type=machine_type,
@@ -94,8 +94,11 @@ class GCEProvider(DesktopProvider):
             )
             instance.network_interfaces[0].access_configs = [access_config]
 
-        if tags:
-            instance.labels = {tag: "" for tag in tags}
+        if not tags:
+            tags = {}
+
+        tags["provisioner"] = "agentdesk"
+        instance.labels = tags
 
         if not ssh_key:
             ssh_key = find_ssh_public_key()
@@ -116,6 +119,8 @@ class GCEProvider(DesktopProvider):
             project=self.project_id, zone=self.zone, instance=instance_name
         )
         ip_address = created_instance.network_interfaces[0].access_configs[0].nat_i_p
+
+        print("successfully created instance: ", created_instance.id)
 
         new_desktop = DesktopVM(
             name=name,
@@ -159,6 +164,9 @@ class GCEProvider(DesktopProvider):
             project=self.project_id, firewall_resource=firewall
         )
         return operation.result()
+
+    def _get_instance_name(self, name: str) -> str:
+        return name.replace("_", "-")
 
     def _parse_gcs_url(self, gcs_url: str) -> (str, str):
         """Extract the bucket name and image file from a GCS URL."""

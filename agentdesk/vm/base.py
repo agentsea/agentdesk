@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar, Any, Generic
+from typing import List, Optional, TypeVar, Any, Generic, Dict
 import uuid
 import time
 import json
@@ -228,7 +228,7 @@ class DesktopProvider(ABC, Generic[DP]):
         memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
-        tags: List[str] = None,
+        tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
     ) -> DesktopVM:
