@@ -27,7 +27,7 @@ class GCEProvider(DesktopProvider):
         self.zone = zone
         self.region = region
 
-        print("using project id: ", self.project_id)
+        # print("using project id: ", self.project_id)
 
     def create(
         self,
@@ -53,11 +53,7 @@ class GCEProvider(DesktopProvider):
         images_client = compute_v1.ImagesClient()
 
         # Check if the image exists
-        print("\nimage name: ", image)
-        print("project id: ", self.project_id)
         img = images_client.get(project=self.project_id, image=image)
-        print("found img: ", img)
-        print("img status: ", img.status)
         if img.status != "READY":
             raise ValueError("Image is not ready")
 
@@ -69,7 +65,7 @@ class GCEProvider(DesktopProvider):
         disk_config = compute_v1.AttachedDiskInitializeParams(
             disk_size_gb=int(disk[:-2]), source_image=source_image_url
         )
-        disk = compute_v1.AttachedDisk(
+        _disk = compute_v1.AttachedDisk(
             boot=True, auto_delete=True, initialize_params=disk_config
         )
         access_configs = [compute_v1.AccessConfig(name="External NAT")]
@@ -82,7 +78,7 @@ class GCEProvider(DesktopProvider):
         instance = compute_v1.Instance(
             name=instance_name,
             machine_type=machine_type,
-            disks=[disk],
+            disks=[_disk],
             network_interfaces=[network_interface],
         )
 
@@ -120,11 +116,11 @@ class GCEProvider(DesktopProvider):
         )
         ip_address = created_instance.network_interfaces[0].access_configs[0].nat_i_p
 
-        print("successfully created instance: ", created_instance.id)
+        print(f"\nsuccessfully created desktop '{name}'")
 
         new_desktop = DesktopVM(
             name=name,
-            id=created_instance.id,
+            id=str(created_instance.id),
             addr=ip_address,
             cpu=cpu,
             memory=memory,
@@ -289,7 +285,7 @@ class GCEProvider(DesktopProvider):
 
     def get(self, name: str) -> Optional[DesktopVM]:
         try:
-            return DesktopVM.load(name)
+            return DesktopVM.find(name)
         except ValueError:
             return None
 
@@ -300,7 +296,7 @@ class GCEProvider(DesktopProvider):
             ProviderData: ProviderData object
         """
         return V1ProviderData(
-            type="gcpe", args={"project_id": self.project_id, "zone": self.zone}
+            type="gce", args={"project_id": self.project_id, "zone": self.zone}
         )
 
     @classmethod
@@ -310,15 +306,11 @@ class GCEProvider(DesktopProvider):
         Args:
             data (ProviderData): Provider data
         """
-        out = cls.__new__(GCEProvider)
 
-        if "project_id" in data.args:
-            out.project_id = data.args["project_id"]
+        if data.args:
+            return GCEProvider(**data.args)
 
-        if "zone" in data.args:
-            out.zone = data.args["zone"]
-
-        return out
+        return GCEProvider()
 
 
 def create_custom_image(project_id, image_name, bucket_name, image_file):

@@ -6,6 +6,7 @@ import os
 from urllib.parse import urlparse
 import tempfile
 import time
+import signal
 
 import pycdlib
 import requests
@@ -69,13 +70,11 @@ class QemuProvider(DesktopProvider):
             image_name = os.path.basename(image)
 
         image_path = os.path.join(vm_dir, image_name)
-        print("image path: ", image_path)
 
         # Download image only if it does not exist
         if not os.path.exists(image_path) and image.startswith("https://"):
             print(f"downloading image '{image}'...")
             response = requests.get(image, stream=True)
-            print("response: ", response)
             with open(image_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
@@ -85,7 +84,6 @@ class QemuProvider(DesktopProvider):
         if not ssh_key:
             raise ValueError("SSH key not provided or found")
 
-        print("generating cloud config with ssh key: ", ssh_key)
         # Generate user-data
         user_data = f"""#cloud-config
 users:
@@ -114,30 +112,40 @@ local-hostname: {name}
         )
 
         # Start the QEMU process
-        if self.log_vm:
-            process = subprocess.Popen(command, shell=True)
-        else:
-            process = subprocess.Popen(
-                command,
-                shell=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+        try:
+            if self.log_vm:
+                process = subprocess.Popen(command, shell=True)
+            else:
+                process = subprocess.Popen(
+                    command,
+                    shell=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
 
-        ready = False
-        while not ready:
-            print("waiting for desktop to be ready...")
-            time.sleep(3)
-            try:
-                print("calling agentd...")
-                response = requests.get(f"http://localhost:{agentd_port}/health")
-                print("agentd response: ", response)
-                if response.status_code == 200:
-                    ready = True
-            except:
-                pass
+            ready = False
+            while not ready:
+                print("waiting for desktop to be ready...")
+                time.sleep(3)
+                try:
+                    print("calling agentd...")
+                    response = requests.get(f"http://localhost:{agentd_port}/health")
+                    print("agentd response: ", response)
+                    if response.status_code == 200:
+                        ready = True
+                except:
+                    pass
 
-        print("\ndesktop ready!")
+        except KeyboardInterrupt:
+            print("Keyboard interrupt received, terminating process...")
+            os.killpg(os.getpgid(process.pid), signal.SIGINT)
+            raise
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            os.killpg(os.getpgid(process.pid), signal.SIGINT)
+            raise
+
+        print(f"\nsuccessfully created desktop '{name}'")
 
         # Create and return a Desktop object
         desktop = DesktopVM(

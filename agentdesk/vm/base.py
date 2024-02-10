@@ -178,8 +178,10 @@ class DesktopVM(WithDB):
 
     def view(self, background: bool = False) -> None:
         """Opens the desktop in a browser window"""
+
         if self.requires_proxy:
-            proxy_pid = ensure_ssh_proxy(6080, "agentsea", "localhost")
+            proxy_pid = ensure_ssh_proxy(6080, "agentsea", self.addr)
+
         check_command_availability("docker")
 
         host = get_docker_host()

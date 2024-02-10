@@ -1,5 +1,6 @@
 from typing import Optional
 import typer
+from datetime import datetime
 
 from tabulate import tabulate
 from namesgenerator import get_random_name
@@ -8,6 +9,14 @@ from agentdesk.server.models import V1ProviderData
 from agentdesk.vm.load import load_provider
 
 app = typer.Typer(no_args_is_help=True)
+
+
+def convert_unix_to_datetime(unix_timestamp: int) -> str:
+    # Convert Unix timestamp to datetime
+    dt = datetime.utcfromtimestamp(unix_timestamp)
+    # Format datetime in a friendly format, e.g., "YYYY-MM-DD HH:MM:SS"
+    friendly_format = dt.strftime("%Y-%m-%d %H:%M:%S")
+    return friendly_format
 
 
 @app.command(help="Create a desktop.")
@@ -46,7 +55,11 @@ def create(
     _provider = load_provider(data)
 
     print(f"Creating desktop '{name}' using '{provider}' provider")
-    _provider.create(name, image, memory, cpu, disk, reserve_ip, ssh_key)
+    try:
+        _provider.create(name, image, memory, cpu, disk, reserve_ip, ssh_key)
+    except KeyboardInterrupt:
+        print("Keyboard interrupt received, exiting...")
+        return
 
 
 @app.command(help="Get or list desktops.")
@@ -76,9 +89,21 @@ def get(
     else:
         table = []
         for desktop in vms:
-            table.append([desktop.name, desktop.addr, desktop.status, desktop.created])
+            table.append(
+                [
+                    desktop.name,
+                    desktop.addr,
+                    desktop.status,
+                    convert_unix_to_datetime(desktop.created),
+                    desktop.provider.type,
+                ]
+            )
 
-        print(tabulate(table, headers=["Name", "Address", "Status", "Created"]))
+        print(
+            tabulate(
+                table, headers=["Name", "Address", "Status", "Created", "Provider"]
+            )
+        )
 
 
 @app.command(help="Delete a desktop.")

@@ -59,7 +59,7 @@ desktop.view()
 ```
 
 ```bash
-agentdesk view <NAME> --provider ec2
+agentdesk view old_mckinny --provider ec2
 ```
 
 _\*requires docker_

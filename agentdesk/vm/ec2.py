@@ -104,7 +104,7 @@ users:
 
         instance = self.ec2.Instance(instance_id)
         public_ip = instance.public_ip_address
-        print(f"successfully created desktop '{name}'!")
+        print(f"\nsuccessfully created desktop '{name}'")
 
         return DesktopVM(
             name=name,
