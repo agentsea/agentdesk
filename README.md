@@ -72,7 +72,7 @@ desktop.view()
 ```
 
 ```bash
-$ agentdesk view old_mckinny --provider ec2
+$ agentdesk view old_mckinny
 ```
 
 _\*requires docker_
@@ -80,11 +80,21 @@ _\*requires docker_
 ### List active desktops
 
 ```python
-Desktop.list(provider="ec2")
+Desktop.list()
 ```
 
 ```bash
-$ agentdesk get --provider ec2
+$ agentdesk get
+```
+
+### Delete a desktop
+
+```python
+Desktop.delete("old_mckinny")
+```
+
+```bash
+$ agentdesk delete old_mckinny
 ```
 
 ### Use the desktop
@@ -110,3 +120,5 @@ img = desktop.take_screenshot()
 ### GPT-4V
 
 ## Developing
+
+Please open an issue before creating a PR.
