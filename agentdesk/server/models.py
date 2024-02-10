@@ -29,13 +29,13 @@ class V1ProviderData(BaseModel):
 
 
 class V1Desktop(BaseModel):
-    id: Optional[int] = None
+    id: Optional[str] = None
     name: Optional[str] = None
     addr: Optional[str] = None
     status: Optional[str] = None
     created: Optional[float] = None
     image: Optional[str] = None
-    memory: Optional[str] = None
+    memory: Optional[int] = None
     cpu: Optional[int] = None
     disk: Optional[str] = None
     memory_usage: Optional[float] = None

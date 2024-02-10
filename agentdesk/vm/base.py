@@ -28,6 +28,7 @@ class DesktopVM(WithDB):
         self,
         name: str,
         addr: str,
+        id: Optional[str] = None,
         cpu: Optional[int] = None,
         memory: Optional[str] = None,
         disk: Optional[str] = None,
@@ -37,13 +38,15 @@ class DesktopVM(WithDB):
         requires_proxy: bool = True,
         metadata: Optional[dict] = None,
     ) -> None:
+        if not id:
+            id = str(uuid.uuid4())
         self.name = name
         self.addr = addr
         self.cpu = cpu
         self.memory = memory
         self.disk = disk
         self.pid = pid
-        self.id = str(uuid.uuid4())
+        self.id = id
         self.created = time.time()
         self.status = "active"
         self.image = image
@@ -99,6 +102,7 @@ class DesktopVM(WithDB):
         if record.provider:
             dct = json.loads(record.provider)
             out.provider = V1ProviderData(**dct)
+        out.metadata = {}
         if record.meta:
             dct = json.loads(record.meta)
             out.metadata = dct
@@ -147,6 +151,16 @@ class DesktopVM(WithDB):
             db.delete(record)
             db.commit()
 
+    def remove(self) -> None:
+        for db in self.get_db():
+            record = (
+                db.query(V1DesktopRecord).filter(V1DesktopRecord.id == self.id).first()
+            )
+            if record is None:
+                raise ValueError(f"Desktop with id {self.id} not found")
+            db.delete(record)
+            db.commit()
+
     def to_v1_schema(self) -> V1Desktop:
         return V1Desktop(
             id=self.id,
@@ -176,9 +190,8 @@ class DesktopVM(WithDB):
         ui_container: Optional[Container] = None
 
         for container in client.containers.list():
-            print("a container: ", container)
             if container.image.tags[0] == UI_IMG:
-                print("using existing UI container")
+                print("found running UI container")
                 # Retrieve the host port for the existing container
                 host_port = container.attrs["NetworkSettings"]["Ports"]["3000/tcp"][0][
                     "HostPort"
@@ -206,12 +219,17 @@ class DesktopVM(WithDB):
             print("removing UI container...")
             ui_container.remove()
             print("stopping ssh proxy...")
-            cleanup_proxy(proxy_pid)
+            if self.requires_proxy:
+                cleanup_proxy(proxy_pid)
 
         atexit.register(onexit)
-        while True:
-            print(f"proxying desktop vnc '{self.name}' to localhost:6080...")
-            time.sleep(20)
+        try:
+            while True:
+                print(f"proxying desktop vnc '{self.name}' to localhost:6080...")
+                time.sleep(20)
+        except KeyboardInterrupt:
+            print("Keyboard interrupt received, exiting...")
+            onexit()
 
 
 DP = TypeVar("DP", bound="DesktopProvider")
@@ -286,7 +304,7 @@ class DesktopProvider(ABC, Generic[DP]):
         pass
 
     @abstractmethod
-    def get(self, name: str) -> None:
+    def get(self, name: str) -> Optional[DesktopVM]:
         """Get a VM
 
         Args:

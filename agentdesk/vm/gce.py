@@ -124,12 +124,14 @@ class GCEProvider(DesktopProvider):
 
         new_desktop = DesktopVM(
             name=name,
+            id=created_instance.id,
             addr=ip_address,
             cpu=cpu,
             memory=memory,
             disk=disk,
             image=image,
             provider=self.to_data(),
+            requires_proxy=True,
         )
 
         return new_desktop
@@ -285,7 +287,7 @@ class GCEProvider(DesktopProvider):
 
         return out
 
-    def get(self, name: str) -> DesktopVM:
+    def get(self, name: str) -> Optional[DesktopVM]:
         try:
             return DesktopVM.load(name)
         except ValueError:
@@ -309,8 +311,13 @@ class GCEProvider(DesktopProvider):
             data (ProviderData): Provider data
         """
         out = cls.__new__(GCEProvider)
-        out.project_id = data.args["project_id"]
-        out.zone = data.args["zone"]
+
+        if "project_id" in data.args:
+            out.project_id = data.args["project_id"]
+
+        if "zone" in data.args:
+            out.zone = data.args["zone"]
+
         return out
 
 

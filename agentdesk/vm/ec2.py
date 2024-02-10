@@ -16,7 +16,7 @@ from agentdesk.util import find_ssh_public_key
 class EC2Provider(DesktopProvider):
     """A VM provider using AWS EC2"""
 
-    def __init__(self, region: str) -> None:
+    def __init__(self, region: Optional[str] = None) -> None:
         self.region = region
         self.ec2: EC2ServiceResource = boto3.resource("ec2", region_name=region)
         self.ec2_client = boto3.client("ec2", region_name=self.region)
@@ -43,7 +43,7 @@ class EC2Provider(DesktopProvider):
             image = JAMMY.ec2
 
         ssh_key = ssh_key or find_ssh_public_key()
-        print("using ssh key: ", ssh_key)
+
         user_data = f"""#cloud-config
 users:
   - name: agentsea
@@ -63,7 +63,6 @@ users:
         security_group_id = self._ensure_sg(
             "agentdesk-default", "agentdesk default vm sg"
         )
-        print("sg id: ", security_group_id)
 
         tag_specifications = [
             {
@@ -105,16 +104,18 @@ users:
 
         instance = self.ec2.Instance(instance_id)
         public_ip = instance.public_ip_address
-        print("successfully created instance: ", instance_id)
+        print(f"successfully created desktop '{name}'!")
 
         return DesktopVM(
             name=name,
+            id=instance_id,
             addr=public_ip,
             cpu=cpu,
             memory=memory,
             disk=disk,
             image=image,
             provider=self.to_data(),
+            requires_proxy=True,
         )
 
     def _ensure_sg(self, name: str, description: str) -> str:
@@ -125,8 +126,6 @@ users:
         if not vpcs["Vpcs"]:
             raise Exception("No default VPC found in this region.")
         default_vpc_id = vpcs["Vpcs"][0]["VpcId"]
-
-        print("default vpc id: ", default_vpc_id)
 
         # Check if the security group already exists
         try:
@@ -255,7 +254,13 @@ users:
         if instance:
             instance.terminate()
             instance.wait_until_terminated()
-            DesktopVM.delete(name)
+            print("remote instance terminated")
+            desk = DesktopVM.find(name)
+            if not desk:
+                raise ValueError(
+                    f"Desktop '{name}' not found in state, but deleted from provider"
+                )
+            desk.remove()
 
     def start(self, name: str) -> None:
         instance = self._get_instance_by_name(name)
@@ -269,7 +274,7 @@ users:
             instance.stop()
             instance.wait_until_stopped()
 
-    def list(self) -> List[DesktopVM]:
+    def list_remote(self) -> List[DesktopVM]:
         instances = self.ec2.instances.filter(
             Filters=[{"Name": "instance-state-name", "Values": ["running", "stopped"]}]
         )
@@ -278,18 +283,24 @@ users:
             desktops.append(DesktopVM.load(instance.id))
         return desktops
 
-    def get(self, name: str) -> Optional[DesktopVM]:
+    def list(self) -> List[DesktopVM]:
+        return DesktopVM.list()
+
+    def get_remote(self, name: str) -> Optional[DesktopVM]:
         instance = self._get_instance_by_name(name)
-        if instance:
-            return DesktopVM.load(instance.id)
-        return None
+        return DesktopVM.load(instance.id)
+
+    def get(self, name: str) -> Optional[DesktopVM]:
+        return DesktopVM.find(name)
 
     def to_data(self) -> V1ProviderData:
         return V1ProviderData(type="ec2", args={"region": self.region})
 
     @classmethod
     def from_data(cls, data: V1ProviderData) -> EC2Provider:
-        return cls(data.args["region"])
+        if data.args and "region" in data.args:
+            return cls(data.args["region"])
+        return cls()
 
     def _get_instance_by_name(self, name: str) -> Optional[EC2Instance]:
         instances = self.ec2.instances.filter(

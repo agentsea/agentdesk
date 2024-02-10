@@ -24,12 +24,20 @@ desktop = Desktop.local()
 desktop.move_mouse(500, 500)
 ```
 
+```bash
+agentdesk create --provider qemu
+```
+
 Create a remote desktop on GCE
 
 ```python
 desktop = Desktop.gce()
 
 desktop.click()
+```
+
+```bash
+agentdesk create --provider gce
 ```
 
 Create a remote desktop on EC2
@@ -40,26 +48,26 @@ desktop = Desktop.ec2()
 img = desktop.take_screenshot()
 ```
 
+```bash
+agentdesk create --provider ec2
+```
+
 View the desktop in the UI
 
 ```python
 desktop.view()
 ```
 
+```bash
+agentdesk view <NAME> --provider ec2
+```
+
 _\*requires docker_
 
-Embed the desktop in a React app
-
-```js
-import AgentDesk from "@agentsea/agentdesk";
-
-<AgentDesk addr="foo.bar" />;
-```
+### GPT-4V
 
 ---
 
 Use with langchain TODO  
 Use with baby-agi TODO  
 Use with agentsea TODO
-
-Record actions TODO

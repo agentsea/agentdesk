@@ -193,7 +193,9 @@ local-hostname: {name}
 
     def delete(self, name: str) -> None:
         """Delete a local QEMU VM."""
-        desktop = DesktopVM.load(name)
+        desktop = DesktopVM.find(name)
+        if not desktop:
+            raise ValueError(f"Desktop '{name}' does not exist.")
         if psutil.pid_exists(desktop.pid):
             process = psutil.Process(desktop.pid)
             process.terminate()
@@ -224,7 +226,9 @@ local-hostname: {name}
     def get(self, name: str) -> Optional[DesktopVM]:
         """Get a local QEMU VM."""
         try:
-            desktop = DesktopVM.load(name)
+            desktop = DesktopVM.find(name)
+            if not desktop:
+                return None
             if (
                 isinstance(desktop.provider, V1ProviderData)
                 and desktop.provider.type == "qemu"
@@ -241,4 +245,6 @@ local-hostname: {name}
     @classmethod
     def from_data(cls, data: V1ProviderData) -> QemuProvider:
         """Create a provider from ProviderData."""
-        return cls(**data.args)
+        if data.args:
+            return cls(**data.args)
+        return cls()
