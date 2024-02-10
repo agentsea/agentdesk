@@ -29,4 +29,5 @@ class V1DesktopRecord(Base):
     provider = Column(String, nullable=True)
     requires_proxy = Column(Boolean, nullable=True)
     ssh_port = Column(Integer, nullable=True)
+    reserved_ip = Column(Boolean, nullable=True)
     meta = Column(String, nullable=True)

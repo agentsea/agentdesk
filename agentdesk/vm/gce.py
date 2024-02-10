@@ -149,37 +149,27 @@ class GCEProvider(DesktopProvider):
         if not local_agentd_port:
             local_agentd_port = find_open_port(8000, 9000)
 
-        print("starting ssh tunnel...")
-        proxy_ready = False
-        while not proxy_ready:
-            try:
-                print("waiting for tunnel to be ready...")
-                pid = ensure_ssh_proxy(
-                    remote_port=8000, local_port=local_agentd_port, ssh_host=addr
-                )
-                proxy_ready = True
-            except:
-                time.sleep(2)
-                pass
-
-        atexit.register(cleanup_proxy, pid)
-
         ready = False
         while not ready:
             print("waiting for desktop to be ready...")
             time.sleep(3)
             try:
+                print("ensuring up ssh proxy...")
+                pid = ensure_ssh_proxy(
+                    remote_port=8000, local_port=local_agentd_port, ssh_host=addr
+                )
+                atexit.register(cleanup_proxy, pid)
+
                 print("calling agentd...")
                 response = requests.get(f"http://localhost:{local_agentd_port}/health")
                 print("agentd response: ", response)
                 if response.status_code == 200:
                     ready = True
+
+                cleanup_proxy(pid)
+                atexit.unregister(cleanup_proxy)
             except:
                 pass
-
-        print("cleaning up tunnel")
-        cleanup_proxy(pid)
-        atexit.unregister(cleanup_proxy)
 
     def reserve_static_ip(self, name: str) -> str:
         """Reserve a static external IP address."""
@@ -312,6 +302,9 @@ class GCEProvider(DesktopProvider):
         DesktopVM.delete(name)
 
     def start(self, name: str) -> None:
+        desk = DesktopVM.find(name)
+        if not desk:
+            raise ValueError(f"Desktop {name} not found")
         instance_client = compute_v1.InstancesClient()
         operation = instance_client.start(
             project=self.project_id,
@@ -319,8 +312,13 @@ class GCEProvider(DesktopProvider):
             instance=self._get_instance_name(name),
         )
         operation.result()  # Wait for the operation to complete
+        desk.status = "running"
+        desk.save()
 
     def stop(self, name: str) -> None:
+        desk = DesktopVM.find(name)
+        if not desk:
+            raise ValueError(f"Desktop {name} not found")
         instance_client = compute_v1.InstancesClient()
         operation = instance_client.stop(
             project=self.project_id,
@@ -328,6 +326,8 @@ class GCEProvider(DesktopProvider):
             instance=self._get_instance_name(name),
         )
         operation.result()  # Wait for the operation to complete
+        desk.status = "stopped"
+        desk.save()
 
     def list(self) -> List[DesktopVM]:
         desktops = DesktopVM.list()
@@ -350,9 +350,14 @@ class GCEProvider(DesktopProvider):
         Returns:
             ProviderData: ProviderData object
         """
-        return V1ProviderData(
-            type="gce", args={"project_id": self.project_id, "zone": self.zone}
-        )
+        args = {}
+        if self.project_id:
+            args["project_id"] = self.project_id
+        if self.zone:
+            args["zone"] = self.zone
+
+        data = V1ProviderData(type="gce", args=args)
+        return data
 
     @classmethod
     def from_data(cls, data: V1ProviderData) -> GCEProvider:
@@ -366,6 +371,49 @@ class GCEProvider(DesktopProvider):
             return GCEProvider(**data.args)
 
         return GCEProvider()
+
+    def refresh(self) -> None:
+        """Refresh the state of all VMs managed by this GCEProvider."""
+        instance_client = compute_v1.InstancesClient()
+
+        # List all instances in the project and zone
+        request = compute_v1.ListInstancesRequest(
+            project=self.project_id,
+            zone=self.zone,
+        )
+        response = instance_client.list(request=request)
+
+        # Build a list of all GCE instance names for comparison
+        gce_instance_names = [instance.name for instance in response]
+
+        # Iterate over all DesktopVM instances managed by this provider
+        for vm in DesktopVM.list():
+            if vm.provider.type != "gce":
+                continue
+
+            # Check if the VM still exists in GCE
+            if vm.name not in gce_instance_names:
+                # VM no longer exists in GCE, so remove it
+                print(f"removing vm '{vm.name}' from state")
+                DesktopVM.delete(vm.name)
+                return
+            else:
+                # VM exists, update its details
+                instance = instance_client.get(
+                    project=self.project_id,
+                    zone=self.zone,
+                    instance=vm.name,
+                )
+                # Assuming the first network interface and access config is used for the public IP
+                vm.addr = instance.network_interfaces[0].access_configs[0].nat_i_p
+                vm.status = (
+                    "running"
+                    if instance.status == compute_v1.Instance.Status.RUNNING
+                    else "stopped"
+                )
+                print(f"updating vm '{vm.name}' state")
+                vm.save()
+                return
 
 
 def create_custom_image(project_id, image_name, bucket_name, image_file):

@@ -7,6 +7,7 @@ from namesgenerator import get_random_name
 
 from agentdesk.server.models import V1ProviderData
 from agentdesk.vm.load import load_provider
+from agentdesk.vm import DesktopVM
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -68,27 +69,51 @@ def get(
         None,
         help="The name of the desktop to retrieve. If not provided, all desktops will be listed.",
     ),
-    provider: str = typer.Option(
-        "qemu", help="The provider type for the desktop. Defaults to 'qemu'."
+    provider: Optional[str] = typer.Option(
+        None, help="The provider type for the desktop. Defaults to 'qemu'."
     ),
 ):
-    data = V1ProviderData(type=provider)
-    _provider = load_provider(data)
-
     if name:
-        desktop = _provider.get(name)
+        desktop = DesktopVM.find(name)
+        if provider and desktop.provider.type != provider:
+            print(f"Desktop '{name}' not found")
+            return
+
+        _provider = load_provider(desktop.provider)
+        if not desktop.reserved_ip:
+            _provider.refresh()
+            desktop = DesktopVM.find(name)
+            if not desktop:
+                print(f"Desktop '{name}' not found")
+                return
+
         if desktop:
             print(desktop.to_v1_schema().model_dump_json(indent=2))
         else:
             print(f"Desktop '{name}' not found")
         return
 
-    vms = _provider.list()
+    provider_is_refreshed = {}
+    vms = DesktopVM.list()
     if not vms:
         print("No desktops found")
     else:
         table = []
         for desktop in vms:
+            if provider:
+                if desktop.provider.type != provider:
+                    continue
+            _provider = load_provider(desktop.provider)
+
+            if not provider_is_refreshed.get(desktop.provider.type):
+                if not desktop.reserved_ip:
+                    _provider.refresh()
+                    provider_is_refreshed[desktop.provider.type] = True
+                    desktop = DesktopVM.find(desktop.name)
+                    if not desktop:
+                        print(f"Desktop '{name}' not found")
+                        return
+
             table.append(
                 [
                     desktop.name,
@@ -96,12 +121,21 @@ def get(
                     desktop.status,
                     convert_unix_to_datetime(desktop.created),
                     desktop.provider.type,
+                    desktop.reserved_ip,
                 ]
             )
 
         print(
             tabulate(
-                table, headers=["Name", "Address", "Status", "Created", "Provider"]
+                table,
+                headers=[
+                    "Name",
+                    "Address",
+                    "Status",
+                    "Created",
+                    "Provider",
+                    "Reserved IP",
+                ],
             )
         )
 
@@ -109,12 +143,20 @@ def get(
 @app.command(help="Delete a desktop.")
 def delete(
     name: str = typer.Argument(..., help="The name of the desktop to delete."),
-    provider: str = typer.Option(
-        "qemu", help="The provider type for the desktop. Defaults to 'qemu'."
-    ),
 ):
-    data = V1ProviderData(type=provider)
-    _provider = load_provider(data)
+    desktop = DesktopVM.find(name)
+    if not desktop:
+        print(f"Desktop '{name}' not found")
+        return
+
+    _provider = load_provider(desktop.provider)
+
+    print("refreshing provider...")
+    _provider.refresh()
+    desktop = DesktopVM.find(name)
+    if not desktop:
+        print(f"Desktop '{name}' not found")
+        return
 
     print(f"Deleting '{name}' desktop...")
     _provider.delete(name)
@@ -124,19 +166,80 @@ def delete(
 @app.command(help="View a desktop in a browser.")
 def view(
     name: str = typer.Argument(..., help="The name of the desktop to view."),
-    provider: str = typer.Option(
-        "qemu", help="The provider type for the desktop. Defaults to 'qemu'."
-    ),
 ):
-    data = V1ProviderData(type=provider)
-    _provider = load_provider(data)
-
-    desktop = _provider.get(name)
+    desktop = DesktopVM.find(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
 
+    if not desktop.reserved_ip:
+        print("refreshing provider...")
+        _provider = load_provider(desktop.provider)
+        _provider.refresh()
+        desktop = DesktopVM.find(name)
+        if not desktop:
+            print(f"Desktop '{name}' not found")
+            return
+
     desktop.view()
+
+
+@app.command(help="Refresh a provider")
+def refresh(
+    provider: str = typer.Argument(
+        ..., help="The provider type for the desktop. Defaults to 'qemu'."
+    )
+):
+    data = V1ProviderData(type=provider)
+    _provider = load_provider(data)
+    _provider.refresh()
+    print(f"Provider '{provider}' successfully refreshed")
+
+
+@app.command(help="Stop a desktop.")
+def stop(
+    name: str = typer.Argument(..., help="The name of the desktop to stop."),
+):
+    desktop = DesktopVM.find(name)
+    if not desktop:
+        print(f"Desktop '{name}' not found")
+        return
+
+    if not desktop.reserved_ip:
+        print("refreshing provider...")
+        _provider = load_provider(desktop.provider)
+        _provider.refresh()
+        desktop = DesktopVM.find(name)
+        if not desktop:
+            print(f"Desktop '{name}' not found")
+            return
+
+    print(f"Stopping desktop '{name}'...")
+    _provider.stop(name)
+    print(f"Desktop '{name}' successfully stopped")
+
+
+@app.command(help="Start a desktop.")
+def start(
+    name: str = typer.Argument(..., help="The name of the desktop to start."),
+):
+    desktop = DesktopVM.find(name)
+    if not desktop:
+        print(f"Desktop '{name}' not found")
+        return
+
+    if not desktop.reserved_ip:
+        print("refreshing provider...")
+        _provider = load_provider(desktop.provider)
+        _provider.refresh()
+        desktop = DesktopVM.find(name)
+        if not desktop:
+            print(f"Desktop '{name}' not found")
+            return
+
+    print(f"Starting desktop '{name}'...")
+    _provider.start(name)
+    print(f"Desktop '{name}' successfully started")
 
 
 if __name__ == "__main__":

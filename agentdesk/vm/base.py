@@ -18,6 +18,7 @@ from agentdesk.server.models import V1Desktop, V1Desktops, V1ProviderData
 from agentdesk.util import get_docker_host, check_command_availability
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 
+
 UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:a85fde68ac9849d9301be702f2092a8a299abe52"
 
 
@@ -33,8 +34,10 @@ class DesktopVM(WithDB):
         memory: Optional[str] = None,
         disk: Optional[str] = None,
         pid: Optional[int] = None,
+        status: str = "running",
         image: Optional[str] = None,
         provider: Optional[V1ProviderData] = None,
+        reserved_ip: bool = False,
         requires_proxy: bool = True,
         metadata: Optional[dict] = None,
         ssh_port: int = 22,
@@ -49,9 +52,10 @@ class DesktopVM(WithDB):
         self.pid = pid
         self.id = id
         self.created = time.time()
-        self.status = "active"
+        self.status = status
         self.image = image
         self.provider = provider
+        self.reserved_ip = reserved_ip
         self.requires_proxy = requires_proxy
         self.metadata = metadata
         self.ssh_port = ssh_port
@@ -78,6 +82,7 @@ class DesktopVM(WithDB):
             status=self.status,
             image=self.image,
             provider=provider,
+            reserved_ip=self.reserved_ip,
             requires_proxy=self.requires_proxy,
             ssh_port=self.ssh_port,
             meta=metadata,
@@ -87,6 +92,7 @@ class DesktopVM(WithDB):
         for db in self.get_db():
             db.merge(self.to_record())
             db.commit()
+        print(f"saved desktop '{self.name}'")
 
     @classmethod
     def from_record(cls, record: V1DesktopRecord) -> DesktopVM:
@@ -101,6 +107,7 @@ class DesktopVM(WithDB):
         out.pid = record.pid
         out.status = record.status
         out.image = record.image
+        out.reserved_ip = record.reserved_ip
         out.requires_proxy = record.requires_proxy
         out.ssh_port = record.ssh_port
         if record.provider:
@@ -158,7 +165,9 @@ class DesktopVM(WithDB):
     @classmethod
     def name_exists(cls, name: str) -> bool:
         for db in cls.get_db():
-            record = db.query(V1DesktopRecord).filter(V1DesktopRecord.id == id).first()
+            record = (
+                db.query(V1DesktopRecord).filter(V1DesktopRecord.name == name).first()
+            )
             if record is None:
                 return False
 
@@ -185,6 +194,7 @@ class DesktopVM(WithDB):
             cpu=self.cpu,
             disk=self.disk,
             image=self.image,
+            reserved_ip=self.reserved_ip,
             provider=self.provider,
             metadata=self.metadata,
             ssh_port=self.ssh_port,
@@ -345,4 +355,9 @@ class DesktopProvider(ABC, Generic[DP]):
         Args:
             data (ProviderData): Provider data
         """
+        pass
+
+    @abstractmethod
+    def refresh(self) -> None:
+        """Refresh state"""
         pass

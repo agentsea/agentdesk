@@ -170,6 +170,10 @@ def setup_ssh_proxy(
 ) -> Optional[subprocess.Popen]:
     """Set up an SSH proxy if it's not already running."""
 
+    def check_port_in_use(port: int) -> bool:
+        # Dummy implementation; replace with actual check
+        return False
+
     if check_port_in_use(local_port):
         print(f"Port {local_port} is already in use. Assuming SSH proxy is running.")
         return None
@@ -178,11 +182,18 @@ def setup_ssh_proxy(
         "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
         f"-N -L {local_port}:localhost:{remote_port} -p {ssh_port} {ssh_user}@{ssh_host}"
     )
-    print("executing command: ", ssh_command)
+    print("Executing command: ", ssh_command)
     try:
         proxy_process = subprocess.Popen(
             ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
+        # Give it a moment to fail, SSH should exit immediately if there's an error
+        time.sleep(1)
+        if proxy_process.poll() is not None:  # None means the process is still running
+            # The process has exited, indicating failure
+            _, err = proxy_process.communicate()
+            print(f"SSH proxy failed to start. Error: {err.decode()}")
+            return None
     except Exception as e:
         print(f"Error starting SSH proxy: {e}")
         raise

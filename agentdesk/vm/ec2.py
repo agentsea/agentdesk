@@ -136,31 +136,25 @@ users:
         if not local_agentd_port:
             local_agentd_port = find_open_port(8000, 9000)
         print("waiting for desktop to be ready...")
-        print("starting ssh tunnel...")
-        proxy_ready = False
-        while not proxy_ready:
-            try:
-                print("waiting for tunnel to be ready...")
-                pid = ensure_ssh_proxy(
-                    remote_port=8000, local_port=local_agentd_port, ssh_host=addr
-                )
-                proxy_ready = True
-            except:
-                time.sleep(2)
-                pass
-
-        atexit.register(cleanup_proxy, pid)
 
         ready = False
         while not ready:
             print("waiting for desktop to be ready...")
             time.sleep(3)
             try:
+                print("ensuring up ssh proxy...")
+                pid = ensure_ssh_proxy(
+                    remote_port=8000, local_port=local_agentd_port, ssh_host=addr
+                )
+                atexit.register(cleanup_proxy, pid)
+
                 print("calling agentd...")
                 response = requests.get(f"http://localhost:{local_agentd_port}/health")
                 print("agentd response: ", response)
                 if response.status_code == 200:
                     ready = True
+                cleanup_proxy(pid)
+                atexit.unregister(cleanup_proxy)
             except:
                 pass
 
@@ -313,16 +307,26 @@ users:
             desk.remove()
 
     def start(self, name: str) -> None:
+        desk = DesktopVM.find(name)
+        if not desk:
+            raise ValueError(f"Desktop {name} not found")
         instance = self._get_instance_by_name(name)
         if instance:
             instance.start()
             instance.wait_until_running()
+        desk.status = "running"
+        desk.save()
 
     def stop(self, name: str) -> None:
+        desk = DesktopVM.find(name)
+        if not desk:
+            raise ValueError(f"Desktop {name} not found")
         instance = self._get_instance_by_name(name)
         if instance:
             instance.stop()
             instance.wait_until_stopped()
+        desk.status = "stopped"
+        desk.save()
 
     def list_remote(self) -> List[DesktopVM]:
         instances = self.ec2.instances.filter(
@@ -344,7 +348,10 @@ users:
         return DesktopVM.find(name)
 
     def to_data(self) -> V1ProviderData:
-        return V1ProviderData(type="ec2", args={"region": self.region})
+        provider = V1ProviderData(type="ec2")
+        if self.region:
+            provider.args = {"region": self.region}
+        return provider
 
     @classmethod
     def from_data(cls, data: V1ProviderData) -> EC2Provider:
@@ -366,3 +373,24 @@ users:
                     volume = boto3.resource("ec2").Volume(volume_id)
                     return f"{volume.size}gb"
         return "unknown"
+
+    def refresh(self, log: bool = True) -> None:
+        """Refresh state"""
+        for vm in DesktopVM.list():
+            if vm.provider.type != "ec2":
+                continue
+
+            instance = self._get_instance_by_name(vm.name)
+            if not instance:
+                if log:
+                    print(f"removing vm '{vm.name}' from state")
+                vm.remove()
+                return
+
+            if not vm.reserved_ip:
+                if vm.addr != instance.public_ip_address:
+                    if log:
+                        print(f"updating vm '{vm.name}' state")
+                    vm.addr = instance.public_ip_address
+                    vm.save()
+                    return

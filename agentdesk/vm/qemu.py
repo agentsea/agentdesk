@@ -19,7 +19,6 @@ from agentdesk.util import (
     check_command_availability,
     find_ssh_public_key,
 )
-from agentdesk.proxy import SSHPortForwarding
 
 META_PYTHON_IMAGE = "python:3.9-slim"
 META_CONTAINER_NAME = "http_server"
@@ -109,7 +108,6 @@ local-hostname: {name}
         command = (
             f"qemu-system-x86_64 -nographic -hda {image_path} -m {memory}G "
             f"-smp {cpu} -netdev user,id=vmnet,hostfwd=tcp::5900-:5900,hostfwd=tcp::{sockify_port}-:6080,hostfwd=tcp::{agentd_port}-:8000,hostfwd=tcp::{ssh_port}-:22 "
-            # f"-smp {cpu} -netdev user,id=vmnet,hostfwd=tcp::{ssh_port}-:22 "
             "-device e1000,netdev=vmnet "
             f"-cdrom cidata.iso"
         )
@@ -263,3 +261,24 @@ local-hostname: {name}
         if data.args:
             return cls(**data.args)
         return cls()
+
+    def refresh(self) -> None:
+        """Refresh the state of all local QEMU VMs."""
+        desktops = DesktopVM.list()
+
+        for desktop in desktops:
+            if (
+                isinstance(desktop.provider, V1ProviderData)
+                and desktop.provider.type == "qemu"
+            ):
+                # Check if the process is still running
+                if desktop.pid and psutil.pid_exists(desktop.pid):
+                    process = psutil.Process(desktop.pid)
+                    if not process.is_running():
+                        print(f"removing vm '{desktop.name}' from state")
+                        desktop.remove()
+                        return
+                else:
+                    print(f"removing vm '{desktop.name}' from state")
+                    desktop.remove()
+                    return
