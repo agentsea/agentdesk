@@ -140,9 +140,15 @@ class SSHPortForwarding:
         print("SSH tunnel and all related resources have been closed.")
 
 
-def check_ssh_proxy_running(port: int, ssh_user: str, ssh_host: str) -> Optional[int]:
+def check_ssh_proxy_running(
+    local_port: int, remote_port: int, ssh_port: int, ssh_user: str, ssh_host: str
+) -> Optional[int]:
     """Check if an SSH proxy process is running with the given user, host, and port, and return its PID."""
-    search_command = f"ssh -N -L {port}:{ssh_host}:{port} -p 2222 {ssh_user}@{ssh_host}"
+
+    search_command = (
+        "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
+        f"ssh -N -L {local_port}:localhost:{remote_port} -p {ssh_port} {ssh_user}@{ssh_host}"
+    )
     for proc in psutil.process_iter(["cmdline", "pid"]):
         try:
             cmdline: list[str] = proc.info["cmdline"]
@@ -156,16 +162,21 @@ def check_ssh_proxy_running(port: int, ssh_user: str, ssh_host: str) -> Optional
 
 
 def setup_ssh_proxy(
-    port: int = 6080, ssh_user: str = "agentsea", ssh_host: str = "localhost"
+    local_port: int = 6080,
+    remote_port: int = 6080,
+    ssh_port: int = 22,
+    ssh_user: str = "agentsea",
+    ssh_host: str = "localhost",
 ) -> Optional[subprocess.Popen]:
     """Set up an SSH proxy if it's not already running."""
-    if check_port_in_use(port):
-        print(f"Port {port} is already in use. Assuming SSH proxy is running.")
+
+    if check_port_in_use(local_port):
+        print(f"Port {local_port} is already in use. Assuming SSH proxy is running.")
         return None
 
     ssh_command = (
-        f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-        f"-N -L {port}:localhost:{port} -p 2222 {ssh_user}@{ssh_host}"
+        "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
+        f"-N -L {local_port}:localhost:{remote_port} -p {ssh_port} {ssh_user}@{ssh_host}"
     )
     print("executing command: ", ssh_command)
     try:
@@ -175,12 +186,13 @@ def setup_ssh_proxy(
     except Exception as e:
         print(f"Error starting SSH proxy: {e}")
         raise
-    print(f"SSH proxy setup on port {port}")
+    print(f"SSH proxy setup on local port {local_port}")
     return proxy_process
 
 
 def cleanup_proxy(pid: int) -> None:
     """Terminate the SSH proxy process with the given PID."""
+
     try:
         proc = psutil.Process(pid)
         proc.terminate()  # Terminate the process
@@ -197,21 +209,25 @@ def cleanup_proxy(pid: int) -> None:
 
 
 def ensure_ssh_proxy(
-    port: int = 6080, ssh_user: str = "agentsea", ssh_host: str = "localhost"
+    remote_port: int = 6080,
+    local_port: int = 6080,
+    ssh_port: int = 22,
+    ssh_user: str = "agentsea",
+    ssh_host: str = "localhost",
 ) -> int:
     """Ensure that an SSH proxy is running and return its PID."""
-    pid = check_ssh_proxy_running(port, ssh_user, ssh_host)
+    pid = check_ssh_proxy_running(local_port, remote_port, ssh_port, ssh_user, ssh_host)
     if pid:
         print("Existing SSH proxy found.")
         return pid  # PID of the already running process
 
     print("SSH proxy not found, starting one...")
-    process = setup_ssh_proxy(port, ssh_user, ssh_host)
+    process = setup_ssh_proxy(local_port, remote_port, ssh_port, ssh_user, ssh_host)
     if process is None:
         # If setup_ssh_proxy returned None, it means the port is in use but no PID was found.
         # It might be necessary to refine check_ssh_proxy_running or setup_ssh_proxy to ensure consistency.
         raise RuntimeError(
-            f"Failed to start SSH proxy on port {port}, and no existing process was found."
+            f"Failed to start SSH proxy on local port {local_port}, and no existing process was found."
         )
     time.sleep(1)  # Adjust sleep time as needed
     return process.pid  # Assuming the process started successfully

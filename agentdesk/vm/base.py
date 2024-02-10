@@ -37,6 +37,7 @@ class DesktopVM(WithDB):
         provider: Optional[V1ProviderData] = None,
         requires_proxy: bool = True,
         metadata: Optional[dict] = None,
+        ssh_port: int = 22,
     ) -> None:
         if not id:
             id = str(uuid.uuid4())
@@ -53,6 +54,7 @@ class DesktopVM(WithDB):
         self.provider = provider
         self.requires_proxy = requires_proxy
         self.metadata = metadata
+        self.ssh_port = ssh_port
 
         self.save()
 
@@ -77,6 +79,7 @@ class DesktopVM(WithDB):
             image=self.image,
             provider=provider,
             requires_proxy=self.requires_proxy,
+            ssh_port=self.ssh_port,
             meta=metadata,
         )
 
@@ -99,6 +102,7 @@ class DesktopVM(WithDB):
         out.status = record.status
         out.image = record.image
         out.requires_proxy = record.requires_proxy
+        out.ssh_port = record.ssh_port
         if record.provider:
             dct = json.loads(record.provider)
             out.provider = V1ProviderData(**dct)
@@ -151,6 +155,15 @@ class DesktopVM(WithDB):
             db.delete(record)
             db.commit()
 
+    @classmethod
+    def name_exists(cls, name: str) -> bool:
+        for db in cls.get_db():
+            record = db.query(V1DesktopRecord).filter(V1DesktopRecord.id == id).first()
+            if record is None:
+                return False
+
+            return True
+
     def remove(self) -> None:
         for db in self.get_db():
             record = (
@@ -174,13 +187,14 @@ class DesktopVM(WithDB):
             image=self.image,
             provider=self.provider,
             metadata=self.metadata,
+            ssh_port=self.ssh_port,
         )
 
     def view(self, background: bool = False) -> None:
         """Opens the desktop in a browser window"""
 
         if self.requires_proxy:
-            proxy_pid = ensure_ssh_proxy(6080, "agentsea", self.addr)
+            proxy_pid = ensure_ssh_proxy(6080, self.ssh_port, "agentsea", self.addr)
 
         check_command_availability("docker")
 

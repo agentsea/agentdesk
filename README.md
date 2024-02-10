@@ -12,62 +12,101 @@ Implements the [ToolsV1 protocol](https://github.com/AgentSea/agent-tools)
 pip install agentdesk
 ```
 
-## Usage
-
-Create a local desktop
+## Quick Start
 
 ```python
 from agentdesk import Desktop
 
 desktop = Desktop.local()
+desktop.view(background=True)
+
+desktop.open_url("https://google.com")
 
 desktop.move_mouse(500, 500)
-```
-
-```bash
-agentdesk create --provider qemu
-```
-
-Create a remote desktop on GCE
-
-```python
-desktop = Desktop.gce()
 
 desktop.click()
-```
-
-```bash
-agentdesk create --provider gce
-```
-
-Create a remote desktop on EC2
-
-```python
-desktop = Desktop.ec2()
 
 img = desktop.take_screenshot()
 ```
 
-```bash
-agentdesk create --provider ec2
+## Usage
+
+### Create a local desktop
+
+```python
+from agentdesk import Desktop
+
+desktop = Desktop.local()
 ```
 
-View the desktop in the UI
+```bash
+$ agentdesk create --provider qemu
+```
+
+_\*requires [qemu](https://www.qemu.org/)_
+
+### Create a remote desktop on GCE
+
+```python
+desktop = Desktop.gce()
+```
+
+```bash
+$ agentdesk create --provider gce
+```
+
+### Create a remote desktop on EC2
+
+```python
+desktop = Desktop.ec2()
+```
+
+```bash
+$ agentdesk create --provider ec2
+```
+
+### View the desktop in the UI
 
 ```python
 desktop.view()
 ```
 
 ```bash
-agentdesk view old_mckinny --provider ec2
+$ agentdesk view old_mckinny --provider ec2
 ```
 
 _\*requires docker_
 
+### List active desktops
+
+```python
+Desktop.list(provider="ec2")
+```
+
+```bash
+$ agentdesk get --provider ec2
+```
+
+### Use the desktop
+
+```python
+desktop.open_url("https://google.com")
+
+coords = desktop.mouse_coordinates()
+
+desktop.move_mouse(500, 500)
+
+desktop.click()
+
+desktop.type_text("What kind of ducks are in Canada?")
+
+desktop.press_key('Enter')
+
+desktop.scroll()
+
+img = desktop.take_screenshot()
+```
+
 ### GPT-4V
 
----
-
-Use with langchain TODO  
-Use with baby-agi TODO  
-Use with agentsea TODO
+## Developing

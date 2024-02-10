@@ -51,6 +51,9 @@ class QemuProvider(DesktopProvider):
         if not name:
             name = get_random_name()
 
+        if DesktopVM.name_exists(name):
+            raise ValueError(f"VM name '{name}' already exists")
+
         # Directory to store VM images
         vm_dir = os.path.expanduser(f"~/.agentsea/vms")
         os.makedirs(vm_dir, exist_ok=True)
@@ -123,18 +126,7 @@ local-hostname: {name}
                     stderr=subprocess.DEVNULL,
                 )
 
-            ready = False
-            while not ready:
-                print("waiting for desktop to be ready...")
-                time.sleep(3)
-                try:
-                    print("calling agentd...")
-                    response = requests.get(f"http://localhost:{agentd_port}/health")
-                    print("agentd response: ", response)
-                    if response.status_code == 200:
-                        ready = True
-                except:
-                    pass
+            self._wait_till_ready(agentd_port)
 
         except KeyboardInterrupt:
             print("Keyboard interrupt received, terminating process...")
@@ -158,8 +150,23 @@ local-hostname: {name}
             image=image,
             provider=self.to_data(),
             requires_proxy=False,
+            ssh_port=ssh_port,
         )
         return desktop
+
+    def _wait_till_ready(self, agentd_port: int) -> None:
+        ready = False
+        while not ready:
+            print("waiting for desktop to be ready...")
+            time.sleep(3)
+            try:
+                print("calling agentd...")
+                response = requests.get(f"http://localhost:{agentd_port}/health")
+                print("agentd response: ", response)
+                if response.status_code == 200:
+                    ready = True
+            except:
+                pass
 
     def _create_iso(self, output_iso: str, user_data: str, meta_data: str) -> None:
         iso = pycdlib.PyCdlib()

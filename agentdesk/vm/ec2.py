@@ -1,16 +1,20 @@
 from __future__ import annotations
 from typing import List, Optional, Dict
+import atexit
+import time
 
 import boto3
 from boto3.resources.base import ServiceResource
 from mypy_boto3_ec2.service_resource import EC2ServiceResource, Instance as EC2Instance
 from namesgenerator import get_random_name
 from botocore.exceptions import ClientError
+import requests
 
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
-from agentdesk.util import find_ssh_public_key
+from agentdesk.util import find_ssh_public_key, find_open_port
+from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 
 
 class EC2Provider(DesktopProvider):
@@ -34,6 +38,10 @@ class EC2Provider(DesktopProvider):
     ) -> DesktopVM:
         if not name:
             name = get_random_name()
+
+        if DesktopVM.name_exists(name):
+            raise ValueError(f"VM name '{name}' already exists")
+
         if not image:
             # Dynamically select the latest custom AMI based on a naming pattern
             # custom_ami = self._get_latest_custom_ami()
@@ -104,6 +112,10 @@ users:
 
         instance = self.ec2.Instance(instance_id)
         public_ip = instance.public_ip_address
+
+        # wait till agentd is ready
+        self._wait_till_ready(public_ip)
+
         print(f"\nsuccessfully created desktop '{name}'")
 
         return DesktopVM(
@@ -117,6 +129,44 @@ users:
             provider=self.to_data(),
             requires_proxy=True,
         )
+
+    def _wait_till_ready(
+        self, addr: str, local_agentd_port: Optional[int] = None
+    ) -> None:
+        if not local_agentd_port:
+            local_agentd_port = find_open_port(8000, 9000)
+        print("waiting for desktop to be ready...")
+        print("starting ssh tunnel...")
+        proxy_ready = False
+        while not proxy_ready:
+            try:
+                print("waiting for tunnel to be ready...")
+                pid = ensure_ssh_proxy(
+                    remote_port=8000, local_port=local_agentd_port, ssh_host=addr
+                )
+                proxy_ready = True
+            except:
+                time.sleep(2)
+                pass
+
+        atexit.register(cleanup_proxy, pid)
+
+        ready = False
+        while not ready:
+            print("waiting for desktop to be ready...")
+            time.sleep(3)
+            try:
+                print("calling agentd...")
+                response = requests.get(f"http://localhost:{local_agentd_port}/health")
+                print("agentd response: ", response)
+                if response.status_code == 200:
+                    ready = True
+            except:
+                pass
+
+        print("cleaning up tunnel")
+        cleanup_proxy(pid)
+        atexit.unregister(cleanup_proxy)
 
     def _ensure_sg(self, name: str, description: str) -> str:
         # Attempt to find the default VPC

@@ -28,4 +28,5 @@ class V1DesktopRecord(Base):
     image = Column(String, nullable=True)
     provider = Column(String, nullable=True)
     requires_proxy = Column(Boolean, nullable=True)
+    ssh_port = Column(Integer, nullable=True)
     meta = Column(String, nullable=True)

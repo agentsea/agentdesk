@@ -2,15 +2,18 @@ from __future__ import annotations
 from typing import List, Optional, Dict
 import re
 import time
+import atexit
 
 from google.cloud import compute_v1
 from google.cloud import _helpers
 from namesgenerator import get_random_name
+import requests
 
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
-from agentdesk.util import find_ssh_public_key
+from agentdesk.util import find_ssh_public_key, find_open_port
+from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 
 
 class GCEProvider(DesktopProvider):
@@ -44,6 +47,10 @@ class GCEProvider(DesktopProvider):
 
         if not name:
             name = get_random_name()
+
+        if DesktopVM.name_exists(name):
+            raise ValueError(f"VM name '{name}' already exists")
+
         if not image:
             image = JAMMY.gce
 
@@ -116,6 +123,9 @@ class GCEProvider(DesktopProvider):
         )
         ip_address = created_instance.network_interfaces[0].access_configs[0].nat_i_p
 
+        # Wait for the VM to be ready
+        self._wait_till_ready(ip_address)
+
         print(f"\nsuccessfully created desktop '{name}'")
 
         new_desktop = DesktopVM(
@@ -131,6 +141,45 @@ class GCEProvider(DesktopProvider):
         )
 
         return new_desktop
+
+    def _wait_till_ready(
+        self, addr: str, local_agentd_port: Optional[int] = None
+    ) -> None:
+        print("waiting for desktop to be ready...")
+        if not local_agentd_port:
+            local_agentd_port = find_open_port(8000, 9000)
+
+        print("starting ssh tunnel...")
+        proxy_ready = False
+        while not proxy_ready:
+            try:
+                print("waiting for tunnel to be ready...")
+                pid = ensure_ssh_proxy(
+                    remote_port=8000, local_port=local_agentd_port, ssh_host=addr
+                )
+                proxy_ready = True
+            except:
+                time.sleep(2)
+                pass
+
+        atexit.register(cleanup_proxy, pid)
+
+        ready = False
+        while not ready:
+            print("waiting for desktop to be ready...")
+            time.sleep(3)
+            try:
+                print("calling agentd...")
+                response = requests.get(f"http://localhost:{local_agentd_port}/health")
+                print("agentd response: ", response)
+                if response.status_code == 200:
+                    ready = True
+            except:
+                pass
+
+        print("cleaning up tunnel")
+        cleanup_proxy(pid)
+        atexit.unregister(cleanup_proxy)
 
     def reserve_static_ip(self, name: str) -> str:
         """Reserve a static external IP address."""
@@ -253,7 +302,9 @@ class GCEProvider(DesktopProvider):
     def delete(self, name: str) -> None:
         instance_client = compute_v1.InstancesClient()
         operation = instance_client.delete(
-            project=self.project_id, zone=self.zone, instance=name
+            project=self.project_id,
+            zone=self.zone,
+            instance=self._get_instance_name(name),
         )
         operation.result()  # Wait for operation to complete
 
@@ -263,14 +314,18 @@ class GCEProvider(DesktopProvider):
     def start(self, name: str) -> None:
         instance_client = compute_v1.InstancesClient()
         operation = instance_client.start(
-            project=self.project_id, zone=self.zone, instance=name
+            project=self.project_id,
+            zone=self.zone,
+            instance=self._get_instance_name(name),
         )
         operation.result()  # Wait for the operation to complete
 
     def stop(self, name: str) -> None:
         instance_client = compute_v1.InstancesClient()
         operation = instance_client.stop(
-            project=self.project_id, zone=self.zone, instance=name
+            project=self.project_id,
+            zone=self.zone,
+            instance=self._get_instance_name(name),
         )
         operation.result()  # Wait for the operation to complete
 
