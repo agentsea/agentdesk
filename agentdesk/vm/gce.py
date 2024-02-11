@@ -46,7 +46,7 @@ class GCEProvider(DesktopProvider):
         """Create a VM in GCP."""
 
         if not name:
-            name = get_random_name()
+            name = get_random_name(sep="-")
 
         if DesktopVM.name_exists(name):
             raise ValueError(f"VM name '{name}' already exists")
@@ -81,37 +81,41 @@ class GCEProvider(DesktopProvider):
             access_configs=access_configs,
         )
 
-        instance_name = self._get_instance_name(name)
-        instance = compute_v1.Instance(
-            name=instance_name,
-            machine_type=machine_type,
-            disks=[_disk],
-            network_interfaces=[network_interface],
-        )
-
-        if reserve_ip:
-            static_ip_name = f"{name.replace('_', '-')}-ip"
-            reserved_ip = self.reserve_static_ip(static_ip_name)
-            access_config = compute_v1.AccessConfig(
-                nat_ip=reserved_ip, name="External NAT"
-            )
-            instance.network_interfaces[0].access_configs = [access_config]
+        # Network tags for firewall rules (SSH-only access)
+        network_tags = ["ssh-only"]
 
         if not tags:
             tags = {}
-
-        tags["provisioner"] = "agentdesk"
-        instance.labels = tags
+        tags["provisioner"] = "agentdesk"  # Your custom labels
 
         if not ssh_key:
             ssh_key = find_ssh_public_key()
 
         if ssh_key:
-            instance.metadata = {
-                "items": [{"key": "ssh-keys", "value": f"agentsea:{ssh_key}"}]
-            }
+            metadata = compute_v1.Metadata(
+                items=[{"key": "ssh-keys", "value": f"agentsea:{ssh_key}"}]
+            )
         else:
             raise ValueError("No SSH key provided and could not find one")
+
+        # Instance creation with network tags and metadata
+        instance = compute_v1.Instance(
+            name=name,
+            machine_type=machine_type,
+            disks=[_disk],
+            network_interfaces=[network_interface],
+            tags=compute_v1.Tags(items=network_tags),
+            labels=tags,
+            metadata=metadata,
+        )
+
+        if reserve_ip:
+            static_ip_name = f"{name}-ip"
+            reserved_ip = self.reserve_static_ip(static_ip_name)
+            access_config = compute_v1.AccessConfig(
+                nat_ip=reserved_ip, name="External NAT"
+            )
+            instance.network_interfaces[0].access_configs = [access_config]
 
         operation = instance_client.insert(
             project=self.project_id, zone=self.zone, instance_resource=instance
@@ -119,14 +123,12 @@ class GCEProvider(DesktopProvider):
         operation.result()
 
         created_instance = instance_client.get(
-            project=self.project_id, zone=self.zone, instance=instance_name
+            project=self.project_id, zone=self.zone, instance=name
         )
         ip_address = created_instance.network_interfaces[0].access_configs[0].nat_i_p
 
         # Wait for the VM to be ready
         self._wait_till_ready(ip_address)
-
-        print(f"\nsuccessfully created desktop '{name}'")
 
         new_desktop = DesktopVM(
             name=name,
@@ -139,7 +141,7 @@ class GCEProvider(DesktopProvider):
             provider=self.to_data(),
             requires_proxy=True,
         )
-
+        print(f"\nsuccessfully created desktop '{name}'")
         return new_desktop
 
     def _wait_till_ready(
@@ -156,7 +158,7 @@ class GCEProvider(DesktopProvider):
             try:
                 print("ensuring up ssh proxy...")
                 pid = ensure_ssh_proxy(
-                    remote_port=8000, local_port=local_agentd_port, ssh_host=addr
+                    local_port=local_agentd_port, remote_port=8000, ssh_host=addr
                 )
                 atexit.register(cleanup_proxy, pid)
 
@@ -169,6 +171,7 @@ class GCEProvider(DesktopProvider):
                 cleanup_proxy(pid)
                 atexit.unregister(cleanup_proxy)
             except:
+                cleanup_proxy(pid)
                 pass
 
     def reserve_static_ip(self, name: str) -> str:
@@ -201,9 +204,6 @@ class GCEProvider(DesktopProvider):
             project=self.project_id, firewall_resource=firewall
         )
         return operation.result()
-
-    def _get_instance_name(self, name: str) -> str:
-        return name.replace("_", "-")
 
     def _parse_gcs_url(self, gcs_url: str) -> (str, str):
         """Extract the bucket name and image file from a GCS URL."""
@@ -290,16 +290,20 @@ class GCEProvider(DesktopProvider):
         return 0, "unknown"
 
     def delete(self, name: str) -> None:
+        desktop = DesktopVM.find(name)
+        if not desktop:
+            raise ValueError(f"Desktop {name} not found")
+
         instance_client = compute_v1.InstancesClient()
         operation = instance_client.delete(
             project=self.project_id,
             zone=self.zone,
-            instance=self._get_instance_name(name),
+            instance=name,
         )
         operation.result()  # Wait for operation to complete
 
         # Delete the Desktop record
-        DesktopVM.delete(name)
+        desktop.remove()
 
     def start(self, name: str) -> None:
         desk = DesktopVM.find(name)
@@ -309,9 +313,16 @@ class GCEProvider(DesktopProvider):
         operation = instance_client.start(
             project=self.project_id,
             zone=self.zone,
-            instance=self._get_instance_name(name),
+            instance=name,
         )
         operation.result()  # Wait for the operation to complete
+        created_instance = instance_client.get(
+            project=self.project_id, zone=self.zone, instance=name
+        )
+        ip_address = created_instance.network_interfaces[0].access_configs[0].nat_i_p
+        desk.addr = ip_address
+
+        self._wait_till_ready(ip_address)
         desk.status = "running"
         desk.save()
 
@@ -323,7 +334,7 @@ class GCEProvider(DesktopProvider):
         operation = instance_client.stop(
             project=self.project_id,
             zone=self.zone,
-            instance=self._get_instance_name(name),
+            instance=name,
         )
         operation.result()  # Wait for the operation to complete
         desk.status = "stopped"
@@ -372,7 +383,7 @@ class GCEProvider(DesktopProvider):
 
         return GCEProvider()
 
-    def refresh(self) -> None:
+    def refresh(self, log: bool = True) -> None:
         """Refresh the state of all VMs managed by this GCEProvider."""
         instance_client = compute_v1.InstancesClient()
 
@@ -382,7 +393,6 @@ class GCEProvider(DesktopProvider):
             zone=self.zone,
         )
         response = instance_client.list(request=request)
-
         # Build a list of all GCE instance names for comparison
         gce_instance_names = [instance.name for instance in response]
 
@@ -394,8 +404,9 @@ class GCEProvider(DesktopProvider):
             # Check if the VM still exists in GCE
             if vm.name not in gce_instance_names:
                 # VM no longer exists in GCE, so remove it
-                print(f"removing vm '{vm.name}' from state")
-                DesktopVM.delete(vm.name)
+                if log:
+                    print(f"removing vm '{vm.name}' from state")
+                vm.remove()
                 return
             else:
                 # VM exists, update its details
@@ -405,14 +416,15 @@ class GCEProvider(DesktopProvider):
                     instance=vm.name,
                 )
                 # Assuming the first network interface and access config is used for the public IP
-                vm.addr = instance.network_interfaces[0].access_configs[0].nat_i_p
-                vm.status = (
-                    "running"
-                    if instance.status == compute_v1.Instance.Status.RUNNING
-                    else "stopped"
-                )
-                print(f"updating vm '{vm.name}' state")
-                vm.save()
+                remote_addr = instance.network_interfaces[0].access_configs[0].nat_i_p
+                remote_status = "running" if instance.status == "RUNNING" else "stopped"
+
+                if remote_status != vm.status or remote_addr != vm.addr:
+                    if log:
+                        print(f"updating vm '{vm.name}' state")
+                    vm.status = remote_status
+                    vm.addr = remote_addr
+                    vm.save()
                 return
 
 

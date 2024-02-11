@@ -1,6 +1,5 @@
 from typing import Optional
 import typer
-from datetime import datetime
 
 from tabulate import tabulate
 from namesgenerator import get_random_name
@@ -8,16 +7,9 @@ from namesgenerator import get_random_name
 from agentdesk.server.models import V1ProviderData
 from agentdesk.vm.load import load_provider
 from agentdesk.vm import DesktopVM
+from agentdesk.util import convert_unix_to_datetime
 
 app = typer.Typer(no_args_is_help=True)
-
-
-def convert_unix_to_datetime(unix_timestamp: int) -> str:
-    # Convert Unix timestamp to datetime
-    dt = datetime.utcfromtimestamp(unix_timestamp)
-    # Format datetime in a friendly format, e.g., "YYYY-MM-DD HH:MM:SS"
-    friendly_format = dt.strftime("%Y-%m-%d %H:%M:%S")
-    return friendly_format
 
 
 @app.command(help="Create a desktop.")
@@ -26,31 +18,28 @@ def create(
         None, help="The name of the desktop to create. Defaults to a generated name."
     ),
     provider: str = typer.Option(
-        "qemu", help="The provider type for the desktop. Defaults to 'qemu'."
+        "qemu",
+        help="The provider type for the desktop. Options are 'ec2', 'gce', and 'qemu'",
     ),
     image: Optional[str] = typer.Option(
         None, help="The image to use for the desktop. Defaults to Ubuntu Jammy."
     ),
-    memory: int = typer.Option(
-        4, help="The amount of memory (in GB) for the desktop. Defaults to 4."
-    ),
-    cpu: int = typer.Option(
-        2, help="The number of CPU cores for the desktop. Defaults to 2."
-    ),
+    memory: int = typer.Option(4, help="The amount of memory (in GB) for the desktop."),
+    cpu: int = typer.Option(2, help="The number of CPU cores for the desktop."),
     disk: str = typer.Option(
         "30gb",
-        help="The disk size for the desktop. Format as '<size>gb'. Defaults to '30gb'.",
+        help="The disk size for the desktop. Format as '<size>gb'.",
     ),
     reserve_ip: bool = typer.Option(
         False,
-        help="Whether to reserve an IP address for the desktop. Defaults to False.",
+        help="Whether to reserve an IP address for the desktop.",
     ),
     ssh_key: Optional[str] = typer.Option(
         None, help="The SSH key for the desktop. Optional."
     ),
 ):
     if not name:
-        name = get_random_name()
+        name = get_random_name(sep="-")
 
     data = V1ProviderData(type=provider)
     _provider = load_provider(data)
@@ -70,7 +59,7 @@ def get(
         help="The name of the desktop to retrieve. If not provided, all desktops will be listed.",
     ),
     provider: Optional[str] = typer.Option(
-        None, help="The provider type for the desktop. Defaults to 'qemu'."
+        None, help="The provider type for the desktop."
     ),
 ):
     if name:
@@ -81,7 +70,7 @@ def get(
 
         _provider = load_provider(desktop.provider)
         if not desktop.reserved_ip:
-            _provider.refresh()
+            _provider.refresh(log=False)
             desktop = DesktopVM.find(name)
             if not desktop:
                 print(f"Desktop '{name}' not found")
@@ -107,12 +96,11 @@ def get(
 
             if not provider_is_refreshed.get(desktop.provider.type):
                 if not desktop.reserved_ip:
-                    _provider.refresh()
+                    _provider.refresh(log=False)
                     provider_is_refreshed[desktop.provider.type] = True
                     desktop = DesktopVM.find(desktop.name)
                     if not desktop:
-                        print(f"Desktop '{name}' not found")
-                        return
+                        continue
 
             table.append(
                 [
@@ -138,6 +126,7 @@ def get(
                 ],
             )
         )
+        print("")
 
 
 @app.command(help="Delete a desktop.")
@@ -160,7 +149,7 @@ def delete(
 
     print(f"Deleting '{name}' desktop...")
     _provider.delete(name)
-    print(f"Desktop '{name}' successfully deleted")
+    print(f"\nDesktop '{name}' successfully deleted")
 
 
 @app.command(help="View a desktop in a browser.")
@@ -184,16 +173,14 @@ def view(
     desktop.view()
 
 
-@app.command(help="Refresh a provider")
+@app.command(help="Refresh a provider.")
 def refresh(
-    provider: str = typer.Argument(
-        ..., help="The provider type for the desktop. Defaults to 'qemu'."
-    )
+    provider: str = typer.Argument(..., help="The provider type for the desktop.")
 ):
     data = V1ProviderData(type=provider)
     _provider = load_provider(data)
     _provider.refresh()
-    print(f"Provider '{provider}' successfully refreshed")
+    print(f"\nProvider '{provider}' successfully refreshed")
 
 
 @app.command(help="Stop a desktop.")
@@ -216,7 +203,7 @@ def stop(
 
     print(f"Stopping desktop '{name}'...")
     _provider.stop(name)
-    print(f"Desktop '{name}' successfully stopped")
+    print(f"\nDesktop '{name}' successfully stopped")
 
 
 @app.command(help="Start a desktop.")
@@ -239,7 +226,7 @@ def start(
 
     print(f"Starting desktop '{name}'...")
     _provider.start(name)
-    print(f"Desktop '{name}' successfully started")
+    print(f"\nDesktop '{name}' successfully started")
 
 
 if __name__ == "__main__":

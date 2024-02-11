@@ -48,7 +48,7 @@ class QemuProvider(DesktopProvider):
             )
 
         if not name:
-            name = get_random_name()
+            name = get_random_name(sep="-")
 
         if DesktopVM.name_exists(name):
             raise ValueError(f"VM name '{name}' already exists")
@@ -262,7 +262,7 @@ local-hostname: {name}
             return cls(**data.args)
         return cls()
 
-    def refresh(self) -> None:
+    def refresh(self, log: bool = True) -> None:
         """Refresh the state of all local QEMU VMs."""
         desktops = DesktopVM.list()
 
@@ -275,10 +275,12 @@ local-hostname: {name}
                 if desktop.pid and psutil.pid_exists(desktop.pid):
                     process = psutil.Process(desktop.pid)
                     if not process.is_running():
-                        print(f"removing vm '{desktop.name}' from state")
+                        if log:
+                            print(f"removing vm '{desktop.name}' from state")
                         desktop.remove()
                         return
                 else:
-                    print(f"removing vm '{desktop.name}' from state")
+                    if log:
+                        print(f"removing vm '{desktop.name}' from state")
                     desktop.remove()
                     return

@@ -77,7 +77,7 @@ $ agentdesk view old_mckinny
 
 _\*requires docker_
 
-### List active desktops
+### List desktops
 
 ```python
 Desktop.list()

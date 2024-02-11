@@ -37,7 +37,7 @@ class EC2Provider(DesktopProvider):
         ssh_key: Optional[str] = None,
     ) -> DesktopVM:
         if not name:
-            name = get_random_name()
+            name = get_random_name(sep="-")
 
         if DesktopVM.name_exists(name):
             raise ValueError(f"VM name '{name}' already exists")
@@ -116,9 +116,7 @@ users:
         # wait till agentd is ready
         self._wait_till_ready(public_ip)
 
-        print(f"\nsuccessfully created desktop '{name}'")
-
-        return DesktopVM(
+        desktop = DesktopVM(
             name=name,
             id=instance_id,
             addr=public_ip,
@@ -129,6 +127,9 @@ users:
             provider=self.to_data(),
             requires_proxy=True,
         )
+
+        print(f"\nsuccessfully created desktop '{name}'")
+        return desktop
 
     def _wait_till_ready(
         self, addr: str, local_agentd_port: Optional[int] = None
@@ -144,7 +145,7 @@ users:
             try:
                 print("ensuring up ssh proxy...")
                 pid = ensure_ssh_proxy(
-                    remote_port=8000, local_port=local_agentd_port, ssh_host=addr
+                    local_port=local_agentd_port, remote_port=8000, ssh_host=addr
                 )
                 atexit.register(cleanup_proxy, pid)
 
@@ -156,6 +157,7 @@ users:
                 cleanup_proxy(pid)
                 atexit.unregister(cleanup_proxy)
             except:
+                cleanup_proxy(pid)
                 pass
 
         print("cleaning up tunnel")
@@ -314,6 +316,10 @@ users:
         if instance:
             instance.start()
             instance.wait_until_running()
+
+        public_ip = instance.public_ip_address
+        self._wait_till_ready(public_ip)
+        desk.addr = public_ip
         desk.status = "running"
         desk.save()
 

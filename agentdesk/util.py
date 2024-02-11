@@ -7,6 +7,7 @@ import subprocess
 from typing import Optional
 import socket
 from subprocess import CalledProcessError, DEVNULL
+from datetime import datetime
 
 from google.cloud import storage
 from PIL import Image
@@ -130,7 +131,15 @@ def check_command_availability(command: str) -> bool:
 
 
 def check_port_in_use(port: int) -> bool:
-    """Check if the port is currently in use"""
+    """
+    Check if the specified port is currently in use on the local machine.
+
+    Args:
+        port (int): The port number to check.
+
+    Returns:
+        bool: True if the port is in use, False otherwise.
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(("localhost", port)) == 0
 
@@ -145,3 +154,9 @@ def find_open_port(start_port: int = 1024, end_port: int = 65535) -> Optional[in
             except socket.error:
                 continue  # Port is in use, try the next one
     return None  # No open port found
+
+
+def convert_unix_to_datetime(unix_timestamp: int) -> str:
+    dt = datetime.utcfromtimestamp(unix_timestamp)
+    friendly_format = dt.strftime("%Y-%m-%d %H:%M:%S")
+    return friendly_format

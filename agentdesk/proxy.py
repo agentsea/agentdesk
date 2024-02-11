@@ -1,12 +1,12 @@
 from __future__ import annotations
 import os
 import subprocess
-from typing import Optional
-from contextlib import contextmanager
+from typing import Optional, Generator
 import threading
 import socket
 import select
 import time
+import contextlib
 
 import paramiko
 import psutil
@@ -147,7 +147,7 @@ def check_ssh_proxy_running(
 
     search_command = (
         "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-        f"ssh -N -L {local_port}:localhost:{remote_port} -p {ssh_port} {ssh_user}@{ssh_host}"
+        f"-N -L 127.0.0.1:{local_port}:localhost:{remote_port} -p {ssh_port} {ssh_user}@{ssh_host}"
     )
     for proc in psutil.process_iter(["cmdline", "pid"]):
         try:
@@ -180,7 +180,7 @@ def setup_ssh_proxy(
 
     ssh_command = (
         "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-        f"-N -L {local_port}:localhost:{remote_port} -p {ssh_port} {ssh_user}@{ssh_host}"
+        f"-N -L 127.0.0.1:{local_port}:localhost:{remote_port} -p {ssh_port} {ssh_user}@{ssh_host}"
     )
     print("Executing command: ", ssh_command)
     try:
@@ -220,8 +220,8 @@ def cleanup_proxy(pid: int) -> None:
 
 
 def ensure_ssh_proxy(
-    remote_port: int = 6080,
     local_port: int = 6080,
+    remote_port: int = 6080,
     ssh_port: int = 22,
     ssh_user: str = "agentsea",
     ssh_host: str = "localhost",
@@ -242,3 +242,28 @@ def ensure_ssh_proxy(
         )
     time.sleep(1)  # Adjust sleep time as needed
     return process.pid  # Assuming the process started successfully
+
+
+@contextlib.contextmanager
+def ensure_managed_ssh_proxy(
+    local_port: int, remote_port: int, ssh_port: int, ssh_user: str, ssh_host: str
+) -> Generator[Optional[int], None, None]:
+    pid: Optional[int] = check_ssh_proxy_running(
+        local_port, remote_port, ssh_port, ssh_user, ssh_host
+    )
+    process_started: bool = False
+
+    if pid is None:
+        print("SSH proxy not found, starting one...")
+        process = setup_ssh_proxy(local_port, remote_port, ssh_port, ssh_user, ssh_host)
+        if process is None:
+            raise RuntimeError("Failed to ensure SSH proxy is running.")
+        pid = process.pid
+        process_started = True
+
+    try:
+        yield pid
+    finally:
+        if process_started:
+            print(f"Cleaning up newly started SSH proxy with PID {pid}...")
+            cleanup_proxy(pid)

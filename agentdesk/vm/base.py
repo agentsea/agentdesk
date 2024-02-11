@@ -15,11 +15,16 @@ from docker.models.containers import Container
 from agentdesk.db.conn import WithDB
 from agentdesk.db.models import V1DesktopRecord
 from agentdesk.server.models import V1Desktop, V1Desktops, V1ProviderData
-from agentdesk.util import get_docker_host, check_command_availability
+from agentdesk.util import (
+    get_docker_host,
+    check_command_availability,
+    find_open_port,
+    check_port_in_use,
+)
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 
 
-UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:a85fde68ac9849d9301be702f2092a8a299abe52"
+UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:634820941cbbba4b3cd51149b25d0a4c8d1a35f4"
 
 
 class DesktopVM(WithDB):
@@ -70,6 +75,7 @@ class DesktopVM(WithDB):
         metadata = None
         if self.metadata:
             metadata = json.dumps(self.metadata)
+
         return V1DesktopRecord(
             id=self.id,
             name=self.name,
@@ -90,9 +96,9 @@ class DesktopVM(WithDB):
 
     def save(self) -> None:
         for db in self.get_db():
-            db.merge(self.to_record())
+            record = self.to_record()
+            db.merge(record)
             db.commit()
-        print(f"saved desktop '{self.name}'")
 
     @classmethod
     def from_record(cls, record: V1DesktopRecord) -> DesktopVM:
@@ -204,7 +210,14 @@ class DesktopVM(WithDB):
         """Opens the desktop in a browser window"""
 
         if self.requires_proxy:
-            proxy_pid = ensure_ssh_proxy(6080, self.ssh_port, "agentsea", self.addr)
+            if check_port_in_use(6080):
+                raise ValueError(
+                    "Port 6080 is already in use, UI requires this port"
+                )  # TODO: remove this restriction
+            proxy_pid = ensure_ssh_proxy(
+                6080, 6080, self.ssh_port, "agentsea", self.addr
+            )
+            atexit.register(cleanup_proxy, proxy_pid)
 
         check_command_availability("docker")
 
@@ -240,13 +253,30 @@ class DesktopVM(WithDB):
             return
 
         def onexit():
-            print("stopping UI container...")
-            ui_container.stop()
-            print("removing UI container...")
-            ui_container.remove()
-            print("stopping ssh proxy...")
-            if self.requires_proxy:
-                cleanup_proxy(proxy_pid)
+            nonlocal proxy_pid
+            print("Cleaning up resources...")
+
+            # Check if the UI container still exists and stop/remove it if so
+            if ui_container:
+                try:
+                    container_status = client.containers.get(ui_container.id).status
+                    if container_status in ["running", "paused"]:
+                        print("stopping UI container...")
+                        ui_container.stop()
+                        print("removing UI container...")
+                        ui_container.remove()
+                except docker.errors.NotFound:
+                    print("UI container already stopped/removed.")
+
+            # Stop the SSH proxy if required and not already stopped
+            if self.requires_proxy and proxy_pid:
+                try:
+                    print("stopping ssh proxy...")
+                    cleanup_proxy(proxy_pid)
+                except Exception as e:
+                    print(f"Error stopping SSH proxy: {e}")
+                finally:
+                    proxy_pid = None  # Ensure we don't try to stop it again
 
         atexit.register(onexit)
         try:
@@ -358,6 +388,6 @@ class DesktopProvider(ABC, Generic[DP]):
         pass
 
     @abstractmethod
-    def refresh(self) -> None:
+    def refresh(self, log: bool = True) -> None:
         """Refresh state"""
         pass
