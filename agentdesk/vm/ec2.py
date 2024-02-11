@@ -157,8 +157,10 @@ users:
                 cleanup_proxy(pid)
                 atexit.unregister(cleanup_proxy)
             except:
-                cleanup_proxy(pid)
-                pass
+                try:
+                    cleanup_proxy(pid)
+                except Exception:
+                    pass
 
         print("cleaning up tunnel")
         cleanup_proxy(pid)
@@ -295,12 +297,50 @@ users:
         latest_ami = sorted_images[0]["ImageId"]
         return latest_ami
 
+    # def delete(self, name: str) -> None:
+    #     instance = self._get_instance_by_name(name)
+    #     if instance:
+    #         instance.terminate()
+    #         instance.wait_until_terminated()
+    #         print("remote instance terminated")
+    #         desk = DesktopVM.find(name)
+    #         if not desk:
+    #             raise ValueError(
+    #                 f"Desktop '{name}' not found in state, but deleted from provider"
+    #             )
+    #         desk.remove()
+
+    def _release_eip(self, instance: EC2Instance) -> None:
+        # Assuming you have tagged your EIPs or have a way to associate them with instances
+        filters = [{"Name": "instance-id", "Values": [instance.id]}]
+        addresses = self.ec2_client.describe_addresses(Filters=filters)
+        for address in addresses.get("Addresses", []):
+            self.ec2_client.release_address(AllocationId=address["AllocationId"])
+            print(f"Released EIP: {address['PublicIp']}")
+
+    def _delete_ssh_key(self, name: str) -> None:
+
+        try:
+            self.ec2_client.delete_key_pair(KeyName=name)
+            print(f"Deleted SSH key: {name}")
+        except self.ec2_client.exceptions.ClientError as e:
+            print(f"Failed to delete SSH key {name}: {e}")
+
     def delete(self, name: str) -> None:
         instance = self._get_instance_by_name(name)
         if instance:
+            # Release EIP if reserved for the instance
+            # self._release_eip(instance) # TODO
+
+            # Terminate the instance
             instance.terminate()
             instance.wait_until_terminated()
-            print("remote instance terminated")
+            print("Remote instance terminated")
+
+            # TODO: for now we always create the key
+            self._delete_ssh_key(name)
+
+            # Remove the desktop VM from local state
             desk = DesktopVM.find(name)
             if not desk:
                 raise ValueError(
