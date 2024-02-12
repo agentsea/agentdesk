@@ -6,13 +6,8 @@ from typing import Union
 
 def visualize_b64_img(b64_str: str) -> Union[Image.Image, None]:
     try:
-        # Decode the base64 string
         img_data = base64.b64decode(b64_str)
-
-        # Convert binary data to a file-like object
         img_io = BytesIO(img_data)
-
-        # Load image from the file-like object
         img = Image.open(img_io)
 
         return img
