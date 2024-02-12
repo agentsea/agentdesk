@@ -297,19 +297,6 @@ users:
         latest_ami = sorted_images[0]["ImageId"]
         return latest_ami
 
-    # def delete(self, name: str) -> None:
-    #     instance = self._get_instance_by_name(name)
-    #     if instance:
-    #         instance.terminate()
-    #         instance.wait_until_terminated()
-    #         print("remote instance terminated")
-    #         desk = DesktopVM.find(name)
-    #         if not desk:
-    #             raise ValueError(
-    #                 f"Desktop '{name}' not found in state, but deleted from provider"
-    #             )
-    #         desk.remove()
-
     def _release_eip(self, instance: EC2Instance) -> None:
         # Assuming you have tagged your EIPs or have a way to associate them with instances
         filters = [{"Name": "instance-id", "Values": [instance.id]}]

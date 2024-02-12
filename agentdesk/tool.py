@@ -1,13 +1,13 @@
-from __future__ import annotations
+# from __future__ import annotations
 import base64
 import io
-import subprocess
 from enum import Enum
 import time
 import os
 from typing import Tuple, Optional
 
 import requests
+
 from PIL import Image
 from google.cloud import storage
 from agent_tools import Tool, action, observation
@@ -29,30 +29,44 @@ class Desktop(Tool):
 
     def __init__(
         self,
-        agentd_url: str,
+        agentd_url: Optional[str] = None,
+        vm: Optional[DesktopVM] = None,
         storage_uri: str = "file://.media",
         type_min_interval: float = 0.05,
         type_max_interval: float = 0.25,
         move_mouse_duration: float = 1.0,
         mouse_tween: str = "easeInOutQuad",
+        store_img: bool = False,
     ) -> None:
         """Connect to an agent desktop
 
         Args:
-            agentd_url (str): URL of a running agentd server
+            agentd_url (str, optional): URL of a running agentd server. Defaults to None.
+            vm (str, optional): Optional desktop VM to use. Defaults to None.
             storage_uri (str): The directory where to store images or videos taken of the VM, supports gs:// or file://. Defaults to file://.media.
             type_min_interval (float, optional): Min interval between pressing next key. Defaults to 0.05.
             type_max_interval (float, optional): Max interval between pressing next key. Defaults to 0.25.
             move_mouse_duration (float, optional): How long should it take to move. Defaults to 1.0.
             mouse_tween (str, optional): The movement tween. Defaults to "easeInOutQuad".
+            store_img (bool, optional): Whether to store the image in the cloud. Defaults to false
         """
         super().__init__()
-        self.base_url = agentd_url
+        self._vm = vm
+
+        if vm:
+            self.base_url = f"{vm.addr}:8000"
+        else:
+            self.base_url = agentd_url
+
+        if not self.base_url.startswith("http"):
+            self.base_url = f"http://{self.base_url}"
+
         self.storage_uri = storage_uri
         self._type_min_interval = type_min_interval
         self._type_max_interval = type_max_interval
         self._move_mouse_duration = move_mouse_duration
         self._mouse_tween = mouse_tween
+        self._store_img = store_img
 
         try:
             resp = self.health()
@@ -74,7 +88,7 @@ class Desktop(Tool):
         disk: str = "30gb",
         reserve_ip: bool = True,
         ssh_key: Optional[str] = None,
-    ) -> Desktop:
+    ) -> "Desktop":
         """Create a desktop VM"""
         vm = provider.create(name, image, memory, cpus, disk, reserve_ip, ssh_key)
         return cls.from_vm(vm)
@@ -90,7 +104,7 @@ class Desktop(Tool):
         disk: str = "30gb",
         reserve_ip: bool = True,
         ssh_key: Optional[str] = None,
-    ) -> Desktop:
+    ) -> "Desktop":
         """Create a desktop VM on EC2"""
         return cls.create(
             name=name,
@@ -115,7 +129,7 @@ class Desktop(Tool):
         disk: str = "30gb",
         reserve_ip: bool = True,
         ssh_key: Optional[str] = None,
-    ) -> Desktop:
+    ) -> "Desktop":
         """Create a desktop VM on GCE"""
         return cls.create(
             name=name,
@@ -134,7 +148,7 @@ class Desktop(Tool):
         name: Optional[str] = None,
         memory: int = 4,
         cpus: int = 2,
-    ) -> Desktop:
+    ) -> "Desktop":
         """Create a local VM
 
         Args:
@@ -148,12 +162,12 @@ class Desktop(Tool):
         return cls.create(name=name, provider=QemuProvider(), memory=memory, cpus=cpus)
 
     @classmethod
-    def from_vm(cls, vm: DesktopVM) -> Desktop:
+    def from_vm(cls, vm: DesktopVM) -> "Desktop":
         """Create a desktop from a VM"""
-        return Desktop(agentd_url=vm.addr)
+        return Desktop(vm=vm)
 
     @classmethod
-    def find(cls, name: str) -> Desktop:
+    def find(cls, name: str) -> "Desktop":
         """Find a desktop by name"""
         found = DesktopVM.find(name)
         if not found:
@@ -164,6 +178,14 @@ class Desktop(Tool):
     def list(cls) -> list[DesktopVM]:
         """List all desktops"""
         return DesktopVM.list()
+
+    def view(self, background: bool = False) -> None:
+        """View the desktop"""
+
+        if not self._vm:
+            raise ValueError("Desktop not created with a VM, don't know how to proxy")
+
+        self._vm.view(background)
 
     def health(self) -> dict:
         """Health of agentd
@@ -280,10 +302,13 @@ class Desktop(Tool):
         """Take screenshot
 
         Returns:
-            str: URI of the image
+            str: b64 encoded image or URI of the image depending on instance settings
         """
         response = requests.post(f"{self.base_url}/screenshot")
         jdict = response.json()
+
+        if not self._store_img:
+            return jdict["image"]
 
         image_data = base64.b64decode(jdict["image"])
         image_stream = io.BytesIO(image_data)

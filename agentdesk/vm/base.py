@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar, Any, Generic, Dict
+from typing import List, Optional, TypeVar, Generic, Dict
 import uuid
 import time
 import json
@@ -18,7 +18,6 @@ from agentdesk.server.models import V1Desktop, V1Desktops, V1ProviderData
 from agentdesk.util import (
     get_docker_host,
     check_command_availability,
-    find_open_port,
     check_port_in_use,
 )
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy

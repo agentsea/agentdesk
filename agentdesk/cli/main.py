@@ -106,6 +106,7 @@ def get(
                 [
                     desktop.name,
                     desktop.addr,
+                    desktop.ssh_port,
                     desktop.status,
                     convert_unix_to_datetime(desktop.created),
                     desktop.provider.type,
@@ -119,6 +120,7 @@ def get(
                 headers=[
                     "Name",
                     "Address",
+                    "SSH Port",
                     "Status",
                     "Created",
                     "Provider",
