@@ -4,13 +4,13 @@ import io
 from enum import Enum
 import time
 import os
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 import requests
 
 from PIL import Image
 from google.cloud import storage
-from agent_tools import Tool, action, observation
+from agent_tools import Tool, action, observation, Action, Observation
 
 from .vm.base import DesktopVM, DesktopProvider
 from .vm.gce import GCEProvider
@@ -350,3 +350,27 @@ class Desktop(Tool):
 
     def close(self):
         pass
+
+
+class SimpleDesktop(Desktop):
+    """A more simple desktop"""
+
+    def actions(self) -> List[Action]:
+        """Actions the agent can take
+
+        Returns:
+            List[Action]: List of actions
+        """
+        out = []
+        for action in self._actions_list:
+            if action.name in [
+                "open_url",
+                "type_text",
+                "click",
+                "scroll",
+                "press_key",
+                "move_mouse",
+            ]:
+                out.append(action)
+
+        return out

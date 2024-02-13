@@ -119,7 +119,7 @@ img = desktop.take_screenshot()
 
 ### Examples
 
-[GPT-4V](./examples/gpt4v/note.ipynb) provides a notebook using a desktop with GPT-4V
+[GPT-4V](./examples/gpt4v/note.ipynb) provides a notebook using a desktop
 
 ## Developing
 
