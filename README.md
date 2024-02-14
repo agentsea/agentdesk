@@ -1,6 +1,6 @@
 # AgentDesk
 
-Desktops for AI agents.
+Desktops for AI agents :computer
 
 Built on [agentd](https://github.com/AgentSea/agentd) to make desktop VMs accessible to AI agents.
 
@@ -126,3 +126,5 @@ See how to use GPT-4V with AgentDesk in our [notebook](./examples/gpt4v/note.ipy
 ## Developing
 
 Please open an issue before creating a PR.
+
+Changes to the VM happen in [agentd](https://github.com/agentsea/agentd)
