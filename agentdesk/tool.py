@@ -254,11 +254,11 @@ class Desktop(Tool):
         return
 
     @action
-    def scroll(self, clicks: int = 3) -> None:
+    def scroll(self, clicks: int = -3) -> None:
         """Scroll the screen
 
         Args:
-            clicks (int, optional): Number of clicks. Defaults to 3.
+            clicks (int, optional): Number of clicks, negative scrolls down, positive scrolls up. Defaults to -3.
         """
         requests.post(f"{self.base_url}/scroll", json={"clicks": clicks})
         return
