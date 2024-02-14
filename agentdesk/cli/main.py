@@ -1,5 +1,7 @@
 from typing import Optional
 import typer
+import shutil
+import os
 
 from tabulate import tabulate
 from namesgenerator import get_random_name
@@ -229,6 +231,14 @@ def start(
     print(f"Starting desktop '{name}'...")
     _provider.start(name)
     print(f"\nDesktop '{name}' successfully started")
+
+
+@app.command(help="Clean cache")
+def clear_cache():
+    dir = os.path.expanduser("~/.agentsea/")
+    shutil.rmtree(dir)
+
+    print(f"cleared cache in {dir}")
 
 
 if __name__ == "__main__":

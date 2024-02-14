@@ -11,6 +11,7 @@ import signal
 import pycdlib
 import requests
 from namesgenerator import get_random_name
+from tqdm import tqdm
 
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
@@ -75,11 +76,17 @@ class QemuProvider(DesktopProvider):
 
         # Download image only if it does not exist
         if not os.path.exists(image_path) and image.startswith("https://"):
-            print(f"downloading image '{image}'...")
+            print(f"Downloading image '{image}'...")
             response = requests.get(image, stream=True)
+            total_size_in_bytes = int(response.headers.get("content-length", 0))
+            block_size = 8192  # Size of each chunk
+
+            progress_bar = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
             with open(image_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
+                for chunk in response.iter_content(chunk_size=block_size):
+                    progress_bar.update(len(chunk))
                     f.write(chunk)
+            progress_bar.close()
 
         # Find or generate an SSH key if not provided
         ssh_key = ssh_key or find_ssh_public_key()
