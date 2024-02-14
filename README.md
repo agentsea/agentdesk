@@ -1,6 +1,6 @@
 # AgentDesk
 
-A desktop for AI agents.
+Desktops for AI agents.
 
 Built on [agentd](https://github.com/AgentSea/agentd) to make desktop VMs accessible to AI agents.
 
@@ -117,9 +117,11 @@ desktop.scroll()
 img = desktop.take_screenshot()
 ```
 
-### Examples
+## Examples
 
-[GPT-4V](./examples/gpt4v/note.ipynb) provides a notebook using a desktop
+### GPT-4V
+
+See how to use GPT-4V with AgentDesk in our [notebook](./examples/gpt4v/note.ipynb) or [agent](./examples/gpt4v/main.py)
 
 ## Developing
 
