@@ -1,1 +1,1 @@
-from .tool import Desktop
+from .tool import Desktop, SimpleDesktop

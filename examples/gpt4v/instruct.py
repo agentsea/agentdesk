@@ -79,3 +79,37 @@ If the task is finished, please return the action name 'return', with the parame
 Okay, when you are ready I'll send you the current screenshot and mouse coordinates.
 """
     return query
+
+
+def action_prompt(
+    task: str,
+    screenshot_b64: str,
+    x: int,
+    y: int,
+) -> dict:
+    """Generate an action prompt
+
+    Args:
+        task (str): Task to generate the prompt for
+        screenshot_b64 (str): b64 encoded screenshot
+        x (int): The X coordinate of the mouse
+        y (int): They Y coordinate of the mouse
+        tokenizer (AutoTokenizer): The tokenizer to use
+
+    Returns:
+        dict: An openai formatted message
+    """
+    msg = {
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": f"Current mouse coordinates are ({x}, {y}), and the task to solve is '{task}', please return the appropriate next action",
+            },
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"},
+            },
+        ],
+    }
+    return msg

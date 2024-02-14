@@ -1,51 +1,21 @@
-from .instruct import system_prompt
-from .oai import call_openai, encode_image
-from agentdesk import Desktop
+import json
+import os
 
+from agentdesk import SimpleDesktop
+from examples.gpt4v.agent import solve_task
 
-# Create a local desktop
-desktop = Desktop.local()
+# Defaine the task
+task = "Search for types of ducks in France"
+print("solving task: ", task)
 
-# Get the actions a model can take on the desktop as json schema
-actions = desktop.json_schema()
+# Create a local desktop with the simplified action space
+desktop = SimpleDesktop.local()
 
-# Create the system prompt
-payload = {
-    "model": "gpt-4-vision-preview",
-    "messages": [
-        {
-            "role": "system",
-            "content": [{"type": "text", "text": system_prompt(actions)}],
-        }
-    ],
-    "max_tokens": 300,
-}
+# View the desktop, we'll run in the background so it doesn't block
+desktop.view(background=True)
 
-response = call_openai(payload)
+# Call our simple agent to solve the task
+print("running agent loop...")
+result = solve_task(task, "https://google.com", desktop, 5)
 
-
-# Path to your image
-image_path = "path_to_your_image.jpg"
-
-# Getting the base64 string
-base64_image = encode_image(image_path)
-
-payload = {
-    "model": "gpt-4-vision-preview",
-    "messages": [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "What’s in this image?"},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
-                },
-            ],
-        }
-    ],
-    "max_tokens": 300,
-}
-
-
-print(response.json())
+print("Result from solving task: ", result)
