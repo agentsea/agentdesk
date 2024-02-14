@@ -1,6 +1,6 @@
 # AgentDesk
 
-Desktops for AI agents :computer
+Desktops for AI agents :computer:
 
 Built on [agentd](https://github.com/AgentSea/agentd) to make desktop VMs accessible to AI agents.
 
