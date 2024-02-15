@@ -1,9 +1,10 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 import json
 import time
 import logging
 from typing import Final
 from copy import deepcopy
+import pprint
 
 from tenacity import (
     retry,
@@ -11,10 +12,10 @@ from tenacity import (
     before_sleep_log,
 )
 
-from examples.gpt4v.instruct import system_prompt, ActionSelection
-from examples.gpt4v.oai import chat
 from agentdesk import Desktop
+from .oai import chat
 from .instruct import system_prompt, action_prompt, ActionSelection
+from .util import remove_user_image_urls, clean_llm_json, shorten_user_image_urls
 
 logger: Final = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -28,20 +29,24 @@ def take_action(
     desktop: Desktop,
     task: str,
     msgs: List,
-) -> bool:
+    debug: bool = False,
+) -> Tuple[List, bool]:
     """Take an action
 
     Args:
         desktop (Desktop): Desktop to use
         task (str): Task to accomplish
         msgs (List): Messages for the task
+        debug (bool): Whether to debug. Defaults to False.
 
     Returns:
         bool: Whether the task is complete
     """
-    _msgs = deepcopy(msgs)
+    print("taking action...")
 
-    print("\ntaking action with current msg history: ", _msgs)
+    _msgs = deepcopy(msgs)
+    _msgs = remove_user_image_urls(_msgs)
+
     screenshot_b64 = desktop.take_screenshot()
 
     x, y = desktop.mouse_coordinates()
@@ -53,39 +58,46 @@ def take_action(
         x,
         y,
     )
-    print("msg: ", msg)
     _msgs.append(msg)
 
-    response = chat(_msgs)
-    print("gpt response: ", response)
+    if debug:
+        print("calling chat with msgs:")
+        pprint.pprint(shorten_user_image_urls(deepcopy(_msgs)))
+
+    response = chat(_msgs, debug)
+    print("\ngpt response: ", response)
 
     try:
-        jdict = json.loads(response)
-        print("jdict: ", jdict)
+        cleaned_content = clean_llm_json(response["content"])
+        jdict = json.loads(cleaned_content)
 
         selection = ActionSelection(**jdict)
-        print("action selection: ", selection)
+        print("\naction selection: ", selection)
 
     except Exception as e:
         print(f"Response failed to parse: {e}")
         raise
 
     if selection.action.name == "finished":
-        print("finished")
-        msgs = _msgs
-        return True
+        print("\nfinished!")
+        _msgs.append(response)
+        return _msgs, True
 
     action = desktop.find_action(selection.action.name)
     print("found action: ", action)
     if not action:
-        print("action returned not found: ", selection.action.name)
+        print("\naction returned not found: ", selection.action.name)
         raise SystemError("action not found")
 
-    response = desktop.use(action, **selection.action.parameters)
-    msgs = _msgs
-    print("used action response: ", response)
+    try:
+        action_response = desktop.use(action, **selection.action.parameters)
+    except Exception as e:
+        raise ValueError(f"Trouble using action: {e}")
 
-    return False
+    print("action output: ", action_response)
+
+    _msgs.append(response)
+    return _msgs, False
 
 
 def solve_task(
@@ -93,6 +105,7 @@ def solve_task(
     base_url: str,
     desktop: Desktop,
     max_steps: int = 5,
+    debug: bool = False,
 ) -> List:
     """Solve a task for a site
 
@@ -101,6 +114,7 @@ def solve_task(
         base_url (str): Base URL
         desktop (Desktop): An AgentDesk desktop instance.
         max_steps (int, optional): Max steps to try and solve. Defaults to 5.
+        debug (bool): Whether to debug log. Defaults to False.
 
     Returns:
         List: The msg history
@@ -108,12 +122,13 @@ def solve_task(
 
     print("opening base url: ", base_url)
     desktop.open_url(base_url)
-    print("opened url")
-    time.sleep(10)
+    print("waiting for browser to open...")
+    time.sleep(15)
 
     desktop.move_mouse(500, 500)
     tools = desktop.json_schema()
-    print("tools: ", tools)
+    print("\ntools: ")
+    pprint.pprint(tools)
 
     msgs = []
     msg = {
@@ -121,18 +136,15 @@ def solve_task(
         "content": [{"type": "text", "text": system_prompt(tools)}],
     }
     msgs.append(msg)
-    # print("system prompt: ", msg)
 
     response = chat(msgs)
-    print("system prompt response: ", response)
+    print("\nsystem prompt response: ", response)
+    msgs.append(response)
 
-    msgs = [response]
     for i in range(max_steps):
-        print(f"\nstep {i}")
+        print(f"\n\n-------\n\nstep {i + 1}\n")
 
-        print("desktop: ", desktop)
-        done = take_action(desktop, task, msgs)
-        print("msg history post action: ", msgs)
+        msgs, done = take_action(desktop, task, msgs, debug)
 
         if done:
             print("task is done")

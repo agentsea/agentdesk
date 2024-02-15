@@ -1,7 +1,9 @@
-from PIL import Image
 import base64
 from io import BytesIO
-from typing import Union, Tuple
+from typing import Union, Tuple, List, Dict, Any
+import json
+
+from PIL import Image
 
 
 def visualize_b64_img(b64_str: str) -> Union[Image.Image, None]:
@@ -38,3 +40,58 @@ def reduce_image_resolution(b64_str: str, target_size: Tuple[int, int]) -> str:
     new_b64_str: str = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     return new_b64_str
+
+
+def remove_user_image_urls(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+    ret = []
+    for message in messages:
+        # Check if the message role is 'user'
+        if not message:
+            continue
+
+        if message.get("role") == "user":
+            new_content = []
+            for content_piece in message.get("content", []):
+                # Exclude 'image_url' objects
+                if content_piece.get("type") != "image_url":
+                    new_content.append(content_piece)
+            message["content"] = new_content
+
+        ret.append(message)
+
+    return ret
+
+
+def shorten_user_image_urls(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+    ret = []
+    for message in messages:
+        # Check if the message role is 'user'
+        if not message:
+            continue
+
+        if message.get("role") == "user":
+            new_content = []
+            for content_piece in message.get("content", []):
+                # Exclude 'image_url' objects
+                if content_piece.get("type") == "image_url":
+                    content_piece["image_url"][
+                        "url"
+                    ] = f"{content_piece['image_url']['url'][:10]}..."
+                new_content.append(content_piece)
+
+            message["content"] = new_content
+
+        ret.append(message)
+
+    return ret
+
+
+def clean_llm_json(input_text: str) -> str:
+    cleaned_text = input_text.replace("```", "")
+
+    if cleaned_text.startswith("json\n"):
+        cleaned_text = cleaned_text.replace("json\n", "", 1)
+
+    return cleaned_text.strip()

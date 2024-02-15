@@ -1,8 +1,16 @@
-import json
-import os
+import argparse
 
 from agentdesk import SimpleDesktop
-from examples.gpt4v.agent import solve_task
+from .agent import solve_task
+
+parser = argparse.ArgumentParser(description="Run the agent with optional debug mode.")
+parser.add_argument(
+    "--debug",
+    action="store_true",
+    help="Enable debug mode for more verbose output.",
+    default=False,
+)
+args = parser.parse_args()
 
 # Defaine the task
 task = "Search for types of ducks in France"

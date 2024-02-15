@@ -48,7 +48,7 @@ You will return the action in the form of:
         "reason": {
             "type": "string"
         },
-        "function": {
+        "action": {
             "type": "object",
             "properties": {
                 "name": {
@@ -75,6 +75,8 @@ For example, if we need to move to a search bar located at (400, 500) you would 
 }
 
 If the task is finished, please return the action name 'return', with the parameters of any output that may be needed from the task.
+
+Please be concice and return just the raw valid JSON, the output should be directly parsable as JSON
 
 Okay, when you are ready I'll send you the current screenshot and mouse coordinates.
 """
@@ -104,7 +106,7 @@ def action_prompt(
         "content": [
             {
                 "type": "text",
-                "text": f"Current mouse coordinates are ({x}, {y}), and the task to solve is '{task}', please return the appropriate next action",
+                "text": f"Current mouse coordinates are ({x}, {y}), and the task to solve is '{task}', please return the appropriate next action as raw JSON",
             },
             {
                 "type": "image_url",
