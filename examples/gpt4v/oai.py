@@ -19,8 +19,12 @@ def chat(msgs: list) -> dict:
     response = requests.post(
         "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
     )
-    response.raise_for_status()
     print("response: ", response)
+    try:
+        print("response text: ", response.text)
+    except Exception:
+        pass
+    response.raise_for_status()
     print("response text: ", response.text)
 
     return response.json()["choices"][0]["message"]

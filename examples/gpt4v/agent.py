@@ -115,10 +115,15 @@ def solve_task(
     tools = desktop.json_schema()
     print("tools: ", tools)
 
-    sys_prompt = system_prompt(tools)
-    print("system prompt: ", sys_prompt)
+    msgs = []
+    msg = {
+        "role": "system",
+        "content": [{"type": "text", "text": system_prompt(tools)}],
+    }
+    msgs.append(msg)
+    # print("system prompt: ", msg)
 
-    response = chat(sys_prompt)
+    response = chat(msgs)
     print("system prompt response: ", response)
 
     msgs = [response]

@@ -8,8 +8,8 @@ from examples.gpt4v.agent import solve_task
 task = "Search for types of ducks in France"
 print("solving task: ", task)
 
-# Create a local desktop with the simplified action space
-desktop = SimpleDesktop.local()
+# Find or create a local desktop with the simplified action space
+desktop = SimpleDesktop.ensure("gpt4v-demo")
 
 # View the desktop, we'll run in the background so it doesn't block
 desktop.view(background=True)
