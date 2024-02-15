@@ -4,10 +4,12 @@ An example of using desktops with GPT-4V to accomplish a task
 
 ## Usage
 
-From the root of the repository
+For a simple overview of the internals see [note.ipynb](./note.ipynb)
+
+To try the agent (experimental) run
 
 ```
 poetry run python -m examples.gpt4v.main
 ```
 
-For a simple overview of the internals see [note.ipynb](./note.ipynb)
+from the root of the repository
