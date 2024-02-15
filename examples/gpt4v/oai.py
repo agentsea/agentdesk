@@ -15,6 +15,7 @@ def chat(msgs: list) -> dict:
         "max_tokens": 500,
     }
 
+    print("making request: ", payload)
     response = requests.post(
         "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
     )

@@ -78,6 +78,27 @@ class Desktop(Tool):
         print("connected to desktop via agentd")
 
     @classmethod
+    def ensure(
+        cls,
+        name: str,
+        provider: DesktopProvider = QemuProvider(),
+        image: Optional[str] = None,
+        memory: int = 4,
+        cpus: int = 2,
+        disk: str = "30gb",
+        reserve_ip: bool = False,
+        ssh_key: Optional[str] = None,
+    ) -> "Desktop":
+        """Find or create a desktop"""
+        vm = DesktopVM.find(name)
+        if vm:
+            return cls.from_vm(vm)
+
+        return cls.create(
+            name, provider, image, memory, cpus, disk, reserve_ip, ssh_key
+        )
+
+    @classmethod
     def create(
         cls,
         name: Optional[str] = None,
@@ -86,7 +107,7 @@ class Desktop(Tool):
         memory: int = 4,
         cpus: int = 2,
         disk: str = "30gb",
-        reserve_ip: bool = True,
+        reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
     ) -> "Desktop":
         """Create a desktop VM"""
@@ -102,7 +123,7 @@ class Desktop(Tool):
         memory: int = 4,
         cpus: int = 2,
         disk: str = "30gb",
-        reserve_ip: bool = True,
+        reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
     ) -> "Desktop":
         """Create a desktop VM on EC2"""
@@ -127,7 +148,7 @@ class Desktop(Tool):
         memory: int = 4,
         cpus: int = 2,
         disk: str = "30gb",
-        reserve_ip: bool = True,
+        reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
     ) -> "Desktop":
         """Create a desktop VM on GCE"""
@@ -212,7 +233,7 @@ class Desktop(Tool):
 
         Args:
             x (int): x coordinate
-            y (int): y coordiname
+            y (int): y coordinate
         """
         requests.post(
             f"{self.base_url}/move_mouse",

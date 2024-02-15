@@ -75,7 +75,7 @@ def take_action(
         msgs = _msgs
         return True
 
-    action = desktop.find(selection.action.name)
+    action = desktop.find_action(selection.action.name)
     print("found action: ", action)
     if not action:
         print("action returned not found: ", selection.action.name)
