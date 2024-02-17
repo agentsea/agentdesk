@@ -1,4 +1,5 @@
 import argparse
+import logging
 
 from agentdesk import SimpleDesktop
 from .agent import solve_task
@@ -11,6 +12,11 @@ parser.add_argument(
     default=False,
 )
 args = parser.parse_args()
+
+if args.debug:
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.INFO)
 
 # Defaine the task
 task = "Search for types of ducks in France"

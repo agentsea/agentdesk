@@ -21,8 +21,8 @@ export default function DesktopPage() {
             scaleViewport
             background="#000000"
             style={{
-              width: "960px",
-              height: "770px",
+              width: "900px",
+              height: "720px",
             }}
             rfbOptions={{
               credentials: { password: "agentsea123" }, // this is fine, we tunnel everything through ssh, some vnc viewers require a password

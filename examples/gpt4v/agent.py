@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Tuple
+from typing import List, Tuple
 import json
 import time
 import logging
@@ -26,10 +26,7 @@ logging.basicConfig(level=logging.INFO)
     before_sleep=before_sleep_log(logger, logging.INFO),
 )
 def take_action(
-    desktop: Desktop,
-    task: str,
-    msgs: List,
-    debug: bool = False,
+    desktop: Desktop, task: str, msgs: List, screen_size: dict
 ) -> Tuple[List, bool]:
     """Take an action
 
@@ -37,7 +34,7 @@ def take_action(
         desktop (Desktop): Desktop to use
         task (str): Task to accomplish
         msgs (List): Messages for the task
-        debug (bool): Whether to debug. Defaults to False.
+        screen_size (dict): Size of the screen
 
     Returns:
         bool: Whether the task is complete
@@ -52,19 +49,13 @@ def take_action(
     x, y = desktop.mouse_coordinates()
     print("x, y: ", x, y)
 
-    msg = action_prompt(
-        task,
-        screenshot_b64,
-        x,
-        y,
-    )
+    msg = action_prompt(task, screenshot_b64, x, y, screen_size)
     _msgs.append(msg)
 
-    if debug:
-        print("calling chat with msgs:")
-        pprint.pprint(shorten_user_image_urls(deepcopy(_msgs)))
+    logging.debug("calling chat with msgs")
+    logging.debug(pprint.pprint(shorten_user_image_urls(deepcopy(_msgs))))
 
-    response = chat(_msgs, debug)
+    response = chat(_msgs)
     print("\ngpt response: ", response)
 
     try:
@@ -78,7 +69,7 @@ def take_action(
         print(f"Response failed to parse: {e}")
         raise
 
-    if selection.action.name == "finished":
+    if selection.action.name == "return":
         print("\nfinished!")
         _msgs.append(response)
         return _msgs, True
@@ -105,7 +96,6 @@ def solve_task(
     base_url: str,
     desktop: Desktop,
     max_steps: int = 5,
-    debug: bool = False,
 ) -> List:
     """Solve a task for a site
 
@@ -114,7 +104,6 @@ def solve_task(
         base_url (str): Base URL
         desktop (Desktop): An AgentDesk desktop instance.
         max_steps (int, optional): Max steps to try and solve. Defaults to 5.
-        debug (bool): Whether to debug log. Defaults to False.
 
     Returns:
         List: The msg history
@@ -130,10 +119,13 @@ def solve_task(
     print("\ntools: ")
     pprint.pprint(tools)
 
+    info = desktop.info()
+    screen_size = info["screen_size"]
+
     msgs = []
     msg = {
         "role": "system",
-        "content": [{"type": "text", "text": system_prompt(tools)}],
+        "content": [{"type": "text", "text": system_prompt(tools, screen_size)}],
     }
     msgs.append(msg)
 
@@ -144,7 +136,7 @@ def solve_task(
     for i in range(max_steps):
         print(f"\n\n-------\n\nstep {i + 1}\n")
 
-        msgs, done = take_action(desktop, task, msgs, debug)
+        msgs, done = take_action(desktop, task, msgs)
 
         if done:
             print("task is done")

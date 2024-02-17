@@ -4,6 +4,8 @@ import json
 
 from pydantic import BaseModel
 
+from agentdesk.processors.grid import GridProcessor
+
 
 class Action(BaseModel):
     """An action"""
@@ -19,12 +21,19 @@ class ActionSelection(BaseModel):
     action: Action
 
 
-def system_prompt(actions: Dict[str, Any], max_steps: int = 5) -> str:
+def system_prompt(
+    actions: Dict[str, Any],
+    screen_size: Dict[str, int],
+    max_steps: int = 5,
+    grid: bool = True,
+) -> str:
     """Generate the system prompt
 
     Args:
-        functions (Dict[str, Any]): Actions to select from
+        actions (Dict[str, Any]): Actions to select from
+        screen_size (Dict[str, int]): Size of the screen (w, h)
         max_steps (int, optional): Max steps. Defaults to 5.
+        grid (bool): Whether the image has a grid overlay. Defaults to True
 
     Returns:
         str: The system prompt
@@ -32,7 +41,16 @@ def system_prompt(actions: Dict[str, Any], max_steps: int = 5) -> str:
     acts = json.dumps(actions, indent=4)
 
     query = f"""You are using a computer, you have access to a mouse and keyboard. 
-I'm going to show you the picture of the screen along with the current mouse coordinates. 
+I'm going to show you the picture of the screen along with the current mouse coordinates."""
+
+    if grid:
+        query += (
+            "I will also give you another picture of the screen with a grid overlaying it where each square is 100px by 100px,"
+            "the coordinates of each line intersection are written below it. You can use that to better guage how to move."
+        )
+
+    query += f"""
+The screen size is ({screen_size["x"]}, {screen_size["y"]})
 
 We will then select from a set of actions:
 
@@ -76,7 +94,7 @@ For example, if we need to move to a search bar located at (400, 500) you would 
 
 If the task is finished, please return the action name 'return', with the parameters of any output that may be needed from the task.
 
-Please be concice and return just the raw valid JSON, the output should be directly parsable as JSON
+Please be concise and return just the raw valid JSON, the output should be directly parsable as JSON
 
 Okay, when you are ready I'll send you the current screenshot and mouse coordinates.
 """
@@ -88,6 +106,8 @@ def action_prompt(
     screenshot_b64: str,
     x: int,
     y: int,
+    screen_size: Dict[str, int],
+    grid: bool = True,
 ) -> dict:
     """Generate an action prompt
 
@@ -96,21 +116,34 @@ def action_prompt(
         screenshot_b64 (str): b64 encoded screenshot
         x (int): The X coordinate of the mouse
         y (int): They Y coordinate of the mouse
-        tokenizer (AutoTokenizer): The tokenizer to use
+        screen_size (Dict[str, int]): The (w, h) screen size.
+        grid (bool): Whether the image has a grid overlay. Defaults to True.
 
     Returns:
         dict: An openai formatted message
     """
+    if grid:
+        gp = GridProcessor()
+        screenshot_b64_grid = gp.process_b64(screenshot_b64)
+
     msg = {
         "role": "user",
         "content": [
             {
                 "type": "text",
-                "text": f"Current mouse coordinates are ({x}, {y}), and the task to solve is '{task}', please return the appropriate next action as raw JSON",
+                "text": (
+                    f"Current mouse coordinates are ({x}, {y}), the screen size is ({screen_size['x']}, {screen_size['y']})"
+                    f"and the task to solve is '{task}', please return the appropriate next action as raw JSON. Please review your "
+                    "last action and see if the current screenshot reflects what you hoped to accomplish."
+                ),
             },
             {
                 "type": "image_url",
                 "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"},
+            },
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{screenshot_b64_grid}"},
             },
         ],
     }

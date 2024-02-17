@@ -184,12 +184,26 @@ class Desktop(Tool):
 
     @classmethod
     def from_vm(cls, vm: DesktopVM) -> "Desktop":
-        """Create a desktop from a VM"""
+        """Create a desktop from a VM
+
+        Args:
+            vm (DesktopVM): VM to use
+
+        Returns:
+            Desktop: A desktop
+        """
         return Desktop(vm=vm)
 
     @classmethod
     def find(cls, name: str) -> "Desktop":
-        """Find a desktop by name"""
+        """Find a desktop by name
+
+        Args:
+            name (str): Name of the desktop
+
+        Returns:
+            Desktop: A desktop
+        """
         found = DesktopVM.find(name)
         if not found:
             raise ValueError(f"could not find desktop with name {name}")
@@ -197,11 +211,28 @@ class Desktop(Tool):
 
     @classmethod
     def list(cls) -> list[DesktopVM]:
-        """List all desktops"""
+        """List all desktops
+
+        Returns:
+            list[DesktopVM]: A list of desktop vms
+        """
         return DesktopVM.list()
 
+    def info(self) -> dict:
+        """Get info on the desktop runtime
+
+        Returns:
+            dict: A dictionary of info
+        """
+        response = requests.get(f"{self.base_url}/info")
+        return response.json()
+
     def view(self, background: bool = False) -> None:
-        """View the desktop"""
+        """View the desktop
+
+        Args:
+            background (bool, optional): Whether to run in the background and not block. Defaults to False.
+        """
 
         if not self._vm:
             raise ValueError("Desktop not created with a VM, don't know how to proxy")
