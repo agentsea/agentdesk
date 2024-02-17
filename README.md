@@ -117,6 +117,23 @@ desktop.scroll()
 img = desktop.take_screenshot()
 ```
 
+### Processors
+
+Process images to make them more accessible to LMMs.
+
+#### Grid
+
+Add a coordinate grid on top of the image
+
+```python
+from agentdesk.processors import GridProcessor
+
+img = desktop.take_screenshot()
+
+processor = GridProcessor()
+grid_img = processor.process_b64(img)
+```
+
 ## Examples
 
 ### GPT-4V
