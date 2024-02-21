@@ -626,3 +626,48 @@ class WebApp(Desktop):
         )
         desktop.open_url(url)
         return desktop
+
+    @classmethod
+    def ensure(
+        cls,
+        url: str,
+        name: str,
+        provider: Optional[DesktopProvider] = QemuProvider(),
+        image: Optional[str] = None,
+        memory: int = 4,
+        cpus: int = 2,
+        disk: str = "30gb",
+        reserve_ip: bool = False,
+        ssh_key: Optional[str] = None,
+    ) -> "WebApp":
+        """
+        Ensure a desktop VM exists with the given name, or create it if it does not, and open a URL.
+
+        Args:
+            url: URL to open after ensuring the VM exists.
+            name: Name of the VM to find or create.
+            provider: The provider for VM creation, defaults to QemuProvider if not specified.
+            image: Image to use for the VM. Defaults to None.
+            memory: Memory the VM has. Defaults to 4.
+            cpus: CPUs the VM has. Defaults to 2.
+            disk: Disk size for the VM. Defaults to "30gb".
+            reserve_ip: Whether to reserve an IP for the VM. Defaults to False.
+            ssh_key: SSH key for the VM. Defaults to None.
+
+        Returns:
+            An instance of the WebApp class.
+        """
+        desktop = super(WebApp, cls).ensure(
+            name=name,
+            provider=provider,
+            image=image,
+            memory=memory,
+            cpus=cpus,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            ssh_key=ssh_key,
+        )
+
+        desktop.open_url(url)
+
+        return desktop
