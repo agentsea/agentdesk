@@ -426,3 +426,203 @@ class SimpleDesktop(Desktop):
                 out.append(action)
 
         return out
+
+
+class WebApp(Desktop):
+    """A web application running on a desktop vm"""
+
+    def __init__(
+        self,
+        url: str,
+        agentd_url: Optional[str] = None,
+        vm: Optional[DesktopVM] = None,
+        storage_uri: str = "file://.media",
+        type_min_interval: float = 0.05,
+        type_max_interval: float = 0.25,
+        move_mouse_duration: float = 1.0,
+        mouse_tween: str = "easeInOutQuad",
+        store_img: bool = False,
+    ) -> None:
+        """
+        Initialize and open a URL in the application.
+
+        Args:
+            url: URL to open upon initialization.
+            agentd_url: URL of a running agentd server. Defaults to None.
+            vm: Optional desktop VM to use. Defaults to None.
+            storage_uri: The directory where to store images or videos taken of the VM, supports gs:// or file://. Defaults to "file://.media".
+            type_min_interval: Min interval between pressing the next key. Defaults to 0.05.
+            type_max_interval: Max interval between pressing the next key. Defaults to 0.25.
+            move_mouse_duration: How long it should take to move the mouse. Defaults to 1.0.
+            mouse_tween: The movement tween. Defaults to "easeInOutQuad".
+            store_img: Whether to store the image in the cloud. Defaults to False.
+        """
+        super().__init__(
+            agentd_url=agentd_url,
+            vm=vm,
+            storage_uri=storage_uri,
+            type_min_interval=type_min_interval,
+            type_max_interval=type_max_interval,
+            move_mouse_duration=move_mouse_duration,
+            mouse_tween=mouse_tween,
+            store_img=store_img,
+        )
+        self.open_url(url)
+
+    @classmethod
+    def create(
+        cls,
+        url: str,
+        name: Optional[str] = None,
+        image: Optional[str] = None,
+        memory: int = 4,
+        cpus: int = 2,
+        disk: str = "30gb",
+        reserve_ip: bool = False,
+        ssh_key: Optional[str] = None,
+    ) -> "WebApp":
+        """
+        Create a desktop VM and open a URL.
+
+        Args:
+            url: URL to open after creation.
+            name: Name of the VM. Defaults to None.
+            image: Image to use for the VM. Defaults to None.
+            memory: Memory the VM has. Defaults to 4.
+            cpus: CPUs the VM has. Defaults to 2.
+            disk: Disk size for the VM. Defaults to "30gb".
+            reserve_ip: Whether to reserve IP for the VM. Defaults to False.
+            ssh_key: SSH key for the VM. Defaults to None.
+
+        Returns:
+            An instance of the WebApp class.
+        """
+        desktop = super(WebApp, cls).create(
+            name=name,
+            provider=QemuProvider(),
+            image=image,
+            memory=memory,
+            cpus=cpus,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            ssh_key=ssh_key,
+        )
+        desktop.open_url(url)
+        return desktop
+
+    @classmethod
+    def ec2(
+        cls,
+        url: str,
+        name: Optional[str] = None,
+        region: Optional[str] = None,
+        image: Optional[str] = None,
+        memory: int = 4,
+        cpus: int = 2,
+        disk: str = "30gb",
+        reserve_ip: bool = False,
+        ssh_key: Optional[str] = None,
+    ) -> "WebApp":
+        """
+        Create a desktop VM on EC2 and open a URL.
+
+        Args:
+            url: URL to open after creation.
+            name: Name of the VM. Defaults to None.
+            region: AWS region for the VM. Defaults to None.
+            image: AMI to use for the VM. Defaults to None.
+            memory: Memory the VM has. Defaults to 4.
+            cpus: CPUs the VM has. Defaults to 2.
+            disk: Disk size for the VM. Defaults to "30gb".
+            reserve_ip: Whether to reserve IP for the VM. Defaults to False.
+            ssh_key: SSH key for the VM. Defaults to None.
+
+        Returns:
+            An instance of the WebApp class.
+        """
+        desktop = super(WebApp, cls).ec2(
+            name=name,
+            region=region,
+            image=image,
+            memory=memory,
+            cpus=cpus,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            ssh_key=ssh_key,
+        )
+        desktop.open_url(url)
+        return desktop
+
+    @classmethod
+    def gce(
+        cls,
+        url: str,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        zone: Optional[str] = None,
+        image: Optional[str] = None,
+        memory: int = 4,
+        cpus: int = 2,
+        disk: str = "30gb",
+        reserve_ip: bool = False,
+        ssh_key: Optional[str] = None,
+    ) -> "WebApp":
+        """
+        Create a desktop VM on GCE and open a URL.
+
+        Args:
+            url: URL to open after creation.
+            name: Name of the VM. Defaults to None.
+            project: GCP project for the VM. Defaults to None.
+            zone: GCP zone for the VM. Defaults to None.
+            image: Image to use for the VM. Defaults to None.
+            memory: Memory the VM has. Defaults to 4.
+            cpus: CPUs the VM has. Defaults to 2.
+            disk: Disk size for the VM. Defaults to "30gb".
+            reserve_ip: Whether to reserve IP for the VM. Defaults to False.
+            ssh_key: SSH key for the VM. Defaults to None.
+
+        Returns:
+            An instance of the WebApp class.
+        """
+        desktop = super(WebApp, cls).gce(
+            name=name,
+            project=project,
+            zone=zone,
+            image=image,
+            memory=memory,
+            cpus=cpus,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            ssh_key=ssh_key,
+        )
+        desktop.open_url(url)
+        return desktop
+
+    @classmethod
+    def local(
+        cls,
+        url: str,
+        name: Optional[str] = None,
+        memory: int = 4,
+        cpus: int = 2,
+    ) -> "WebApp":
+        """
+        Create a local VM and open a URL.
+
+        Args:
+            url: URL to open after creation.
+            name: Name of the VM. Defaults to None.
+            memory: Memory the VM has. Defaults to 4.
+            cpus: CPUs the VM has. Defaults to 2.
+
+        Returns:
+            An instance of the WebApp class.
+        """
+        desktop = super(WebApp, cls).local(
+            name=name,
+            memory=memory,
+            cpus=cpus,
+        )
+        desktop.open_url(url)
+        return desktop

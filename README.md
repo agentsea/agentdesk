@@ -17,15 +17,18 @@ pip install agentdesk
 ```python
 from agentdesk import Desktop
 
+# Create a local VM
 desktop = Desktop.local()
+
+# Launch the UI for it
 desktop.view(background=True)
 
+# Open a browser to Google
 desktop.open_url("https://google.com")
 
+# Take actions on the desktop
 desktop.move_mouse(500, 500)
-
 desktop.click()
-
 img = desktop.take_screenshot()
 ```
 

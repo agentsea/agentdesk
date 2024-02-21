@@ -136,7 +136,7 @@ def solve_task(
     for i in range(max_steps):
         print(f"\n\n-------\n\nstep {i + 1}\n")
 
-        msgs, done = take_action(desktop, task, msgs)
+        msgs, done = take_action(desktop, task, msgs, screen_size)
 
         if done:
             print("task is done")

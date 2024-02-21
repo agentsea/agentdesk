@@ -134,7 +134,8 @@ def action_prompt(
                 "text": (
                     f"Current mouse coordinates are ({x}, {y}), the screen size is ({screen_size['x']}, {screen_size['y']})"
                     f"and the task to solve is '{task}', please return the appropriate next action as raw JSON. Please review your "
-                    "last action and see if the current screenshot reflects what you hoped to accomplish."
+                    "last action carefully and see if the current screenshot reflects what you hoped to accomplish, is the cursor in the right"
+                    " location? Does the screen look correct?"
                 ),
             },
             {

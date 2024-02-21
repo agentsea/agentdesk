@@ -1,7 +1,6 @@
 import base64
 from io import BytesIO
 from typing import Union, Tuple, List, Dict, Any
-import json
 
 from PIL import Image
 

@@ -1,1 +1,1 @@
-from .tool import Desktop, SimpleDesktop
+from .tool import Desktop, SimpleDesktop, WebApp
