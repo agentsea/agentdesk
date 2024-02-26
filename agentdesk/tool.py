@@ -10,7 +10,7 @@ import requests
 
 from PIL import Image
 from google.cloud import storage
-from agent_tools import Tool, action, observation, Action, Observation
+from opentool import Tool, action, observation, Action, Observation
 
 from .vm.base import DesktopVM, DesktopProvider
 from .vm.gce import GCEProvider
