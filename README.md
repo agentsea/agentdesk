@@ -1,10 +1,32 @@
-# AgentDesk
+<!-- PROJECT LOGO -->
+<br />
+<p align="center">
+  <!-- <a href="https://github.com/agentsea/skillpacks">
+    <img src="https://project-logo.png" alt="Logo" width="80">
+  </a> -->
 
-Desktops for AI agents &nbsp; :computer:
+  <h1 align="center">AgentDesk</h1>
 
-Built on [agentd](https://github.com/AgentSea/agentd) to make desktop VMs accessible to AI agents.
+  <p align="center">
+    Desktops for AI agents &nbsp; :computer:
+    <br />
+    <a href="https://github.com/agentsea/agentdesk"><strong>Explore the docs »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/agentsea/agentdesk">View Demo</a>
+    ·
+    <a href="https://github.com/agentsea/agentdesk/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/agentsea/agentdesk/issues">Request Feature</a>
+  </p>
+  <br>
+</p>
 
-Implements the [ToolsV1 protocol](https://github.com/AgentSea/agent-tools)
+Agentdesk provides full featured desktop environments which can be programatically controlled by AI agents. Spin them up locally or in the cloud.
+
+▶ Built on [agentd](https://github.com/agentsea/agentd) a runtime daemon which exposes a REST API for interacting with the desktop.
+
+▶ Implements the [ToolsV1 protocol](https://github.com/agentsea/agent-tools)
 
 ## Installation
 
