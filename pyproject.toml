@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agentdesk"
-version = "0.2.7"
+version = "0.2.9"
 description = "A desktop for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "Apache 2.0"
@@ -8,14 +8,13 @@ readme = "README.md"
 packages = [{include = "agentdesk"}]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<3.12"
 pillow = "^10.2.0"
 requests = "^2.31.0"
 fastapi = {extras = ["all"], version = "^0.109.0"}
 sqlalchemy = "^2.0.25"
 psycopg2-binary = "^2.9.9"
 psutil = "^5.9.8"
-google-cloud-storage = "^2.14.0"
 docker = "^7.0.0"
 pycdlib = "^1.14.0"
 namesgenerator = "^0.3"
@@ -30,11 +29,13 @@ opentool-ai = "^0.1.7"
 [tool.poetry.group.gcp.dependencies]
 google-cloud-compute = "^1.15.0"
 google-cloud-container = "^2.38.0"
+google-cloud-storage = "^2.14.0"
 
 
 [tool.poetry.group.aws.dependencies]
 boto3 = "^1.34.28"
 boto3-stubs = {extras = ["ec2"], version = "^1.34.28"}
+mypy-boto3-ec2 = "^1.34.52"
 
 
 [tool.poetry.group.demo.dependencies]

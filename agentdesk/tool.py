@@ -13,8 +13,20 @@ from google.cloud import storage
 from opentool import Tool, action, observation, Action, Observation
 
 from .vm.base import DesktopVM, DesktopProvider
-from .vm.gce import GCEProvider
-from .vm.ec2 import EC2Provider
+
+try:
+    from .vm.gce import GCEProvider
+except ImportError:
+    print(
+        "GCE provider unavailable, install with `pip install agentdesk[gce] if desired"
+    )
+try:
+    from .vm.ec2 import EC2Provider
+except ImportError:
+    print(
+        "AWS provider unavailable, install with `pip install agentdesk[aws] if desired"
+    )
+
 from .vm.qemu import QemuProvider
 from .util import extract_file_path, extract_gcs_info, generate_random_string
 

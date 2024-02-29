@@ -1773,13 +1773,13 @@ traitlets = "*"
 
 [[package]]
 name = "mypy-boto3-ec2"
-version = "1.34.27"
-description = "Type annotations for boto3.EC2 1.34.27 service generated with mypy-boto3-builder 7.23.1"
+version = "1.34.52"
+description = "Type annotations for boto3.EC2 1.34.52 service generated with mypy-boto3-builder 7.23.2"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "mypy-boto3-ec2-1.34.27.tar.gz", hash = "sha256:5daf18ec79b82b5d4117b292ac80b8498d8225f69e362096b514289cd4e7f63f"},
-    {file = "mypy_boto3_ec2-1.34.27-py3-none-any.whl", hash = "sha256:5ce719e3e1c8148e7ecdf929ad883cd3ae50ac79fefa546319652be1a5f4d20f"},
+    {file = "mypy-boto3-ec2-1.34.52.tar.gz", hash = "sha256:07dec9b1f773f85f079241e0828b47fa39ee983c997a2ea4a6b58f10204c2315"},
+    {file = "mypy_boto3_ec2-1.34.52-py3-none-any.whl", hash = "sha256:92859b4c28d70b41b73ad5da53ba6c0e105718d0e9a6c89a114f79be664bb24c"},
 ]
 
 [package.dependencies]
@@ -3409,5 +3409,5 @@ files = [
 
 [metadata]
 lock-version = "2.0"
-python-versions = "^3.10"
-content-hash = "9ddfa7f13eeaf12f75521242273dfcef4694a7a95cdeea3dd7226c1fdee79a88"
+python-versions = ">=3.10,<3.12"
+content-hash = "963b0af8f18ce481cb403eac3f6936301f3b3c4d6119032acd02c34cf2f50fdd"
