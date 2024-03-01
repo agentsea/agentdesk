@@ -1831,13 +1831,13 @@ datalib = ["numpy (>=1)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)"]
 
 [[package]]
 name = "opentool-ai"
-version = "0.1.7"
+version = "0.1.8"
 description = "A protocol for AI agent tools"
 optional = false
 python-versions = ">=3.10,<4.0"
 files = [
-    {file = "opentool_ai-0.1.7-py3-none-any.whl", hash = "sha256:491465c44b606f2bc6b7c1ce1b0466955611459cfa5d462f9409e39ffe2da26e"},
-    {file = "opentool_ai-0.1.7.tar.gz", hash = "sha256:508f7cb82d3a2622b97ea8b28c3c56ef3d633758a9fab256d86b3c7ad0718f33"},
+    {file = "opentool_ai-0.1.8-py3-none-any.whl", hash = "sha256:b4f50fb14fca76fb3a2a542ce41fb11c772844a0997a16a0937822a42a8ab5d1"},
+    {file = "opentool_ai-0.1.8.tar.gz", hash = "sha256:654ddbaae2db47b6fa814c9ac3be309079cd24803c65fc61c19b49505c9742ea"},
 ]
 
 [package.dependencies]
@@ -3410,4 +3410,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.12"
-content-hash = "963b0af8f18ce481cb403eac3f6936301f3b3c4d6119032acd02c34cf2f50fdd"
+content-hash = "3a65e66f0fa58c58a21a74217e748a4eaf1ed1dd3c6f8ada7abdb84df45db44b"
