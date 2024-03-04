@@ -5,6 +5,7 @@ from enum import Enum
 import time
 import os
 from typing import Tuple, Optional, List
+import atexit
 
 import requests
 
@@ -28,7 +29,13 @@ except ImportError:
     )
 
 from .vm.qemu import QemuProvider
-from .util import extract_file_path, extract_gcs_info, generate_random_string
+from .util import (
+    extract_file_path,
+    extract_gcs_info,
+    generate_random_string,
+    check_port_in_use,
+)
+from .proxy import ensure_ssh_proxy, cleanup_proxy
 
 
 class StorageStrategy(Enum):
@@ -79,6 +86,18 @@ class Desktop(Tool):
         self._move_mouse_duration = move_mouse_duration
         self._mouse_tween = mouse_tween
         self._store_img = store_img
+
+        if vm.requires_proxy:
+            print("starting proxy to vm...")
+            if check_port_in_use(8000):
+                raise ValueError(
+                    "Port 8000 is already in use, UI requires this port"
+                )  # TODO: remove this restriction
+            proxy_pid = ensure_ssh_proxy(8000, 8000, vm.ssh_port, "agentsea", vm.addr)
+            atexit.register(cleanup_proxy, proxy_pid)
+            print("proxy from port 8000 to port 8000 started...")
+        else:
+            print("vm doesn't require proxy")
 
         try:
             resp = self.health()
