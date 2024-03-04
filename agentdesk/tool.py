@@ -73,7 +73,10 @@ class Desktop(Tool):
         self._vm = vm
 
         if vm:
-            self.base_url = f"{vm.addr}:8000"
+            if vm.requires_proxy:
+                self.base_url = f"localhost:8000"
+            else:
+                self.base_url = f"{vm.addr}:8000"
         else:
             self.base_url = agentd_url
 
