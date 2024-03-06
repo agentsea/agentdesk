@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agentdesk"
-version = "0.2.12"
+version = "0.2.13"
 description = "A desktop for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "Apache 2.0"
@@ -8,7 +8,7 @@ readme = "README.md"
 packages = [{include = "agentdesk"}]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.12"
+python = ">=3.10,<4.0"
 pillow = "^10.2.0"
 requests = "^2.31.0"
 fastapi = {extras = ["all"], version = "^0.109.0"}
