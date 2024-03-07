@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agentdesk"
-version = "0.2.19"
+version = "0.2.20"
 description = "A desktop for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "Apache 2.0"
@@ -24,12 +24,12 @@ tabulate = "^0.9.0"
 tqdm = "^4.66.2"
 tenacity = "^8.2.3"
 opentool-ai = "^0.1.8"
+google-cloud-storage = "^2.14.0"
 
 
 [tool.poetry.group.gcp.dependencies]
 google-cloud-compute = "^1.15.0"
 google-cloud-container = "^2.38.0"
-google-cloud-storage = "^2.14.0"
 
 
 [tool.poetry.group.aws.dependencies]

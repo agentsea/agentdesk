@@ -56,6 +56,8 @@ class Desktop(Tool):
         move_mouse_duration: float = 1.0,
         mouse_tween: str = "easeInOutQuad",
         store_img: bool = False,
+        proxy_type: str = "process",
+        proxy_port: int = 8000,
     ) -> None:
         """Connect to an agent desktop
 
@@ -68,13 +70,15 @@ class Desktop(Tool):
             move_mouse_duration (float, optional): How long should it take to move. Defaults to 1.0.
             mouse_tween (str, optional): The movement tween. Defaults to "easeInOutQuad".
             store_img (bool, optional): Whether to store the image in the cloud. Defaults to false
+            proxy_type (str, optional): The type of proxy to use. Defaults to process.
+            proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.
         """
         super().__init__()
         self._vm = vm
 
         if vm:
             if vm.requires_proxy:
-                self.base_url = f"localhost:8000"
+                self.base_url = f"localhost:{proxy_port}"
             else:
                 self.base_url = f"{vm.addr}:8000"
         else:
@@ -89,16 +93,20 @@ class Desktop(Tool):
         self._move_mouse_duration = move_mouse_duration
         self._mouse_tween = mouse_tween
         self._store_img = store_img
+        self._proxy_port = proxy_port
 
         if vm.requires_proxy:
-            print("starting proxy to vm...")
-            if check_port_in_use(8000):
-                raise ValueError(
-                    "Port 8000 is already in use, UI requires this port"
-                )  # TODO: remove this restriction
-            proxy_pid = ensure_ssh_proxy(8000, 8000, vm.ssh_port, "agentsea", vm.addr)
-            atexit.register(cleanup_proxy, proxy_pid)
-            print("proxy from port 8000 to port 8000 started...")
+            if proxy_type == "process":
+                print("starting proxy to vm...")
+                if check_port_in_use(proxy_port):
+                    raise ValueError(
+                        f"Port {proxy_port} is already in use"
+                    )  # TODO: remove this restriction
+                proxy_pid = ensure_ssh_proxy(
+                    proxy_port, 8000, vm.ssh_port, "agentsea", vm.addr
+                )
+                atexit.register(cleanup_proxy, proxy_pid)
+                print("proxy from port 8000 to port 8000 started...")
         else:
             print("vm doesn't require proxy")
 
@@ -217,19 +225,23 @@ class Desktop(Tool):
         return cls.create(name=name, provider=QemuProvider(), memory=memory, cpus=cpus)
 
     @classmethod
-    def from_vm(cls, vm: DesktopVM) -> "Desktop":
+    def from_vm(
+        cls, vm: DesktopVM, proxy_type: str = "process", proxy_port: int = 8000
+    ) -> "Desktop":
         """Create a desktop from a VM
 
         Args:
             vm (DesktopVM): VM to use
+            proxy_type (str, optional): The type of proxy to use. Defaults to process.
+            proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.
 
         Returns:
             Desktop: A desktop
         """
-        return Desktop(vm=vm)
+        return Desktop(vm=vm, proxy_type=proxy_type, proxy_port=8000)
 
     @classmethod
-    def get(cls, name: str) -> "Desktop":
+    def get(cls, name: str) -> Optional[DesktopVM]:
         """Get a desktop by name
 
         Args:
@@ -238,10 +250,7 @@ class Desktop(Tool):
         Returns:
             Desktop: A desktop
         """
-        found = DesktopVM.get(name)
-        if not found:
-            raise ValueError(f"could not find desktop with name {name}")
-        return cls.from_vm(found)
+        return DesktopVM.get(name)
 
     @classmethod
     def find(cls, **kwargs: Any) -> list[DesktopVM]:
