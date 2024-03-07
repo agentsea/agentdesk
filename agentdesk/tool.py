@@ -4,7 +4,7 @@ import io
 from enum import Enum
 import time
 import os
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Any
 import atexit
 
 import requests
@@ -244,13 +244,13 @@ class Desktop(Tool):
         return cls.from_vm(found)
 
     @classmethod
-    def list(cls) -> list[DesktopVM]:
+    def find(cls, **kwargs: Any) -> list[DesktopVM]:
         """List all desktops
 
         Returns:
             list[DesktopVM]: A list of desktop vms
         """
-        return DesktopVM.find()
+        return DesktopVM.find(**kwargs)
 
     def info(self) -> dict:
         """Get info on the desktop runtime
