@@ -6,8 +6,10 @@ import atexit
 
 from google.cloud import compute_v1
 from google.cloud import _helpers
+from google.oauth2.service_account import Credentials
 from namesgenerator import get_random_name
 import requests
+import json
 
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
@@ -17,19 +19,24 @@ from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 
 
 class GCEProvider(DesktopProvider):
-    """A VM provider using GCE"""
+    """VM provider using GCP Compute Engine"""
 
     def __init__(
         self,
         project_id: Optional[str] = None,
         zone: str = "us-central1-a",
         region: Optional[str] = "us-central1",
+        gcp_credentials_json: Optional[str] = None,
     ):
-        """Initialize the GCP VM Provider with project and zone details."""
+        """Initialize the GCP VM Provider with project, zone, region, and optional JSON credentials."""
         self.project_id = project_id or _helpers._determine_default_project()
         self.zone = zone
         self.region = region
-
+        if gcp_credentials_json:
+            credentials_info = json.loads(gcp_credentials_json)
+            self.credentials = Credentials.from_service_account_info(credentials_info)
+        else:
+            self.credentials = None
         # print("using project id: ", self.project_id)
 
     def create(
@@ -57,14 +64,14 @@ class GCEProvider(DesktopProvider):
         # bucket_name, image_file = self._parse_gcs_url(image)
         # image_name = self._generate_image_name_from_gcs_url(image)
 
-        images_client = compute_v1.ImagesClient()
+        images_client = compute_v1.ImagesClient(credentials=self.credentials)
 
         # Check if the image exists
         img = images_client.get(project=self.project_id, image=image)
         if img.status != "READY":
             raise ValueError("Image is not ready")
 
-        instance_client = compute_v1.InstancesClient()
+        instance_client = compute_v1.InstancesClient(credentials=self.credentials)
         machine_type = f"zones/{self.zone}/machineTypes/custom-{cpu}-{memory*1024}"
         image_project_id = "agentsea-dev"
         source_image_url = f"projects/{image_project_id}/global/images/{image}"
@@ -176,7 +183,7 @@ class GCEProvider(DesktopProvider):
 
     def reserve_static_ip(self, name: str) -> str:
         """Reserve a static external IP address."""
-        addresses_client = compute_v1.AddressesClient()
+        addresses_client = compute_v1.AddressesClient(credentials=self.credentials)
         address = compute_v1.Address(name=name)
 
         operation = addresses_client.insert(
@@ -193,7 +200,7 @@ class GCEProvider(DesktopProvider):
         self, rule_name: str, ports: List[str], network: str = "global/networks/default"
     ):
         """Create a firewall rule to allow incoming traffic on specified ports."""
-        firewall_client = compute_v1.FirewallsClient()
+        firewall_client = compute_v1.FirewallsClient(credentials=self.credentials)
         firewall = compute_v1.Firewall()
         firewall.name = rule_name
         firewall.direction = compute_v1.Firewall.Direction.INGRESS
@@ -237,7 +244,7 @@ class GCEProvider(DesktopProvider):
         if not desktop:
             raise ValueError(f"Desktop {name} not found")
 
-        instance_client = compute_v1.InstancesClient()
+        instance_client = compute_v1.InstancesClient(credentials=self.credentials)
         operation = instance_client.delete(
             project=self.project_id,
             zone=self.zone,
@@ -252,7 +259,7 @@ class GCEProvider(DesktopProvider):
         desk = DesktopVM.find(name)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
-        instance_client = compute_v1.InstancesClient()
+        instance_client = compute_v1.InstancesClient(credentials=self.credentials)
         operation = instance_client.start(
             project=self.project_id,
             zone=self.zone,
@@ -273,7 +280,7 @@ class GCEProvider(DesktopProvider):
         desk = DesktopVM.find(name)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
-        instance_client = compute_v1.InstancesClient()
+        instance_client = compute_v1.InstancesClient(credentials=self.credentials)
         operation = instance_client.stop(
             project=self.project_id,
             zone=self.zone,
@@ -328,7 +335,7 @@ class GCEProvider(DesktopProvider):
 
     def refresh(self, log: bool = True) -> None:
         """Refresh the state of all VMs managed by this GCEProvider."""
-        instance_client = compute_v1.InstancesClient()
+        instance_client = compute_v1.InstancesClient(credentials=self.credentials)
 
         # List all instances in the project and zone
         request = compute_v1.ListInstancesRequest(

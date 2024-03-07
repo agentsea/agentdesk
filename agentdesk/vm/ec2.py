@@ -18,12 +18,24 @@ from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 
 
 class EC2Provider(DesktopProvider):
-    """A VM provider using AWS EC2"""
+    """VM provider using AWS EC2"""
 
-    def __init__(self, region: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        region: str,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+    ):
+        """Initialize the AWS EC2 VM Provider with region and optional credentials."""
         self.region = region
-        self.ec2: EC2ServiceResource = boto3.resource("ec2", region_name=region)
-        self.ec2_client = boto3.client("ec2", region_name=self.region)
+        if aws_access_key_id and aws_secret_access_key:
+            self.session = boto3.Session(
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                region_name=self.region,
+            )
+        else:
+            self.session = boto3.Session(region_name=self.region)
 
     def create(
         self,
