@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import atexit
 import time
 
@@ -47,6 +47,8 @@ class EC2Provider(DesktopProvider):
         tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
+        owner_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> DesktopVM:
         if not name:
             name = get_random_name(sep="-")
@@ -138,6 +140,8 @@ users:
             image=image,
             provider=self.to_data(),
             requires_proxy=True,
+            owner_id=owner_id,
+            metadata=metadata,
         )
 
         print(f"\nsuccessfully created desktop '{name}'")

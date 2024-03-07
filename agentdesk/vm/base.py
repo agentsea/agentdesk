@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar, Generic, Dict
+from typing import List, Optional, TypeVar, Generic, Dict, Any
 import uuid
 import time
 import json
@@ -45,6 +45,7 @@ class DesktopVM(WithDB):
         requires_proxy: bool = True,
         metadata: Optional[dict] = None,
         ssh_port: int = 22,
+        owner_id: Optional[str] = None,
     ) -> None:
         if not id:
             id = str(uuid.uuid4())
@@ -63,6 +64,7 @@ class DesktopVM(WithDB):
         self.requires_proxy = requires_proxy
         self.metadata = metadata
         self.ssh_port = ssh_port
+        self.owner_id = owner_id
 
         self.save()
 
@@ -91,6 +93,7 @@ class DesktopVM(WithDB):
             requires_proxy=self.requires_proxy,
             ssh_port=self.ssh_port,
             meta=metadata,
+            owner_id=self.owner_id,
         )
 
     def save(self) -> None:
@@ -115,6 +118,7 @@ class DesktopVM(WithDB):
         out.reserved_ip = record.reserved_ip
         out.requires_proxy = record.requires_proxy
         out.ssh_port = record.ssh_port
+        out.owner_id = record.owner_id
         if record.provider:
             dct = json.loads(record.provider)
             out.provider = V1ProviderData(**dct)
@@ -203,6 +207,7 @@ class DesktopVM(WithDB):
             provider=self.provider,
             metadata=self.metadata,
             ssh_port=self.ssh_port,
+            owner_id=self.owner_id,
         )
 
     def view(self, background: bool = False) -> None:
@@ -304,6 +309,8 @@ class DesktopProvider(ABC, Generic[DP]):
         tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
+        owner_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> DesktopVM:
         """Create a Desktop
 
@@ -316,6 +323,8 @@ class DesktopProvider(ABC, Generic[DP]):
             tags (List[str], optional): Tags to apply to the VM. Defaults to None.
             reserve_ip (bool, optional): Reserve an IP address. Defaults to False.
             ssh_key (str, optional): SSH key to use. Defaults to None.
+            owner_id (str, optional): Owner of the VM. Defaults to None.
+            metadata (Dict[str, Any], optional): Metadata to apply to the VM. Defaults to None.
 
         Returns:
             VM: A VM

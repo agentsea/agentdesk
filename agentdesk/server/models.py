@@ -44,6 +44,7 @@ class V1Desktop(BaseModel):
     reserved_ip: Optional[bool] = None
     provider: Optional[V1ProviderData] = None
     meta: Optional[dict] = None
+    owner_id: Optional[str] = None
 
 
 class V1Desktops(BaseModel):

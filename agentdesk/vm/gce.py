@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Any
 import re
 import time
 import atexit
@@ -49,6 +49,8 @@ class GCEProvider(DesktopProvider):
         tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
+        owner_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> DesktopVM:
         """Create a VM in GCP."""
 
@@ -147,6 +149,8 @@ class GCEProvider(DesktopProvider):
             image=image,
             provider=self.to_data(),
             requires_proxy=True,
+            owner_id=owner_id,
+            metadata=metadata,
         )
         print(f"\nsuccessfully created desktop '{name}'")
         return new_desktop

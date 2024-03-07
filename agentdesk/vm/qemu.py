@@ -1,7 +1,7 @@
 from __future__ import annotations
 import subprocess
 import psutil
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import os
 from urllib.parse import urlparse
 import tempfile
@@ -40,6 +40,8 @@ class QemuProvider(DesktopProvider):
         disk: str = "30gb",
         reserve_ip: bool = False,
         ssh_key: Optional[str] = None,
+        owner_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> DesktopVM:
         """Create a local QEMU VM locally"""
 
@@ -156,6 +158,8 @@ local-hostname: {name}
             provider=self.to_data(),
             requires_proxy=False,
             ssh_port=ssh_port,
+            owner_id=owner_id,
+            metadata=metadata,
         )
         return desktop
 
