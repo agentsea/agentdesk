@@ -122,6 +122,7 @@ class DesktopVM(WithDB):
         out.requires_proxy = record.requires_proxy
         out.ssh_port = record.ssh_port
         out.owner_id = record.owner_id
+        out.ssh_key = record.ssh_key
         if record.provider:
             dct = json.loads(record.provider)
             out.provider = V1ProviderData(**dct)
