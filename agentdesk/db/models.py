@@ -32,3 +32,4 @@ class V1DesktopRecord(Base):
     reserved_ip = Column(Boolean, nullable=True)
     meta = Column(String, nullable=True)
     owner_id = Column(String, nullable=True)
+    ssh_key = Column(String, nullable=True)

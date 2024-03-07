@@ -160,6 +160,7 @@ local-hostname: {name}
             ssh_port=ssh_port,
             owner_id=owner_id,
             metadata=metadata,
+            ssh_key=ssh_key,
         )
         return desktop
 

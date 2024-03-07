@@ -46,6 +46,7 @@ class DesktopVM(WithDB):
         metadata: Optional[dict] = None,
         ssh_port: int = 22,
         owner_id: Optional[str] = None,
+        ssh_key: Optional[str] = None,
     ) -> None:
         if not id:
             id = str(uuid.uuid4())
@@ -65,6 +66,7 @@ class DesktopVM(WithDB):
         self.metadata = metadata
         self.ssh_port = ssh_port
         self.owner_id = owner_id
+        self.ssh_key = ssh_key
 
         self.save()
 
@@ -94,6 +96,7 @@ class DesktopVM(WithDB):
             ssh_port=self.ssh_port,
             meta=metadata,
             owner_id=self.owner_id,
+            ssh_key=self.ssh_key,
         )
 
     def save(self) -> None:

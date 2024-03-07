@@ -151,6 +151,7 @@ class GCEProvider(DesktopProvider):
             requires_proxy=True,
             owner_id=owner_id,
             metadata=metadata,
+            ssh_key=ssh_key,
         )
         print(f"\nsuccessfully created desktop '{name}'")
         return new_desktop
