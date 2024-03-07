@@ -65,7 +65,7 @@ def get(
     ),
 ):
     if name:
-        desktop = DesktopVM.find(name)
+        desktop = DesktopVM.get(name)
         if provider and desktop.provider.type != provider:
             print(f"Desktop '{name}' not found")
             return
@@ -73,7 +73,7 @@ def get(
         _provider = load_provider(desktop.provider)
         if not desktop.reserved_ip:
             _provider.refresh(log=False)
-            desktop = DesktopVM.find(name)
+            desktop = DesktopVM.get(name)
             if not desktop:
                 print(f"Desktop '{name}' not found")
                 return
@@ -85,7 +85,7 @@ def get(
         return
 
     provider_is_refreshed = {}
-    vms = DesktopVM.list()
+    vms = DesktopVM.find()
     if not vms:
         print("No desktops found")
     else:
@@ -100,7 +100,7 @@ def get(
                 if not desktop.reserved_ip:
                     _provider.refresh(log=False)
                     provider_is_refreshed[desktop.provider.type] = True
-                    desktop = DesktopVM.find(desktop.name)
+                    desktop = DesktopVM.get(desktop.name)
                     if not desktop:
                         continue
 
@@ -137,7 +137,7 @@ def get(
 def delete(
     name: str = typer.Argument(..., help="The name of the desktop to delete."),
 ):
-    desktop = DesktopVM.find(name)
+    desktop = DesktopVM.get(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
@@ -146,7 +146,7 @@ def delete(
 
     print("refreshing provider...")
     _provider.refresh()
-    desktop = DesktopVM.find(name)
+    desktop = DesktopVM.get(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
@@ -160,7 +160,7 @@ def delete(
 def view(
     name: str = typer.Argument(..., help="The name of the desktop to view."),
 ):
-    desktop = DesktopVM.find(name)
+    desktop = DesktopVM.get(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
@@ -169,7 +169,7 @@ def view(
         print("refreshing provider...")
         _provider = load_provider(desktop.provider)
         _provider.refresh()
-        desktop = DesktopVM.find(name)
+        desktop = DesktopVM.get(name)
         if not desktop:
             print(f"Desktop '{name}' not found")
             return
@@ -191,7 +191,7 @@ def refresh(
 def stop(
     name: str = typer.Argument(..., help="The name of the desktop to stop."),
 ):
-    desktop = DesktopVM.find(name)
+    desktop = DesktopVM.get(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
@@ -200,7 +200,7 @@ def stop(
         print("refreshing provider...")
         _provider = load_provider(desktop.provider)
         _provider.refresh()
-        desktop = DesktopVM.find(name)
+        desktop = DesktopVM.get(name)
         if not desktop:
             print(f"Desktop '{name}' not found")
             return
@@ -214,7 +214,7 @@ def stop(
 def start(
     name: str = typer.Argument(..., help="The name of the desktop to start."),
 ):
-    desktop = DesktopVM.find(name)
+    desktop = DesktopVM.get(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
@@ -223,7 +223,7 @@ def start(
         print("refreshing provider...")
         _provider = load_provider(desktop.provider)
         _provider.refresh()
-        desktop = DesktopVM.find(name)
+        desktop = DesktopVM.get(name)
         if not desktop:
             print(f"Desktop '{name}' not found")
             return

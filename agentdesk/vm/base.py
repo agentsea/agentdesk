@@ -137,7 +137,7 @@ class DesktopVM(WithDB):
             return cls.from_record(record)
 
     @classmethod
-    def find(cls, name: str) -> Optional[DesktopVM]:
+    def get(cls, name: str) -> Optional[DesktopVM]:
         for db in cls.get_db():
             record = (
                 db.query(V1DesktopRecord).filter(V1DesktopRecord.name == name).first()
@@ -147,20 +147,24 @@ class DesktopVM(WithDB):
             return cls.from_record(record)
 
     @classmethod
-    def list(cls) -> list[DesktopVM]:
+    def find(cls, **kwargs) -> List[DesktopVM]:
+        """Find desktops by given keyword arguments."""
         out = []
         for db in cls.get_db():
-            records = db.query(V1DesktopRecord).all()
+            records = db.query(V1DesktopRecord).filter_by(**kwargs).all()
             for record in records:
                 out.append(cls.from_record(record))
         return out
 
     @classmethod
-    def list_v1(cls) -> V1Desktops:
+    def find_v1(cls, **kwargs) -> List[V1Desktop]:
+        """Find desktops by given keyword arguments."""
         out = []
-        for desktop in cls.list():
-            out.append(desktop.to_v1_schema())
-        return V1Desktops(desktops=out)
+        for db in cls.get_db():
+            records = db.query(V1DesktopRecord).filter_by(**kwargs).all()
+            for record in records:
+                out.append(cls.from_record(record).to_v1_schema())
+        return out
 
     @classmethod
     def delete(cls, id: str) -> None:

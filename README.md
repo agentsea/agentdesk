@@ -105,7 +105,7 @@ _\*requires docker_
 ### List desktops
 
 ```python
-Desktop.list()
+Desktop.find()
 ```
 
 ```bash

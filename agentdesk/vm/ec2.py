@@ -344,7 +344,7 @@ users:
             self._delete_ssh_key(name)
 
             # Remove the desktop VM from local state
-            desk = DesktopVM.find(name)
+            desk = DesktopVM.get(name)
             if not desk:
                 raise ValueError(
                     f"Desktop '{name}' not found in state, but deleted from provider"
@@ -352,7 +352,7 @@ users:
             desk.remove()
 
     def start(self, name: str) -> None:
-        desk = DesktopVM.find(name)
+        desk = DesktopVM.get(name)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance = self._get_instance_by_name(name)
@@ -367,7 +367,7 @@ users:
         desk.save()
 
     def stop(self, name: str) -> None:
-        desk = DesktopVM.find(name)
+        desk = DesktopVM.get(name)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance = self._get_instance_by_name(name)
@@ -387,14 +387,14 @@ users:
         return desktops
 
     def list(self) -> List[DesktopVM]:
-        return DesktopVM.list()
+        return DesktopVM.find()
 
     def get_remote(self, name: str) -> Optional[DesktopVM]:
         instance = self._get_instance_by_name(name)
         return DesktopVM.load(instance.id)
 
     def get(self, name: str) -> Optional[DesktopVM]:
-        return DesktopVM.find(name)
+        return DesktopVM.get(name)
 
     def to_data(self) -> V1ProviderData:
         provider = V1ProviderData(type="ec2")
@@ -425,7 +425,7 @@ users:
 
     def refresh(self, log: bool = True) -> None:
         """Refresh state"""
-        for vm in DesktopVM.list():
+        for vm in DesktopVM.find():
             if vm.provider.type != "ec2":
                 continue
 

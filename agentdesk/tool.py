@@ -124,7 +124,7 @@ class Desktop(Tool):
         ssh_key: Optional[str] = None,
     ) -> "Desktop":
         """Find or create a desktop"""
-        vm = DesktopVM.find(name)
+        vm = DesktopVM.get(name)
         if vm:
             return cls.from_vm(vm)
 
@@ -229,8 +229,8 @@ class Desktop(Tool):
         return Desktop(vm=vm)
 
     @classmethod
-    def find(cls, name: str) -> "Desktop":
-        """Find a desktop by name
+    def get(cls, name: str) -> "Desktop":
+        """Get a desktop by name
 
         Args:
             name (str): Name of the desktop
@@ -238,7 +238,7 @@ class Desktop(Tool):
         Returns:
             Desktop: A desktop
         """
-        found = DesktopVM.find(name)
+        found = DesktopVM.get(name)
         if not found:
             raise ValueError(f"could not find desktop with name {name}")
         return cls.from_vm(found)
@@ -250,7 +250,7 @@ class Desktop(Tool):
         Returns:
             list[DesktopVM]: A list of desktop vms
         """
-        return DesktopVM.list()
+        return DesktopVM.find()
 
     def info(self) -> dict:
         """Get info on the desktop runtime

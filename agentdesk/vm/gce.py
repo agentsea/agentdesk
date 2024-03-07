@@ -244,7 +244,7 @@ class GCEProvider(DesktopProvider):
         return 0, "unknown"
 
     def delete(self, name: str) -> None:
-        desktop = DesktopVM.find(name)
+        desktop = DesktopVM.get(name)
         if not desktop:
             raise ValueError(f"Desktop {name} not found")
 
@@ -260,7 +260,7 @@ class GCEProvider(DesktopProvider):
         desktop.remove()
 
     def start(self, name: str) -> None:
-        desk = DesktopVM.find(name)
+        desk = DesktopVM.get(name)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance_client = compute_v1.InstancesClient(credentials=self.credentials)
@@ -281,7 +281,7 @@ class GCEProvider(DesktopProvider):
         desk.save()
 
     def stop(self, name: str) -> None:
-        desk = DesktopVM.find(name)
+        desk = DesktopVM.get(name)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance_client = compute_v1.InstancesClient(credentials=self.credentials)
@@ -295,7 +295,7 @@ class GCEProvider(DesktopProvider):
         desk.save()
 
     def list(self) -> List[DesktopVM]:
-        desktops = DesktopVM.list()
+        desktops = DesktopVM.find()
         out = []
         for desktop in desktops:
             if desktop.provider.type == "gce":
@@ -305,7 +305,7 @@ class GCEProvider(DesktopProvider):
 
     def get(self, name: str) -> Optional[DesktopVM]:
         try:
-            return DesktopVM.find(name)
+            return DesktopVM.get(name)
         except ValueError:
             return None
 
@@ -351,7 +351,7 @@ class GCEProvider(DesktopProvider):
         gce_instance_names = [instance.name for instance in response]
 
         # Iterate over all DesktopVM instances managed by this provider
-        for vm in DesktopVM.list():
+        for vm in DesktopVM.find():
             if vm.provider.type != "gce":
                 continue
 

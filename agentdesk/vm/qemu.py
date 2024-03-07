@@ -217,7 +217,7 @@ local-hostname: {name}
 
     def delete(self, name: str) -> None:
         """Delete a local QEMU VM."""
-        desktop = DesktopVM.find(name)
+        desktop = DesktopVM.get(name)
         if not desktop:
             raise ValueError(f"Desktop '{name}' does not exist.")
         if psutil.pid_exists(desktop.pid):
@@ -239,7 +239,7 @@ local-hostname: {name}
 
     def list(self) -> List[DesktopVM]:
         """List local QEMU VMs."""
-        desktops = DesktopVM.list()
+        desktops = DesktopVM.find()
         return [
             desktop
             for desktop in desktops
@@ -250,7 +250,7 @@ local-hostname: {name}
     def get(self, name: str) -> Optional[DesktopVM]:
         """Get a local QEMU VM."""
         try:
-            desktop = DesktopVM.find(name)
+            desktop = DesktopVM.get(name)
             if not desktop:
                 return None
             if (
@@ -275,7 +275,7 @@ local-hostname: {name}
 
     def refresh(self, log: bool = True) -> None:
         """Refresh the state of all local QEMU VMs."""
-        desktops = DesktopVM.list()
+        desktops = DesktopVM.find()
 
         for desktop in desktops:
             if (

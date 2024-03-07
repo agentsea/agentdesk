@@ -27,7 +27,7 @@ async def health():
 
 @app.get("/v1/desktops", response_model=V1Desktops)
 async def desktops() -> V1Desktops:
-    return DesktopVM.list_v1()
+    return DesktopVM.find_v1()
 
 
 @app.post("/v1/desktops", response_model=V1Desktop)
