@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import V1Desktop, V1Desktops, V1DesktopReqeust, V1DesktopRegistration

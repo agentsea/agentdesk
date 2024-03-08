@@ -1,12 +1,10 @@
 import sys
 import os
-import time
+from agentdesk.vm import GCEProvider
+from agentdesk.vm.img import JAMMY
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 # TODO
-
-from agentdesk.vm import GCEProvider
-from agentdesk.vm.img import JAMMY
 
 provider = GCEProvider()
 

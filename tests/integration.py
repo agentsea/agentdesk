@@ -1,10 +1,8 @@
 import sys
 import os
-import time
+from agentdesk import Desktop
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 # TODO
-
-from agentdesk import Desktop
 
 desktop = Desktop.local()

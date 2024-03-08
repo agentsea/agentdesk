@@ -1,11 +1,9 @@
 import sys
 import os
-import time
+from agentdesk.vm import QemuProvider
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 # TODO
-
-from agentdesk.vm import QemuProvider
 
 provider = QemuProvider()
 

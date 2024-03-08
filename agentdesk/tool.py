@@ -11,7 +11,7 @@ import requests
 
 from PIL import Image
 from google.cloud import storage
-from opentool import Tool, action, observation, Action, Observation
+from opentool import Tool, action, observation, Action
 
 from .vm.base import DesktopVM, DesktopProvider
 
@@ -457,8 +457,8 @@ class SimpleDesktop(Desktop):
             List[Action]: List of actions
         """
         out = []
-        for action in self._actions_list:
-            if action.name in [
+        for actionv in self._actions_list:
+            if actionv.name in [
                 "open_url",
                 "type_text",
                 "click",
@@ -466,7 +466,7 @@ class SimpleDesktop(Desktop):
                 "press_key",
                 "move_mouse",
             ]:
-                out.append(action)
+                out.append(actionv)
 
         return out
 

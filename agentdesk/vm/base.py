@@ -14,7 +14,7 @@ from docker.models.containers import Container
 
 from agentdesk.db.conn import WithDB
 from agentdesk.db.models import V1DesktopRecord
-from agentdesk.server.models import V1Desktop, V1Desktops, V1ProviderData
+from agentdesk.server.models import V1Desktop, V1ProviderData
 from agentdesk.util import (
     get_docker_host,
     check_command_availability,

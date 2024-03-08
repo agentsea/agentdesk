@@ -11,8 +11,6 @@ import contextlib
 import paramiko
 import psutil
 
-from .util import check_port_in_use
-
 
 class SSHPortForwarding:
     """Port forwarding using SSH"""
