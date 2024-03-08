@@ -74,7 +74,7 @@ class GCEProvider(DesktopProvider):
             raise ValueError("Image is not ready")
 
         instance_client = compute_v1.InstancesClient(credentials=self.credentials)
-        machine_type = f"zones/{self.zone}/machineTypes/custom-{cpu}-{memory*1024}"
+        machine_type = f"zones/{self.zone}/machineTypes/custom-{cpu}-{memory * 1024}"
         image_project_id = "agentsea-dev"
         source_image_url = f"projects/{image_project_id}/global/images/{image}"
 
@@ -182,7 +182,7 @@ class GCEProvider(DesktopProvider):
 
                 cleanup_proxy(pid)
                 atexit.unregister(cleanup_proxy)
-            except:
+            except Exception:
                 cleanup_proxy(pid)
                 pass
 

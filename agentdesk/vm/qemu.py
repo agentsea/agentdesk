@@ -57,7 +57,7 @@ class QemuProvider(DesktopProvider):
             raise ValueError(f"VM name '{name}' already exists")
 
         # Directory to store VM images
-        vm_dir = os.path.expanduser(f"~/.agentsea/vms")
+        vm_dir = os.path.expanduser("~/.agentsea/vms")
         os.makedirs(vm_dir, exist_ok=True)
 
         if not image:
@@ -100,7 +100,7 @@ class QemuProvider(DesktopProvider):
 users:
   - name: agentsea
     ssh_authorized_keys:
-      - { ssh_key }
+      - {ssh_key}
     sudo: ALL=(ALL) NOPASSWD:ALL
     groups: sudo
     shell: /bin/bash
@@ -175,7 +175,7 @@ local-hostname: {name}
                 print("agentd response: ", response)
                 if response.status_code == 200:
                     ready = True
-            except:
+            except Exception:
                 pass
 
     def _create_iso(self, output_iso: str, user_data: str, meta_data: str) -> None:

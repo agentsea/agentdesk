@@ -4,8 +4,7 @@ import atexit
 import time
 
 import boto3
-from boto3.resources.base import ServiceResource
-from mypy_boto3_ec2.service_resource import EC2ServiceResource, Instance as EC2Instance
+from mypy_boto3_ec2.service_resource import Instance as EC2Instance
 from namesgenerator import get_random_name
 from botocore.exceptions import ClientError
 import requests
@@ -173,7 +172,7 @@ users:
                     ready = True
                 cleanup_proxy(pid)
                 atexit.unregister(cleanup_proxy)
-            except:
+            except Exception:
                 try:
                     cleanup_proxy(pid)
                 except Exception:

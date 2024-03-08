@@ -49,9 +49,17 @@ openai = "^1.12.0"
 [tool.poetry.scripts]
 agentdesk = "agentdesk.cli.main:app"
 agentd = "agentdesk.cli.main:app"
+build-docs = "scripts.build_docs:main"
+lint = "scripts.lint:main"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.0"
+sphinx = "^7.2.6"
+sphinx-rtd-theme = "^2.0.0"
+recommonmark = "^0.7.1"
+flake8 = "^7.0.0"
+black = "^24.2.0"
+pytest = "^8.0.2"
 
 [build-system]
 requires = ["poetry-core"]

@@ -40,7 +40,7 @@ def system_prompt(
     """
     acts = json.dumps(actions, indent=4)
 
-    query = f"""You are using a computer, you have access to a mouse and keyboard. 
+    query = """You are using a computer, you have access to a mouse and keyboard.
 I'm going to show you the picture of the screen along with the current mouse coordinates."""
 
     if grid:
@@ -56,7 +56,7 @@ We will then select from a set of actions:
 
 """
     query += acts
-    query += """ 
+    query += """
 
 You will return the action in the form of:
 {
