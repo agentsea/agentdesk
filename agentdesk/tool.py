@@ -56,6 +56,7 @@ class Desktop(Tool):
         move_mouse_duration: float = 1.0,
         mouse_tween: str = "easeInOutQuad",
         store_img: bool = False,
+        requires_proxy: bool = False,
         proxy_type: str = "process",
         proxy_port: int = 8000,
     ) -> None:
@@ -70,6 +71,7 @@ class Desktop(Tool):
             move_mouse_duration (float, optional): How long should it take to move. Defaults to 1.0.
             mouse_tween (str, optional): The movement tween. Defaults to "easeInOutQuad".
             store_img (bool, optional): Whether to store the image in the cloud. Defaults to false
+            requires_proxy (bool, optional): Whether to use a proxy. Defaults to False.
             proxy_type (str, optional): The type of proxy to use. Defaults to process.
             proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.
         """
@@ -94,8 +96,9 @@ class Desktop(Tool):
         self._mouse_tween = mouse_tween
         self._store_img = store_img
         self._proxy_port = proxy_port
+        self._requires_proxy = vm.requires_proxy or requires_proxy
 
-        if vm.requires_proxy:
+        if self._requires_proxy:
             if proxy_type == "process":
                 print("starting proxy to vm...")
                 if check_port_in_use(proxy_port):
