@@ -7,6 +7,7 @@ import socket
 import select
 import time
 import contextlib
+import tempfile
 
 import paramiko
 import psutil
@@ -141,21 +142,24 @@ class SSHPortForwarding:
 def check_ssh_proxy_running(
     local_port: int, remote_port: int, ssh_port: int, ssh_user: str, ssh_host: str
 ) -> Optional[int]:
-    """Check if an SSH proxy process is running with the given user, host, and port, and return its PID."""
+    """Check if an SSH proxy process is running based on the local and remote port, SSH port, user, and host."""
 
-    search_command = (
-        "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-        f"-N -L 127.0.0.1:{local_port}:localhost:{remote_port} -p {ssh_port} {ssh_user}@{ssh_host}"
+    # Construct a partial command pattern to match.
+    # Since we don't know the temporary key file name, we'll omit it from the search.
+    partial_command_pattern = (
+        f"-L 127.0.0.1:{local_port}:localhost:{remote_port} "
+        f"-p {ssh_port} {ssh_user}@{ssh_host}"
     )
+
     for proc in psutil.process_iter(["cmdline", "pid"]):
         try:
             cmdline: list[str] = proc.info["cmdline"]
-            if cmdline and search_command in " ".join(
-                cmdline
-            ):  # Check if command line matches
-                return proc.info["pid"]  # Return the PID of the process
+            cmdline_str = " ".join(cmdline)
+            if partial_command_pattern in cmdline_str:
+                return proc.info["pid"]
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass  # Process has terminated or we don't have permission to access its info
+            pass
+
     return None
 
 
@@ -165,21 +169,25 @@ def setup_ssh_proxy(
     ssh_port: int = 22,
     ssh_user: str = "agentsea",
     ssh_host: str = "localhost",
+    ssh_key: Optional[str] = None,
 ) -> Optional[subprocess.Popen]:
     """Set up an SSH proxy if it's not already running."""
 
-    def check_port_in_use(port: int) -> bool:
-        # Dummy implementation; replace with actual check
-        return False
-
-    if check_port_in_use(local_port):
-        print(f"Port {local_port} is already in use. Assuming SSH proxy is running.")
-        return None
+    # Handle SSH key temporary file creation
+    temp_key_file = None
+    if ssh_key:
+        temp_key_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_key_file.write(ssh_key.encode())
+        temp_key_file.close()
 
     ssh_command = (
         "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-        f"-N -L 127.0.0.1:{local_port}:localhost:{remote_port} -p {ssh_port} {ssh_user}@{ssh_host}"
+        f"-N -L 127.0.0.1:{local_port}:localhost:{remote_port} -p {ssh_port} "
     )
+    if ssh_key:
+        ssh_command += f"-i {temp_key_file.name} "
+    ssh_command += f"{ssh_user}@{ssh_host}"
+
     print("Executing command: ", ssh_command)
     try:
         proxy_process = subprocess.Popen(
@@ -187,14 +195,17 @@ def setup_ssh_proxy(
         )
         # Give it a moment to fail, SSH should exit immediately if there's an error
         time.sleep(1)
-        if proxy_process.poll() is not None:  # None means the process is still running
-            # The process has exited, indicating failure
+        if proxy_process.poll() is not None:
             _, err = proxy_process.communicate()
             print(f"SSH proxy failed to start. Error: {err.decode()}")
             return None
     except Exception as e:
         print(f"Error starting SSH proxy: {e}")
         raise
+    finally:
+        if temp_key_file:
+            os.unlink(temp_key_file.name)  # Clean up the temporary file
+
     print(f"SSH proxy setup on local port {local_port}")
     return proxy_process
 
@@ -223,6 +234,7 @@ def ensure_ssh_proxy(
     ssh_port: int = 22,
     ssh_user: str = "agentsea",
     ssh_host: str = "localhost",
+    ssh_key: Optional[str] = None,
 ) -> int:
     """Ensure that an SSH proxy is running and return its PID."""
     pid = check_ssh_proxy_running(local_port, remote_port, ssh_port, ssh_user, ssh_host)
@@ -231,7 +243,9 @@ def ensure_ssh_proxy(
         return pid  # PID of the already running process
 
     print("SSH proxy not found, starting one...")
-    process = setup_ssh_proxy(local_port, remote_port, ssh_port, ssh_user, ssh_host)
+    process = setup_ssh_proxy(
+        local_port, remote_port, ssh_port, ssh_user, ssh_host, ssh_key
+    )
     if process is None:
         # If setup_ssh_proxy returned None, it means the port is in use but no PID was found.
         # It might be necessary to refine check_ssh_proxy_running or setup_ssh_proxy to ensure consistency.
@@ -244,7 +258,12 @@ def ensure_ssh_proxy(
 
 @contextlib.contextmanager
 def ensure_managed_ssh_proxy(
-    local_port: int, remote_port: int, ssh_port: int, ssh_user: str, ssh_host: str
+    local_port: int,
+    remote_port: int,
+    ssh_port: int,
+    ssh_user: str,
+    ssh_host: str,
+    ssh_key: Optional[str] = None,
 ) -> Generator[Optional[int], None, None]:
     pid: Optional[int] = check_ssh_proxy_running(
         local_port, remote_port, ssh_port, ssh_user, ssh_host
@@ -253,7 +272,9 @@ def ensure_managed_ssh_proxy(
 
     if pid is None:
         print("SSH proxy not found, starting one...")
-        process = setup_ssh_proxy(local_port, remote_port, ssh_port, ssh_user, ssh_host)
+        process = setup_ssh_proxy(
+            local_port, remote_port, ssh_port, ssh_user, ssh_host, ssh_key
+        )
         if process is None:
             raise RuntimeError("Failed to ensure SSH proxy is running.")
         pid = process.pid
