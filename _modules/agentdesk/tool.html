@@ -135,6 +135,7 @@
         <span class="n">move_mouse_duration</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
         <span class="n">mouse_tween</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;easeInOutQuad&quot;</span><span class="p">,</span>
         <span class="n">store_img</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">requires_proxy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">proxy_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span><span class="p">,</span>
         <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -149,6 +150,7 @@
 <span class="sd">            move_mouse_duration (float, optional): How long should it take to move. Defaults to 1.0.</span>
 <span class="sd">            mouse_tween (str, optional): The movement tween. Defaults to &quot;easeInOutQuad&quot;.</span>
 <span class="sd">            store_img (bool, optional): Whether to store the image in the cloud. Defaults to false</span>
+<span class="sd">            requires_proxy (bool, optional): Whether to use a proxy. Defaults to False.</span>
 <span class="sd">            proxy_type (str, optional): The type of proxy to use. Defaults to process.</span>
 <span class="sd">            proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -173,8 +175,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_mouse_tween</span> <span class="o">=</span> <span class="n">mouse_tween</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_store_img</span> <span class="o">=</span> <span class="n">store_img</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_proxy_port</span> <span class="o">=</span> <span class="n">proxy_port</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span> <span class="ow">or</span> <span class="n">requires_proxy</span>
 
-        <span class="k">if</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">proxy_type</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;starting proxy to vm...&quot;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">check_port_in_use</span><span class="p">(</span><span class="n">proxy_port</span><span class="p">):</span>
