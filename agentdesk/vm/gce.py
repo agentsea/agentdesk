@@ -182,9 +182,13 @@ class GCEProvider(DesktopProvider):
 
                 cleanup_proxy(pid)
                 atexit.unregister(cleanup_proxy)
-            except Exception:
-                cleanup_proxy(pid)
-                pass
+            except Exception as e:
+                print("Exception while waiting for desktop to be ready: ", e)
+                try:
+                    cleanup_proxy(pid)
+                    atexit.unregister(cleanup_proxy)
+                except:
+                    pass
 
     def reserve_static_ip(self, name: str) -> str:
         """Reserve a static external IP address."""
