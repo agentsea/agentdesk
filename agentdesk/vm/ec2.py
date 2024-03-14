@@ -45,7 +45,8 @@ class EC2Provider(DesktopProvider):
         disk: str = "30gb",
         tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
+        public_ssh_key: Optional[str] = None,
+        private_ssh_key: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> DesktopVM:
@@ -63,20 +64,20 @@ class EC2Provider(DesktopProvider):
             # image = custom_ami
             image = JAMMY.ec2
 
-        ssh_key = ssh_key or find_ssh_public_key()
+        public_ssh_key = public_ssh_key or find_ssh_public_key()
 
         user_data = f"""#cloud-config
 users:
   - name: agentsea
     ssh_authorized_keys:
-      - {ssh_key}
+      - {public_ssh_key}
     sudo: ['ALL=(ALL) NOPASSWD:ALL']
     groups: ['sudo']
     shell: /bin/bash
 """
         instance_type = self._choose_instance_type(cpu, memory)
 
-        ssh_key_name = self._ensure_ssh_key(name, ssh_key)
+        ssh_key_name = self._ensure_ssh_key(name, public_ssh_key)
         if not ssh_key_name:
             raise ValueError("SSH key name not provided or found")
 
@@ -127,7 +128,7 @@ users:
         public_ip = instance.public_ip_address
 
         # wait till agentd is ready
-        self._wait_till_ready(public_ip)
+        self._wait_till_ready(public_ip, private_ssh_key=private_ssh_key)
 
         desktop = DesktopVM(
             name=name,
@@ -141,14 +142,17 @@ users:
             requires_proxy=True,
             owner_id=owner_id,
             metadata=metadata,
-            ssh_key=ssh_key,
+            ssh_key=public_ssh_key,
         )
 
         print(f"\nsuccessfully created desktop '{name}'")
         return desktop
 
     def _wait_till_ready(
-        self, addr: str, local_agentd_port: Optional[int] = None
+        self,
+        addr: str,
+        local_agentd_port: Optional[int] = None,
+        private_ssh_key: Optional[str] = None,
     ) -> None:
         if not local_agentd_port:
             local_agentd_port = find_open_port(8000, 9000)
@@ -161,7 +165,10 @@ users:
             try:
                 print("ensuring up ssh proxy...")
                 pid = ensure_ssh_proxy(
-                    local_port=local_agentd_port, remote_port=8000, ssh_host=addr
+                    local_port=local_agentd_port,
+                    remote_port=8000,
+                    ssh_host=addr,
+                    ssh_key=private_ssh_key,
                 )
                 atexit.register(cleanup_proxy, pid)
 

@@ -59,6 +59,7 @@ class Desktop(Tool):
         requires_proxy: bool = False,
         proxy_type: str = "process",
         proxy_port: int = 8000,
+        private_ssh_key: Optional[str] = None,
     ) -> None:
         """Connect to an agent desktop
 
@@ -74,6 +75,7 @@ class Desktop(Tool):
             requires_proxy (bool, optional): Whether to use a proxy. Defaults to False.
             proxy_type (str, optional): The type of proxy to use. Defaults to process.
             proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.
+            private_ssh_key (str, optional): The private ssh key to use for the proxy. Defaults to None.
         """
         super().__init__()
         self._vm = vm

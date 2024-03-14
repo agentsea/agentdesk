@@ -48,7 +48,8 @@ class GCEProvider(DesktopProvider):
         disk: str = "30gb",
         tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
+        public_ssh_key: Optional[str] = None,
+        private_ssh_key: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> DesktopVM:
@@ -97,12 +98,12 @@ class GCEProvider(DesktopProvider):
             tags = {}
         tags["provisioner"] = "agentdesk"  # Your custom labels
 
-        if not ssh_key:
-            ssh_key = find_ssh_public_key()
+        if not public_ssh_key:
+            public_ssh_key = find_ssh_public_key()
 
-        if ssh_key:
+        if public_ssh_key:
             metadata = compute_v1.Metadata(
-                items=[{"key": "ssh-keys", "value": f"agentsea:{ssh_key}"}]
+                items=[{"key": "ssh-keys", "value": f"agentsea:{public_ssh_key}"}]
             )
         else:
             raise ValueError("No SSH key provided and could not find one")
@@ -137,7 +138,7 @@ class GCEProvider(DesktopProvider):
         ip_address = created_instance.network_interfaces[0].access_configs[0].nat_i_p
 
         # Wait for the VM to be ready
-        self._wait_till_ready(ip_address)
+        self._wait_till_ready(ip_address, private_ssh_key=private_ssh_key)
 
         new_desktop = DesktopVM(
             name=name,
@@ -151,13 +152,16 @@ class GCEProvider(DesktopProvider):
             requires_proxy=True,
             owner_id=owner_id,
             metadata=metadata,
-            ssh_key=ssh_key,
+            ssh_key=public_ssh_key,
         )
         print(f"\nsuccessfully created desktop '{name}'")
         return new_desktop
 
     def _wait_till_ready(
-        self, addr: str, local_agentd_port: Optional[int] = None
+        self,
+        addr: str,
+        local_agentd_port: Optional[int] = None,
+        private_ssh_key: Optional[str] = None,
     ) -> None:
         print("waiting for desktop to be ready...")
         if not local_agentd_port:
@@ -170,7 +174,10 @@ class GCEProvider(DesktopProvider):
             try:
                 print("ensuring up ssh proxy...")
                 pid = ensure_ssh_proxy(
-                    local_port=local_agentd_port, remote_port=8000, ssh_host=addr
+                    local_port=local_agentd_port,
+                    remote_port=8000,
+                    ssh_host=addr,
+                    ssh_key=private_ssh_key,
                 )
                 atexit.register(cleanup_proxy, pid)
 

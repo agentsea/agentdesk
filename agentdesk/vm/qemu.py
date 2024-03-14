@@ -39,7 +39,8 @@ class QemuProvider(DesktopProvider):
         cpu: int = 2,
         disk: str = "30gb",
         reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
+        public_ssh_key: Optional[str] = None,
+        private_ssh_key: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> DesktopVM:
@@ -91,8 +92,8 @@ class QemuProvider(DesktopProvider):
             progress_bar.close()
 
         # Find or generate an SSH key if not provided
-        ssh_key = ssh_key or find_ssh_public_key()
-        if not ssh_key:
+        public_ssh_key = public_ssh_key or find_ssh_public_key()
+        if not public_ssh_key:
             raise ValueError("SSH key not provided or found")
 
         # Generate user-data
@@ -100,7 +101,7 @@ class QemuProvider(DesktopProvider):
 users:
   - name: agentsea
     ssh_authorized_keys:
-      - {ssh_key}
+      - {public_ssh_key}
     sudo: ALL=(ALL) NOPASSWD:ALL
     groups: sudo
     shell: /bin/bash
@@ -160,7 +161,7 @@ local-hostname: {name}
             ssh_port=ssh_port,
             owner_id=owner_id,
             metadata=metadata,
-            ssh_key=ssh_key,
+            ssh_key=public_ssh_key,
         )
         return desktop
 
