@@ -138,6 +138,7 @@
         <span class="n">requires_proxy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">proxy_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span><span class="p">,</span>
         <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span><span class="p">,</span>
+        <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Connect to an agent desktop</span>
 
@@ -153,6 +154,7 @@
 <span class="sd">            requires_proxy (bool, optional): Whether to use a proxy. Defaults to False.</span>
 <span class="sd">            proxy_type (str, optional): The type of proxy to use. Defaults to process.</span>
 <span class="sd">            proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.</span>
+<span class="sd">            private_ssh_key (str, optional): The private ssh key to use for the proxy. Defaults to None.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_vm</span> <span class="o">=</span> <span class="n">vm</span>
