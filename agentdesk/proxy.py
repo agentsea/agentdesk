@@ -144,6 +144,7 @@ def check_ssh_proxy_running(
 ) -> Optional[int]:
     """Check if an SSH proxy process is running based on the local and remote port, SSH port, user, and host."""
 
+    print("checking if ssh proxy is running...")
     # Construct a partial command pattern to match.
     # Since we don't know the temporary key file name, we'll omit it from the search.
     partial_command_pattern = (
@@ -152,6 +153,8 @@ def check_ssh_proxy_running(
     )
 
     for proc in psutil.process_iter(["cmdline", "pid"]):
+        if "cmdline" not in proc.info:
+            continue
         try:
             cmdline: list[str] = proc.info["cmdline"]
             cmdline_str = " ".join(cmdline)
