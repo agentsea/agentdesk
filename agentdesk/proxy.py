@@ -153,14 +153,14 @@ def check_ssh_proxy_running(
     )
 
     for proc in psutil.process_iter(["cmdline", "pid"]):
-        if "cmdline" not in proc.info:
-            continue
         try:
+            if "cmdline" not in proc.info:
+                continue
             cmdline: list[str] = proc.info["cmdline"]
             cmdline_str = " ".join(cmdline)
             if partial_command_pattern in cmdline_str:
                 return proc.info["pid"]
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except Exception as e:
             pass
 
     return None
@@ -240,7 +240,14 @@ def ensure_ssh_proxy(
     ssh_key: Optional[str] = None,
 ) -> int:
     """Ensure that an SSH proxy is running and return its PID."""
-    pid = check_ssh_proxy_running(local_port, remote_port, ssh_port, ssh_user, ssh_host)
+    pid = None
+    try:
+        pid = check_ssh_proxy_running(
+            local_port, remote_port, ssh_port, ssh_user, ssh_host
+        )
+    except Exception as e:
+        print(f"Failed to check if proxy is running: {e}")
+        pass
     if pid:
         print("Existing SSH proxy found.")
         return pid  # PID of the already running process
