@@ -183,6 +183,8 @@ def setup_ssh_proxy(
         temp_key_file.write(ssh_key.encode())
         temp_key_file.close()
 
+        os.chmod(temp_key_file.name, 0o600)
+
     ssh_command = (
         "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
         f"-N -L 127.0.0.1:{local_port}:localhost:{remote_port} -p {ssh_port} "
