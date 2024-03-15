@@ -102,7 +102,7 @@ class GCEProvider(DesktopProvider):
             public_ssh_key = find_ssh_public_key()
 
         if public_ssh_key:
-            metadata = compute_v1.Metadata(
+            _metadata = compute_v1.Metadata(
                 items=[{"key": "ssh-keys", "value": f"agentsea:{public_ssh_key}"}]
             )
         else:
@@ -116,7 +116,7 @@ class GCEProvider(DesktopProvider):
             network_interfaces=[network_interface],
             tags=compute_v1.Tags(items=network_tags),
             labels=tags,
-            metadata=metadata,
+            metadata=_metadata,
         )
 
         if reserve_ip:
