@@ -98,7 +98,7 @@ class Desktop(Tool):
         self._mouse_tween = mouse_tween
         self._store_img = store_img
         self._proxy_port = proxy_port
-        self._requires_proxy = vm.requires_proxy or requires_proxy
+        self._requires_proxy = requires_proxy if vm is None else vm.requires_proxy
 
         if self._requires_proxy:
             if proxy_type == "process":

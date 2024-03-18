@@ -27,6 +27,7 @@ def get_pg_conn() -> Engine:
     if not db_name:
         raise ValueError("$DB_NAME must be set to a postgres db name")
 
+    print(f"\nconnecting to db on postgres host '{db_host}' with db '{db_name}'")
     engine = create_engine(
         f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}/{db_name}",
         client_encoding="utf8",
@@ -36,6 +37,7 @@ def get_pg_conn() -> Engine:
 
 
 def get_sqlite_conn() -> Engine:
+    print("\nconnecting to local sqlite db ./data/agentdesk.db")
     os.makedirs(os.path.dirname("./data/agentdesk.db"), exist_ok=True)
     engine = create_engine("sqlite:///./data/agentdesk.db")
     return engine
