@@ -177,7 +177,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_mouse_tween</span> <span class="o">=</span> <span class="n">mouse_tween</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_store_img</span> <span class="o">=</span> <span class="n">store_img</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_proxy_port</span> <span class="o">=</span> <span class="n">proxy_port</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span> <span class="ow">or</span> <span class="n">requires_proxy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span> <span class="o">=</span> <span class="n">requires_proxy</span> <span class="k">if</span> <span class="n">vm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">proxy_type</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
