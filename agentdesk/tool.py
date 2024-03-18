@@ -56,7 +56,7 @@ class Desktop(Tool):
         move_mouse_duration: float = 1.0,
         mouse_tween: str = "easeInOutQuad",
         store_img: bool = False,
-        requires_proxy: bool = False,
+        requires_proxy: bool = True,
         proxy_type: str = "process",
         proxy_port: int = 8000,
         private_ssh_key: Optional[str] = None,
@@ -72,7 +72,7 @@ class Desktop(Tool):
             move_mouse_duration (float, optional): How long should it take to move. Defaults to 1.0.
             mouse_tween (str, optional): The movement tween. Defaults to "easeInOutQuad".
             store_img (bool, optional): Whether to store the image in the cloud. Defaults to false
-            requires_proxy (bool, optional): Whether to use a proxy. Defaults to False.
+            requires_proxy (bool, optional): Whether to use a proxy. Defaults to True.
             proxy_type (str, optional): The type of proxy to use. Defaults to process.
             proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.
             private_ssh_key (str, optional): The private ssh key to use for the proxy. Defaults to None.
@@ -108,7 +108,12 @@ class Desktop(Tool):
                         f"Port {proxy_port} is already in use"
                     )  # TODO: remove this restriction
                 proxy_pid = ensure_ssh_proxy(
-                    proxy_port, 8000, vm.ssh_port, "agentsea", vm.addr
+                    local_port=proxy_port,
+                    remote_port=8000,
+                    ssh_port=vm.ssh_port,
+                    ssh_user="agentsea",
+                    ssh_host=vm.addr,
+                    ssh_key=private_ssh_key,
                 )
                 atexit.register(cleanup_proxy, proxy_pid)
                 print("proxy from port 8000 to port 8000 started...")
