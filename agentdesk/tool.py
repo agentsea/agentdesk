@@ -60,6 +60,7 @@ class Desktop(Tool):
         proxy_type: str = "process",
         proxy_port: int = 8000,
         private_ssh_key: Optional[str] = None,
+        ssh_port: int = 22,
     ) -> None:
         """Connect to an agent desktop
 
@@ -76,6 +77,7 @@ class Desktop(Tool):
             proxy_type (str, optional): The type of proxy to use. Defaults to process.
             proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.
             private_ssh_key (str, optional): The private ssh key to use for the proxy. Defaults to None.
+            ssh_port (int, optional): The port to use for the ssh connection. Defaults to 22.
         """
         super().__init__()
         self._vm = vm
@@ -110,9 +112,9 @@ class Desktop(Tool):
                 proxy_pid = ensure_ssh_proxy(
                     local_port=proxy_port,
                     remote_port=8000,
-                    ssh_port=vm.ssh_port,
+                    ssh_port=vm.ssh_port if vm else ssh_port,
                     ssh_user="agentsea",
-                    ssh_host=vm.addr,
+                    ssh_host=vm.addr if vm else agentd_url,
                     ssh_key=private_ssh_key,
                 )
                 atexit.register(cleanup_proxy, proxy_pid)
