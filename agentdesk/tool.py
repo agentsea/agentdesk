@@ -118,7 +118,10 @@ class Desktop(Tool):
                     ssh_key=private_ssh_key,
                 )
                 atexit.register(cleanup_proxy, proxy_pid)
-                print("proxy from port 8000 to port 8000 started...")
+                print(
+                    f"proxy from local port {proxy_port} to remote port 8000 started..."
+                )
+                self.base_url = f"http://localhost:{proxy_port}"
         else:
             print("vm doesn't require proxy")
 
