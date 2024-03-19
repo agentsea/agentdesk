@@ -197,7 +197,10 @@
                     <span class="n">ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">cleanup_proxy</span><span class="p">,</span> <span class="n">proxy_pid</span><span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;proxy from port 8000 to port 8000 started...&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;proxy from local port </span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2"> to remote port 8000 started...&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;vm doesn&#39;t require proxy&quot;</span><span class="p">)</span>
 
