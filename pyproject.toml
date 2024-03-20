@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agentdesk"
-version = "0.2.37"
+version = "0.2.38"
 description = "A desktop for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "Apache 2.0"
