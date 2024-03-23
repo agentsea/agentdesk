@@ -228,7 +228,11 @@ local-hostname: {name}
             process.wait()
         DesktopVM.delete(desktop.id)
 
-    def start(self, name: str) -> None:
+    def start(
+        self,
+        name: str,
+        private_ssh_key: Optional[str] = None,
+    ) -> None:
         """Start a local QEMU VM."""
         # Starting a local VM might be equivalent to creating it, as QEMU processes don't persist.
         raise NotImplementedError(

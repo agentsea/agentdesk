@@ -358,7 +358,7 @@ users:
                 )
             desk.remove()
 
-    def start(self, name: str) -> None:
+    def start(self, name: str, private_ssh_key: Optional[str] = None) -> None:
         desk = DesktopVM.get(name)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
@@ -368,7 +368,7 @@ users:
             instance.wait_until_running()
 
         public_ip = instance.public_ip_address
-        self._wait_till_ready(public_ip)
+        self._wait_till_ready(public_ip, private_ssh_key=private_ssh_key)
         desk.addr = public_ip
         desk.status = "running"
         desk.save()

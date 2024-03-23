@@ -271,7 +271,7 @@ class GCEProvider(DesktopProvider):
         # Delete the Desktop record
         desktop.remove()
 
-    def start(self, name: str) -> None:
+    def start(self, name: str, private_ssh_key: Optional[str] = None) -> None:
         desk = DesktopVM.get(name)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
@@ -288,7 +288,7 @@ class GCEProvider(DesktopProvider):
         ip_address = created_instance.network_interfaces[0].access_configs[0].nat_i_p
         desk.addr = ip_address
 
-        self._wait_till_ready(ip_address)
+        self._wait_till_ready(ip_address, private_ssh_key=private_ssh_key)
         desk.status = "running"
         desk.save()
 

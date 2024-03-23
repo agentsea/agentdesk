@@ -351,11 +351,12 @@ class DesktopProvider(ABC, Generic[DP]):
         pass
 
     @abstractmethod
-    def start(self, name: str) -> None:
+    def start(self, name: str, private_ssh_key: Optional[str] = None) -> None:
         """Start a VM
 
         Args:
             name (str): Name of the VM
+            private_ssh_key (str, optional): SSH key to use. Defaults to use ~/.ssh/id_rsa.
         """
         pass
 
