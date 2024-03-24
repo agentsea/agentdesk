@@ -184,10 +184,10 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">proxy_type</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;starting proxy to vm...&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">check_port_in_use</span><span class="p">(</span><span class="n">proxy_port</span><span class="p">):</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Port </span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2"> is already in use&quot;</span>
-                    <span class="p">)</span>  <span class="c1"># TODO: remove this restriction</span>
+                <span class="c1"># if check_port_in_use(proxy_port):</span>
+                <span class="c1">#     raise ValueError(</span>
+                <span class="c1">#         f&quot;Port {proxy_port} is already in use&quot;</span>
+                <span class="c1">#     )  # TODO: remove this restriction</span>
                 <span class="n">proxy_pid</span> <span class="o">=</span> <span class="n">ensure_ssh_proxy</span><span class="p">(</span>
                     <span class="n">local_port</span><span class="o">=</span><span class="n">proxy_port</span><span class="p">,</span>
                     <span class="n">remote_port</span><span class="o">=</span><span class="mi">8000</span><span class="p">,</span>
