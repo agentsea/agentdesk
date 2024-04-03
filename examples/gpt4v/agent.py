@@ -119,8 +119,7 @@ def solve_task(
     print("\ntools: ")
     pprint.pprint(tools)
 
-    info = desktop.info()
-    screen_size = info["screen_size"]
+    screen_size = {"x": "1280", "y": "1024"}
 
     msgs = []
     msg = {
