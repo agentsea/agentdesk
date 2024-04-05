@@ -1,5 +1,5 @@
-Library Reference
-=================
+API Reference
+==============
 
 .. automodule:: agentdesk
    :members:

@@ -6,12 +6,11 @@ and manipulating mouse and keyboard actions on them via HTTP.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Library Reference
 
-   api
+   API Reference <api>
 
 .. toctree::
    :maxdepth: 1
-   :caption: -------
+   :caption: ↪
 
-   Back to Agentsea Documentation <https://agentsea.github.io>
+   Go to User Guide <https://agentsea.github.io/agentdesk.html>
