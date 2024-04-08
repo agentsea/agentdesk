@@ -5,6 +5,7 @@ import time
 
 import boto3
 from mypy_boto3_ec2.service_resource import Instance as EC2Instance
+from mypy_boto3_ec2 import EC2Client, EC2ServiceResource
 from namesgenerator import get_random_name
 from botocore.exceptions import ClientError
 import requests
@@ -36,6 +37,9 @@ class EC2Provider(DesktopProvider):
         else:
             self.session = boto3.Session(region_name=self.region)
 
+        self.ec2: EC2ServiceResource = self.session.resource("ec2")
+        self.ec2_client: EC2Client = self.session.client("ec2")
+
     def create(
         self,
         name: Optional[str] = None,
@@ -52,6 +56,8 @@ class EC2Provider(DesktopProvider):
     ) -> DesktopVM:
         if not name:
             name = get_random_name(sep="-")
+            if not name:
+                raise ValueError("could not generate name")
 
         if DesktopVM.name_exists(name):
             raise ValueError(f"VM name '{name}' already exists")
@@ -65,6 +71,8 @@ class EC2Provider(DesktopProvider):
             image = JAMMY.ec2
 
         public_ssh_key = public_ssh_key or find_ssh_public_key()
+        if not public_ssh_key:
+            raise ValueError("could not find public ssh key")
 
         user_data = f"""#cloud-config
 users:
@@ -98,10 +106,10 @@ users:
         ]
 
         instances = self.ec2.create_instances(
-            ImageId=image,
+            ImageId=image,  # type: ignore
             MinCount=1,
             MaxCount=1,
-            InstanceType=instance_type,
+            InstanceType=instance_type,  # type: ignore
             KeyName=ssh_key_name,
             SecurityGroupIds=[security_group_id],
             BlockDeviceMappings=[
@@ -110,7 +118,7 @@ users:
                     "Ebs": {"VolumeSize": disk_size_gib},
                 }
             ],
-            TagSpecifications=tag_specifications,
+            TagSpecifications=tag_specifications,  # type: ignore
             UserData=user_data,
         )
         instance_id = instances[0].id
@@ -135,7 +143,7 @@ users:
             id=instance_id,
             addr=public_ip,
             cpu=cpu,
-            memory=memory,
+            memory=memory,  # type: ignore
             disk=disk,
             image=image,
             provider=self.to_data(),
@@ -156,6 +164,8 @@ users:
     ) -> None:
         if not local_agentd_port:
             local_agentd_port = find_open_port(8000, 9000)
+            if not local_agentd_port:
+                raise ValueError("could not find open port")
         print("waiting for desktop to be ready...")
 
         ready = False
@@ -181,13 +191,16 @@ users:
                 atexit.unregister(cleanup_proxy)
             except Exception:
                 try:
-                    cleanup_proxy(pid)
+                    cleanup_proxy(pid)  # type: ignore
                 except Exception:
                     pass
 
         print("cleaning up tunnel")
-        cleanup_proxy(pid)
-        atexit.unregister(cleanup_proxy)
+        try:
+            cleanup_proxy(pid)  # type: ignore
+            atexit.unregister(cleanup_proxy)
+        except:
+            pass
 
     def _ensure_sg(self, name: str, description: str) -> str:
         # Attempt to find the default VPC
@@ -196,7 +209,7 @@ users:
         )
         if not vpcs["Vpcs"]:
             raise Exception("No default VPC found in this region.")
-        default_vpc_id = vpcs["Vpcs"][0]["VpcId"]
+        default_vpc_id = vpcs["Vpcs"][0]["VpcId"]  # type: ignore
 
         # Check if the security group already exists
         try:
@@ -307,26 +320,26 @@ users:
             },  # Ubuntu's owner ID, adjust if your AMI has a different owner
         ]
         # Describe images with the specified filters
-        response = ec2_client.describe_images(Filters=filters)
+        response = ec2_client.describe_images(Filters=filters)  # type: ignore
 
         images = response.get("Images", [])
         if not images:
             return None
 
         # Sort images by creation date in descending order
-        sorted_images = sorted(images, key=lambda x: x["CreationDate"], reverse=True)
+        sorted_images = sorted(images, key=lambda x: x["CreationDate"], reverse=True)  # type: ignore
 
         # Return the AMI ID of the latest image
-        latest_ami = sorted_images[0]["ImageId"]
+        latest_ami = sorted_images[0]["ImageId"]  # type: ignore
         return latest_ami
 
     def _release_eip(self, instance: EC2Instance) -> None:
         # Assuming you have tagged your EIPs or have a way to associate them with instances
         filters = [{"Name": "instance-id", "Values": [instance.id]}]
-        addresses = self.ec2_client.describe_addresses(Filters=filters)
+        addresses = self.ec2_client.describe_addresses(Filters=filters)  # type: ignore
         for address in addresses.get("Addresses", []):
-            self.ec2_client.release_address(AllocationId=address["AllocationId"])
-            print(f"Released EIP: {address['PublicIp']}")
+            self.ec2_client.release_address(AllocationId=address["AllocationId"])  # type: ignore
+            print(f"Released EIP: {address['PublicIp']}")  # type: ignore
 
     def _delete_ssh_key(self, name: str) -> None:
 
@@ -367,6 +380,9 @@ users:
             instance.start()
             instance.wait_until_running()
 
+        if not instance:
+            raise ValueError("Instance not found")
+
         public_ip = instance.public_ip_address
         self._wait_till_ready(public_ip, private_ssh_key=private_ssh_key)
         desk.addr = public_ip
@@ -398,6 +414,8 @@ users:
 
     def get_remote(self, name: str) -> Optional[DesktopVM]:
         instance = self._get_instance_by_name(name)
+        if not instance:
+            return None
         return DesktopVM.load(instance.id)
 
     def get(self, name: str) -> Optional[DesktopVM]:
@@ -413,7 +431,7 @@ users:
     def from_data(cls, data: V1ProviderData) -> EC2Provider:
         if data.args and "region" in data.args:
             return cls(data.args["region"])
-        return cls()
+        raise ValueError("No region specified in provider data")
 
     def _get_instance_by_name(self, name: str) -> Optional[EC2Instance]:
         instances = self.ec2.instances.filter(
@@ -433,6 +451,8 @@ users:
     def refresh(self, log: bool = True) -> None:
         """Refresh state"""
         for vm in DesktopVM.find():
+            if not vm.provider:
+                continue
             if vm.provider.type != "ec2":
                 continue
 

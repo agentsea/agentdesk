@@ -90,7 +90,7 @@ class Desktop(Tool):
         else:
             self.base_url = agentd_url
 
-        if not self.base_url.startswith("http"):
+        if not self.base_url.startswith("http"):  # type: ignore
             self.base_url = f"http://{self.base_url}"
 
         self.storage_uri = storage_uri
@@ -114,7 +114,7 @@ class Desktop(Tool):
                     remote_port=8000,
                     ssh_port=vm.ssh_port if vm else ssh_port,
                     ssh_user="agentsea",
-                    ssh_host=vm.addr if vm else agentd_url,
+                    ssh_host=vm.addr if vm else agentd_url,  # type: ignore
                     ssh_key=private_ssh_key,
                 )
                 atexit.register(cleanup_proxy, proxy_pid)
@@ -144,7 +144,8 @@ class Desktop(Tool):
         cpus: int = 2,
         disk: str = "30gb",
         reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
+        public_ssh_key: Optional[str] = None,
+        private_ssh_key: Optional[str] = None,
     ) -> "Desktop":
         """Find or create a desktop"""
         vm = DesktopVM.get(name)
@@ -152,7 +153,15 @@ class Desktop(Tool):
             return cls.from_vm(vm)
 
         return cls.create(
-            name, provider, image, memory, cpus, disk, reserve_ip, ssh_key
+            name=name,
+            provider=provider,
+            image=image,
+            memory=memory,
+            cpus=cpus,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            public_ssh_key=public_ssh_key,
+            private_ssh_key=private_ssh_key,
         )
 
     @classmethod
@@ -165,10 +174,20 @@ class Desktop(Tool):
         cpus: int = 2,
         disk: str = "30gb",
         reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
+        public_ssh_key: Optional[str] = None,
+        private_ssh_key: Optional[str] = None,
     ) -> "Desktop":
         """Create a desktop VM"""
-        vm = provider.create(name, image, memory, cpus, disk, reserve_ip, ssh_key)
+        vm = provider.create(
+            name=name,
+            image=image,
+            memory=memory,
+            cpu=cpus,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            public_ssh_key=public_ssh_key,
+            private_ssh_key=private_ssh_key,
+        )
         return cls.from_vm(vm)
 
     @classmethod
@@ -181,18 +200,22 @@ class Desktop(Tool):
         cpus: int = 2,
         disk: str = "30gb",
         reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
+        public_ssh_key: Optional[str] = None,
+        private_ssh_key: Optional[str] = None,
     ) -> "Desktop":
         """Create a desktop VM on EC2"""
+        if not region:
+            region = "us-east-1"
         return cls.create(
             name=name,
-            provider=EC2Provider(region),
+            provider=EC2Provider(region=region),  # type: ignore
             image=image,
             memory=memory,
             cpus=cpus,
             disk=disk,
             reserve_ip=reserve_ip,
-            ssh_key=ssh_key,
+            public_ssh_key=public_ssh_key,
+            private_ssh_key=private_ssh_key,
         )
 
     @classmethod
@@ -206,18 +229,20 @@ class Desktop(Tool):
         cpus: int = 2,
         disk: str = "30gb",
         reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
+        public_ssh_key: Optional[str] = None,
+        private_ssh_key: Optional[str] = None,
     ) -> "Desktop":
         """Create a desktop VM on GCE"""
         return cls.create(
             name=name,
-            provider=GCEProvider(project, zone),
+            provider=GCEProvider(project_id=project, zone=zone),  # type: ignore
             image=image,
             memory=memory,
             cpus=cpus,
             disk=disk,
             reserve_ip=reserve_ip,
-            ssh_key=ssh_key,
+            public_ssh_key=public_ssh_key,
+            private_ssh_key=private_ssh_key,
         )
 
     @classmethod
@@ -348,7 +373,7 @@ class Desktop(Tool):
         """
         body = {"button": button}
         if x and y:
-            body["location"] = {"x": x, "y": y}
+            body["location"] = {"x": x, "y": y}  # type: ignore
 
         requests.post(f"{self.base_url}/click", json=body)
         return
@@ -484,248 +509,3 @@ class SimpleDesktop(Desktop):
                 out.append(actionv)
 
         return out
-
-
-class WebApp(Desktop):
-    """A web application running on a desktop vm"""
-
-    def __init__(
-        self,
-        url: str,
-        agentd_url: Optional[str] = None,
-        vm: Optional[DesktopVM] = None,
-        storage_uri: str = "file://.media",
-        type_min_interval: float = 0.05,
-        type_max_interval: float = 0.25,
-        move_mouse_duration: float = 1.0,
-        mouse_tween: str = "easeInOutQuad",
-        store_img: bool = False,
-    ) -> None:
-        """
-        Initialize and open a URL in the application.
-
-        Args:
-            url: URL to open upon initialization.
-            agentd_url: URL of a running agentd server. Defaults to None.
-            vm: Optional desktop VM to use. Defaults to None.
-            storage_uri: The directory where to store images or videos taken of the VM, supports gs:// or file://. Defaults to "file://.media".
-            type_min_interval: Min interval between pressing the next key. Defaults to 0.05.
-            type_max_interval: Max interval between pressing the next key. Defaults to 0.25.
-            move_mouse_duration: How long it should take to move the mouse. Defaults to 1.0.
-            mouse_tween: The movement tween. Defaults to "easeInOutQuad".
-            store_img: Whether to store the image in the cloud. Defaults to False.
-        """
-        super().__init__(
-            agentd_url=agentd_url,
-            vm=vm,
-            storage_uri=storage_uri,
-            type_min_interval=type_min_interval,
-            type_max_interval=type_max_interval,
-            move_mouse_duration=move_mouse_duration,
-            mouse_tween=mouse_tween,
-            store_img=store_img,
-        )
-        self.open_url(url)
-
-    @classmethod
-    def create(
-        cls,
-        url: str,
-        name: Optional[str] = None,
-        image: Optional[str] = None,
-        memory: int = 4,
-        cpus: int = 2,
-        disk: str = "30gb",
-        reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
-    ) -> "WebApp":
-        """
-        Create a desktop VM and open a URL.
-
-        Args:
-            url: URL to open after creation.
-            name: Name of the VM. Defaults to None.
-            image: Image to use for the VM. Defaults to None.
-            memory: Memory the VM has. Defaults to 4.
-            cpus: CPUs the VM has. Defaults to 2.
-            disk: Disk size for the VM. Defaults to "30gb".
-            reserve_ip: Whether to reserve IP for the VM. Defaults to False.
-            ssh_key: SSH key for the VM. Defaults to None.
-
-        Returns:
-            An instance of the WebApp class.
-        """
-        desktop = super(WebApp, cls).create(
-            name=name,
-            provider=QemuProvider(),
-            image=image,
-            memory=memory,
-            cpus=cpus,
-            disk=disk,
-            reserve_ip=reserve_ip,
-            ssh_key=ssh_key,
-        )
-        desktop.open_url(url)
-        return desktop
-
-    @classmethod
-    def ec2(
-        cls,
-        url: str,
-        name: Optional[str] = None,
-        region: Optional[str] = None,
-        image: Optional[str] = None,
-        memory: int = 4,
-        cpus: int = 2,
-        disk: str = "30gb",
-        reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
-    ) -> "WebApp":
-        """
-        Create a desktop VM on EC2 and open a URL.
-
-        Args:
-            url: URL to open after creation.
-            name: Name of the VM. Defaults to None.
-            region: AWS region for the VM. Defaults to None.
-            image: AMI to use for the VM. Defaults to None.
-            memory: Memory the VM has. Defaults to 4.
-            cpus: CPUs the VM has. Defaults to 2.
-            disk: Disk size for the VM. Defaults to "30gb".
-            reserve_ip: Whether to reserve IP for the VM. Defaults to False.
-            ssh_key: SSH key for the VM. Defaults to None.
-
-        Returns:
-            An instance of the WebApp class.
-        """
-        desktop = super(WebApp, cls).ec2(
-            name=name,
-            region=region,
-            image=image,
-            memory=memory,
-            cpus=cpus,
-            disk=disk,
-            reserve_ip=reserve_ip,
-            ssh_key=ssh_key,
-        )
-        desktop.open_url(url)
-        return desktop
-
-    @classmethod
-    def gce(
-        cls,
-        url: str,
-        name: Optional[str] = None,
-        project: Optional[str] = None,
-        zone: Optional[str] = None,
-        image: Optional[str] = None,
-        memory: int = 4,
-        cpus: int = 2,
-        disk: str = "30gb",
-        reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
-    ) -> "WebApp":
-        """
-        Create a desktop VM on GCE and open a URL.
-
-        Args:
-            url: URL to open after creation.
-            name: Name of the VM. Defaults to None.
-            project: GCP project for the VM. Defaults to None.
-            zone: GCP zone for the VM. Defaults to None.
-            image: Image to use for the VM. Defaults to None.
-            memory: Memory the VM has. Defaults to 4.
-            cpus: CPUs the VM has. Defaults to 2.
-            disk: Disk size for the VM. Defaults to "30gb".
-            reserve_ip: Whether to reserve IP for the VM. Defaults to False.
-            ssh_key: SSH key for the VM. Defaults to None.
-
-        Returns:
-            An instance of the WebApp class.
-        """
-        desktop = super(WebApp, cls).gce(
-            name=name,
-            project=project,
-            zone=zone,
-            image=image,
-            memory=memory,
-            cpus=cpus,
-            disk=disk,
-            reserve_ip=reserve_ip,
-            ssh_key=ssh_key,
-        )
-        desktop.open_url(url)
-        return desktop
-
-    @classmethod
-    def local(
-        cls,
-        url: str,
-        name: Optional[str] = None,
-        memory: int = 4,
-        cpus: int = 2,
-    ) -> "WebApp":
-        """
-        Create a local VM and open a URL.
-
-        Args:
-            url: URL to open after creation.
-            name: Name of the VM. Defaults to None.
-            memory: Memory the VM has. Defaults to 4.
-            cpus: CPUs the VM has. Defaults to 2.
-
-        Returns:
-            An instance of the WebApp class.
-        """
-        desktop = super(WebApp, cls).local(
-            name=name,
-            memory=memory,
-            cpus=cpus,
-        )
-        desktop.open_url(url)
-        return desktop
-
-    @classmethod
-    def ensure(
-        cls,
-        url: str,
-        name: str,
-        provider: Optional[DesktopProvider] = QemuProvider(),
-        image: Optional[str] = None,
-        memory: int = 4,
-        cpus: int = 2,
-        disk: str = "30gb",
-        reserve_ip: bool = False,
-        ssh_key: Optional[str] = None,
-    ) -> "WebApp":
-        """
-        Ensure a desktop VM exists with the given name, or create it if it does not, and open a URL.
-
-        Args:
-            url: URL to open after ensuring the VM exists.
-            name: Name of the VM to find or create.
-            provider: The provider for VM creation, defaults to QemuProvider if not specified.
-            image: Image to use for the VM. Defaults to None.
-            memory: Memory the VM has. Defaults to 4.
-            cpus: CPUs the VM has. Defaults to 2.
-            disk: Disk size for the VM. Defaults to "30gb".
-            reserve_ip: Whether to reserve an IP for the VM. Defaults to False.
-            ssh_key: SSH key for the VM. Defaults to None.
-
-        Returns:
-            An instance of the WebApp class.
-        """
-        desktop = super(WebApp, cls).ensure(
-            name=name,
-            provider=provider,
-            image=image,
-            memory=memory,
-            cpus=cpus,
-            disk=disk,
-            reserve_ip=reserve_ip,
-            ssh_key=ssh_key,
-        )
-
-        desktop.open_url(url)
-
-        return desktop

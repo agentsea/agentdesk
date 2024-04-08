@@ -46,7 +46,7 @@ def extract_gcs_info(gcs_uri):
 
 
 def upload_image_to_gcs(
-    bucket_name: str, destination_blob_name: str, image: Image
+    bucket_name: str, destination_blob_name: str, image: Image  # type: ignore
 ) -> str:
     """
     Uploads a PIL image to Google Cloud Storage, makes it public, and returns the public URL.
@@ -67,7 +67,7 @@ def upload_image_to_gcs(
 
     # Convert PIL image to bytes
     img_byte_arr = io.BytesIO()
-    image.save(img_byte_arr, format="PNG")
+    image.save(img_byte_arr, format="PNG")  # type: ignore
     img_byte_arr = img_byte_arr.getvalue()
 
     # Create a new blob and upload the image
@@ -102,6 +102,7 @@ def get_docker_host() -> str:
         for line in context_info.split("\n"):
             if '"Host"' in line:
                 return line.split('"')[3]
+        return ""
     except subprocess.CalledProcessError as e:
         print(f"Error: {e.output.decode()}")
         return ""

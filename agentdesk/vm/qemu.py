@@ -38,6 +38,7 @@ class QemuProvider(DesktopProvider):
         memory: int = 4,
         cpu: int = 2,
         disk: str = "30gb",
+        tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
         public_ssh_key: Optional[str] = None,
         private_ssh_key: Optional[str] = None,
@@ -54,7 +55,7 @@ class QemuProvider(DesktopProvider):
         if not name:
             name = get_random_name(sep="-")
 
-        if DesktopVM.name_exists(name):
+        if DesktopVM.name_exists(name):  # type: ignore
             raise ValueError(f"VM name '{name}' already exists")
 
         # Directory to store VM images
@@ -66,7 +67,9 @@ class QemuProvider(DesktopProvider):
             image_name = JAMMY.name
         elif image.startswith("https://"):
             parsed_url = urlparse(image)
-            image_name = parsed_url.hostname + parsed_url.path.replace("/", "_")
+            image_name = parsed_url.hostname + parsed_url.path.replace(  # type: ignore
+                "/", "_"
+            )
         else:
             image = os.path.expanduser(image)
             if not os.path.exists(image):
@@ -78,9 +81,9 @@ class QemuProvider(DesktopProvider):
         image_path = os.path.join(vm_dir, image_name)
 
         # Download image only if it does not exist
-        if not os.path.exists(image_path) and image.startswith("https://"):
+        if not os.path.exists(image_path) and image.startswith("https://"):  # type: ignore
             print(f"Downloading image '{image}'...")
-            response = requests.get(image, stream=True)
+            response = requests.get(image, stream=True)  # type: ignore
             total_size_in_bytes = int(response.headers.get("content-length", 0))
             block_size = 8192  # Size of each chunk
 
@@ -138,21 +141,21 @@ local-hostname: {name}
 
         except KeyboardInterrupt:
             print("Keyboard interrupt received, terminating process...")
-            os.killpg(os.getpgid(process.pid), signal.SIGINT)
+            os.killpg(os.getpgid(process.pid), signal.SIGINT)  # type: ignore
             raise
         except Exception as e:
             print(f"An error occurred: {e}")
-            os.killpg(os.getpgid(process.pid), signal.SIGINT)
+            os.killpg(os.getpgid(process.pid), signal.SIGINT)  # type: ignore
             raise
 
         print(f"\nsuccessfully created desktop '{name}'")
 
         # Create and return a Desktop object
         desktop = DesktopVM(
-            name=name,
+            name=name,  # type: ignore
             addr="localhost",
             cpu=cpu,
-            memory=memory,
+            memory=memory,  # type: ignore
             disk=disk,
             pid=process.pid,
             image=image,
@@ -180,7 +183,7 @@ local-hostname: {name}
                 pass
 
     def _create_iso(self, output_iso: str, user_data: str, meta_data: str) -> None:
-        iso = pycdlib.PyCdlib()
+        iso = pycdlib.PyCdlib()  # type: ignore
         iso.new(joliet=3, rock_ridge="1.09", vol_ident="cidata")
 
         # Use the tempfile module to create temporary files for user-data and meta-data
@@ -222,7 +225,7 @@ local-hostname: {name}
         desktop = DesktopVM.get(name)
         if not desktop:
             raise ValueError(f"Desktop '{name}' does not exist.")
-        if psutil.pid_exists(desktop.pid):
+        if psutil.pid_exists(desktop.pid):  # type: ignore
             process = psutil.Process(desktop.pid)
             process.terminate()
             process.wait()

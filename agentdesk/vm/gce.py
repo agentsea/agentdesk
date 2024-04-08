@@ -57,6 +57,8 @@ class GCEProvider(DesktopProvider):
 
         if not name:
             name = get_random_name(sep="-")
+            if not name:
+                raise ValueError("could not generate name")
 
         if DesktopVM.name_exists(name):
             raise ValueError(f"VM name '{name}' already exists")
@@ -145,7 +147,7 @@ class GCEProvider(DesktopProvider):
             id=str(created_instance.id),
             addr=ip_address,
             cpu=cpu,
-            memory=memory,
+            memory=memory,  # type: ignore
             disk=disk,
             image=image,
             provider=self.to_data(),
@@ -166,6 +168,8 @@ class GCEProvider(DesktopProvider):
         print("waiting for desktop to be ready...")
         if not local_agentd_port:
             local_agentd_port = find_open_port(8000, 9000)
+            if not local_agentd_port:
+                raise ValueError("could not find local port")
 
         ready = False
         while not ready:
@@ -192,7 +196,7 @@ class GCEProvider(DesktopProvider):
             except Exception as e:
                 print("Exception while waiting for desktop to be ready: ", e)
                 try:
-                    cleanup_proxy(pid)
+                    cleanup_proxy(pid)  # type: ignore
                     atexit.unregister(cleanup_proxy)
                 except:
                     pass
@@ -219,8 +223,8 @@ class GCEProvider(DesktopProvider):
         firewall_client = compute_v1.FirewallsClient(credentials=self.credentials)
         firewall = compute_v1.Firewall()
         firewall.name = rule_name
-        firewall.direction = compute_v1.Firewall.Direction.INGRESS
-        firewall.allowed = [{"IPProtocol": "tcp", "ports": ports}]
+        firewall.direction = compute_v1.Firewall.Direction.INGRESS  # type: ignore
+        firewall.allowed = [{"IPProtocol": "tcp", "ports": ports}]  # type: ignore
         firewall.network = network
 
         operation = firewall_client.insert(
@@ -310,6 +314,8 @@ class GCEProvider(DesktopProvider):
         desktops = DesktopVM.find()
         out = []
         for desktop in desktops:
+            if not desktop.provider:
+                continue
             if desktop.provider.type == "gce":
                 out.append(desktop)
 
@@ -364,6 +370,8 @@ class GCEProvider(DesktopProvider):
 
         # Iterate over all DesktopVM instances managed by this provider
         for vm in DesktopVM.find():
+            if not vm.provider:
+                continue
             if vm.provider.type != "gce":
                 continue
 

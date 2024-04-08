@@ -107,7 +107,7 @@ class DesktopVM(WithDB):
 
     @classmethod
     def from_record(cls, record: V1DesktopRecord) -> DesktopVM:
-        out = cls.__new__(DesktopVM)
+        out = cls.__new__(DesktopVM)  # type: ignore
         out.id = record.id
         out.name = record.name
         out.addr = record.addr
@@ -123,12 +123,12 @@ class DesktopVM(WithDB):
         out.ssh_port = record.ssh_port
         out.owner_id = record.owner_id
         out.ssh_key = record.ssh_key
-        if record.provider:
-            dct = json.loads(record.provider)
+        if not len(str(record.provider)) == 0:
+            dct = json.loads(str(record.provider))
             out.provider = V1ProviderData(**dct)
         out.metadata = {}
-        if record.meta:
-            dct = json.loads(record.meta)
+        if not len(str(record.meta)) == 0:
+            dct = json.loads(str(record.meta))
             out.metadata = dct
         return out
 
@@ -139,6 +139,7 @@ class DesktopVM(WithDB):
             if record is None:
                 raise ValueError(f"Desktop with id {id} not found")
             return cls.from_record(record)
+        raise ValueError("no session")
 
     @classmethod
     def get(cls, name: str) -> Optional[DesktopVM]:
@@ -190,6 +191,8 @@ class DesktopVM(WithDB):
 
             return True
 
+        raise ValueError("no session")
+
     def remove(self) -> None:
         for db in self.get_db():
             record = (
@@ -207,14 +210,13 @@ class DesktopVM(WithDB):
             addr=self.addr,
             status=self.status,
             created=self.created,
-            memory=self.memory,
+            memory=self.memory,  # type: ignore
             cpu=self.cpu,
             disk=self.disk,
             image=self.image,
             reserved_ip=self.reserved_ip,
             provider=self.provider,
-            metadata=self.metadata,
-            ssh_port=self.ssh_port,
+            meta=self.metadata,
             owner_id=self.owner_id,
         )
 
@@ -241,19 +243,19 @@ class DesktopVM(WithDB):
         ui_container: Optional[Container] = None
 
         for container in client.containers.list():
-            if container.image.tags[0] == UI_IMG:
+            if container.image.tags[0] == UI_IMG:  # type: ignore
                 print("found running UI container")
                 # Retrieve the host port for the existing container
-                host_port = container.attrs["NetworkSettings"]["Ports"]["3000/tcp"][0][
+                host_port = container.attrs["NetworkSettings"]["Ports"]["3000/tcp"][0][  # type: ignore
                     "HostPort"
                 ]
-                ui_container = container
+                ui_container = container  # type: ignore
                 break
 
         if not ui_container:
             print("creating UI container...")
             host_port = random.randint(1024, 65535)
-            ui_container = client.containers.run(
+            ui_container = client.containers.run(  # type: ignore
                 UI_IMG, ports={"3000/tcp": host_port}, detach=True
             )
             print("waiting for UI container to start...")
@@ -271,13 +273,13 @@ class DesktopVM(WithDB):
             # Check if the UI container still exists and stop/remove it if so
             if ui_container:
                 try:
-                    container_status = client.containers.get(ui_container.id).status
+                    container_status = client.containers.get(ui_container.id).status  # type: ignore
                     if container_status in ["running", "paused"]:
                         print("stopping UI container...")
                         ui_container.stop()
                         print("removing UI container...")
                         ui_container.remove()
-                except docker.errors.NotFound:
+                except docker.errors.NotFound:  # type: ignore
                     print("UI container already stopped/removed.")
 
             # Stop the SSH proxy if required and not already stopped

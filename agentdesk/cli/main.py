@@ -36,8 +36,11 @@ def create(
         False,
         help="Whether to reserve an IP address for the desktop.",
     ),
-    ssh_key: Optional[str] = typer.Option(
-        None, help="The SSH key for the desktop. Optional."
+    public_ssh_key: Optional[str] = typer.Option(
+        None, help="The public SSH key for the desktop. Optional."
+    ),
+    private_ssh_key: Optional[str] = typer.Option(
+        None, help="The private SSH key for the desktop. Optional."
     ),
 ):
     if not name:
@@ -48,7 +51,16 @@ def create(
 
     print(f"Creating desktop '{name}' using '{provider}' provider")
     try:
-        _provider.create(name, image, memory, cpu, disk, reserve_ip, ssh_key)
+        _provider.create(
+            name=name,
+            image=image,
+            memory=memory,
+            cpu=cpu,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            public_ssh_key=public_ssh_key,
+            private_ssh_key=private_ssh_key,
+        )
     except KeyboardInterrupt:
         print("Keyboard interrupt received, exiting...")
         return
@@ -66,6 +78,10 @@ def get(
 ):
     if name:
         desktop = DesktopVM.get(name)
+        if not desktop:
+            raise ValueError("desktop not found")
+        if not desktop.provider:
+            raise ValueError("no desktop provider")
         if provider and desktop.provider.type != provider:
             print(f"Desktop '{name}' not found")
             return
@@ -91,6 +107,8 @@ def get(
     else:
         table = []
         for desktop in vms:
+            if not desktop.provider:
+                continue
             if provider:
                 if desktop.provider.type != provider:
                     continue
@@ -110,8 +128,8 @@ def get(
                     desktop.addr,
                     desktop.ssh_port,
                     desktop.status,
-                    convert_unix_to_datetime(desktop.created),
-                    desktop.provider.type,
+                    convert_unix_to_datetime(int(desktop.created)),
+                    desktop.provider.type,  # type: ignore
                     desktop.reserved_ip,
                 ]
             )
@@ -142,6 +160,9 @@ def delete(
         print(f"Desktop '{name}' not found")
         return
 
+    if not desktop.provider:
+        raise ValueError("no desktop provider")
+
     _provider = load_provider(desktop.provider)
 
     print("refreshing provider...")
@@ -167,6 +188,8 @@ def view(
 
     if not desktop.reserved_ip:
         print("refreshing provider...")
+        if not desktop.provider:
+            raise ValueError("no desktop provider")
         _provider = load_provider(desktop.provider)
         _provider.refresh()
         desktop = DesktopVM.get(name)
@@ -196,9 +219,13 @@ def stop(
         print(f"Desktop '{name}' not found")
         return
 
+    if not desktop.provider:
+        raise ValueError("no desktop provider")
+
+    _provider = load_provider(desktop.provider)
+
     if not desktop.reserved_ip:
         print("refreshing provider...")
-        _provider = load_provider(desktop.provider)
         _provider.refresh()
         desktop = DesktopVM.get(name)
         if not desktop:
@@ -219,9 +246,13 @@ def start(
         print(f"Desktop '{name}' not found")
         return
 
+    if not desktop.provider:
+        raise ValueError("no desktop provider")
+
+    _provider = load_provider(desktop.provider)
+
     if not desktop.reserved_ip:
         print("refreshing provider...")
-        _provider = load_provider(desktop.provider)
         _provider.refresh()
         desktop = DesktopVM.get(name)
         if not desktop:

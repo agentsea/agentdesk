@@ -65,7 +65,7 @@ class SSHPortForwarding:
             ready, _, _ = select.select([self.server], [], [], 0.5)
             if ready and not self.shutdown_event.is_set():
                 try:
-                    client_socket, addr = self.server.accept()
+                    client_socket, addr = self.server.accept()  # type: ignore
                     print(f"Received connection from {addr}")
                     if (
                         self.shutdown_event.is_set()
@@ -85,7 +85,7 @@ class SSHPortForwarding:
 
     def handle_client(self, client_socket):
         try:
-            channel = self.transport.open_channel(
+            channel = self.transport.open_channel(  # type: ignore
                 kind="direct-tcpip",
                 dest_addr=(self.remote_host, self.remote_port),
                 src_addr=client_socket.getpeername(),
@@ -130,7 +130,7 @@ class SSHPortForwarding:
         finally:
             # Close the server socket to ensure no new connections are accepted
             print("Closing server socket...")
-            self.server.close()
+            self.server.close()  # type: ignore
 
             # Closing the SSH client connection
             print("Closing SSH client...")
@@ -154,12 +154,12 @@ def check_ssh_proxy_running(
 
     for proc in psutil.process_iter(["cmdline", "pid"]):
         try:
-            if "cmdline" not in proc.info:
+            if "cmdline" not in proc.info:  # type: ignore
                 continue
-            cmdline: list[str] = proc.info["cmdline"]
+            cmdline: list[str] = proc.info["cmdline"]  # type: ignore
             cmdline_str = " ".join(cmdline)
             if partial_command_pattern in cmdline_str:
-                return proc.info["pid"]
+                return proc.info["pid"]  # type: ignore
         except Exception as e:
             pass
 
@@ -190,7 +190,7 @@ def setup_ssh_proxy(
         f"-N -L 127.0.0.1:{local_port}:localhost:{remote_port} -p {ssh_port} "
     )
     if ssh_key:
-        ssh_command += f"-i {temp_key_file.name} "
+        ssh_command += f"-i {temp_key_file.name} "  # type: ignore
     ssh_command += f"{ssh_user}@{ssh_host}"
 
     print("Executing command: ", ssh_command)
