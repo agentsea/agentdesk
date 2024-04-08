@@ -11,7 +11,7 @@ import requests
 
 from PIL import Image
 from google.cloud import storage
-from opentool import Tool, action, observation, Action
+from toolfuse import Tool, action, observation, Action
 
 from .vm.base import DesktopVM, DesktopProvider
 

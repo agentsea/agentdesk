@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agentdesk"
-version = "0.2.44"
+version = "0.2.46"
 description = "A desktop for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "MIT"
@@ -23,13 +23,13 @@ typer = "^0.9.0"
 tabulate = "^0.9.0"
 tqdm = "^4.66.2"
 tenacity = "^8.2.3"
-opentool-ai = "^0.1.8"
 google-cloud-storage = "^2.14.0"
 google-cloud-compute = "^1.15.0"
 google-cloud-container = "^2.38.0"
 boto3 = "^1.34.28"
 boto3-stubs = {extras = ["ec2"], version = "^1.34.28"}
 mypy-boto3-ec2 = "^1.34.52"
+toolfuse = "^0.1.13"
 
 
 [tool.poetry.group.gcp.dependencies]
