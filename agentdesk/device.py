@@ -13,7 +13,9 @@ from PIL import Image
 from google.cloud import storage
 from devicebay import Device, action, observation, Action, ReactComponent
 
+from .server.models import V1ProviderData
 from .vm.base import DesktopVM, DesktopProvider
+from .vm.load import load_provider
 
 try:
     from .vm.gce import GCEProvider
@@ -45,7 +47,7 @@ class StorageStrategy(Enum):
 
 class DesktopConfig(BaseModel):
     agentd_url: Optional[str] = None
-    vm: Optional[DesktopVM] = None
+    vm: Optional[str] = None
     storage_uri: str = "file://.media"
     type_min_interval: float = 0.05
     type_max_interval: float = 0.25
@@ -60,7 +62,7 @@ class DesktopConfig(BaseModel):
 
 
 class ProvisionConfig(BaseModel):
-    provider: DesktopProvider = QemuProvider()
+    provider: V1ProviderData = V1ProviderData(type="qemu")
     image: Optional[str] = None
     memory: int = 4
     cpus: int = 2
@@ -175,39 +177,27 @@ class Desktop(Device):
 
         return cls.create(
             name=name,
-            provider=config.provider,
-            image=config.image,
-            memory=config.memory,
-            cpus=config.cpus,
-            disk=config.disk,
-            reserve_ip=config.reserve_ip,
-            public_ssh_key=config.public_ssh_key,
-            private_ssh_key=config.private_ssh_key,
+            config=config,
         )
 
     @classmethod
     def create(
         cls,
         name: Optional[str] = None,
-        provider: DesktopProvider = QemuProvider(),
-        image: Optional[str] = None,
-        memory: int = 4,
-        cpus: int = 2,
-        disk: str = "30gb",
-        reserve_ip: bool = False,
-        public_ssh_key: Optional[str] = None,
-        private_ssh_key: Optional[str] = None,
+        config: ProvisionConfig = ProvisionConfig(),
     ) -> "Desktop":
         """Create a desktop VM"""
+
+        provider = load_provider(config.provider)
         vm = provider.create(
             name=name,
-            image=image,
-            memory=memory,
-            cpu=cpus,
-            disk=disk,
-            reserve_ip=reserve_ip,
-            public_ssh_key=public_ssh_key,
-            private_ssh_key=private_ssh_key,
+            image=config.image,
+            memory=config.memory,
+            cpu=config.cpus,
+            disk=config.disk,
+            reserve_ip=config.reserve_ip,
+            public_ssh_key=config.public_ssh_key,
+            private_ssh_key=config.private_ssh_key,
         )
         return cls.from_vm(vm)
 
@@ -227,9 +217,9 @@ class Desktop(Device):
         """Create a desktop VM on EC2"""
         if not region:
             region = "us-east-1"
-        return cls.create(
-            name=name,
-            provider=EC2Provider(region=region),  # type: ignore
+
+        config = ProvisionConfig(
+            provider=EC2Provider(region=region).to_data(),  # type: ignore
             image=image,
             memory=memory,
             cpus=cpus,
@@ -238,6 +228,7 @@ class Desktop(Device):
             public_ssh_key=public_ssh_key,
             private_ssh_key=private_ssh_key,
         )
+        return cls.create(name=name, config=config)
 
     @classmethod
     def gce(
@@ -254,9 +245,8 @@ class Desktop(Device):
         private_ssh_key: Optional[str] = None,
     ) -> "Desktop":
         """Create a desktop VM on GCE"""
-        return cls.create(
-            name=name,
-            provider=GCEProvider(project_id=project, zone=zone),  # type: ignore
+        config = ProvisionConfig(
+            provider=GCEProvider(project_id=project, zone=zone).to_data(),  # type: ignore
             image=image,
             memory=memory,
             cpus=cpus,
@@ -265,6 +255,7 @@ class Desktop(Device):
             public_ssh_key=public_ssh_key,
             private_ssh_key=private_ssh_key,
         )
+        return cls.create(name=name, config=config)
 
     @classmethod
     def local(
@@ -283,37 +274,23 @@ class Desktop(Device):
         Returns:
             Desktop: A desktop
         """
-        return cls.create(name=name, provider=QemuProvider(), memory=memory, cpus=cpus)
+        config = ProvisionConfig(
+            provider=QemuProvider().to_data(), memory=memory, cpus=cpus
+        )
+        return cls.create(name=name, config=config)
 
     @classmethod
-    def envs(cls) -> dict:
-        return {
-            "AGENTD_ADDR": "Agentd address",
-            "AGENTD_PRIVATE_SSH_KEY": "Private SSH key for the box",
-        }
-
-    def to_env(self) -> dict:
-        return {
-            "AGENTD_ADDR": self.base_url,
-            "AGENTD_PRIVATE_SSH_KEY": self._private_ssh_key,
-        }
-
-    @classmethod
-    def from_env(cls, config: DesktopConfig) -> "Desktop":
-        agentd_url = os.getenv("AGENTD_ADDR", config.agentd_url)
-        if not agentd_url:
-            raise ValueError(
-                "AGENTD_ADDR environment variable is not set but was expected"
-            )
-        private_ssh_key = os.getenv("AGENTD_PRIVATE_SSH_KEY", config.private_ssh_key)
-        if not private_ssh_key:
-            raise ValueError(
-                "AGENTD_PRIVATE_SSH_KEY environment variable is not set but was expected"
-            )
+    def from_config(cls, config: DesktopConfig) -> "Desktop":
+        vm = None
+        if config.vm:
+            vms = DesktopVM.find(name=config.vm)
+            if not vms:
+                raise ValueError(f"VM {config.vm} was not found")
+            vm = vms[0]
         return cls(
-            agentd_url=agentd_url,
-            private_ssh_key=private_ssh_key,
-            vm=config.vm,
+            agentd_url=config.agentd_url,
+            private_ssh_key=config.private_ssh_key,
+            vm=vm,
             storage_uri=config.storage_uri,
             type_min_interval=config.type_min_interval,
             type_max_interval=config.type_max_interval,
@@ -327,11 +304,11 @@ class Desktop(Device):
         )
 
     @classmethod
-    def config(cls) -> Type[DesktopConfig]:
+    def config_type(cls) -> Type[DesktopConfig]:
         return DesktopConfig
 
     @classmethod
-    def provision_config(cls) -> Type[ProvisionConfig]:
+    def provision_config_type(cls) -> Type[ProvisionConfig]:
         return ProvisionConfig
 
     @classmethod
