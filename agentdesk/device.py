@@ -131,6 +131,8 @@ class Desktop(Device):
         self._proxy_port = proxy_port
         self._requires_proxy = requires_proxy if vm is None else vm.requires_proxy
         self._private_ssh_key = private_ssh_key
+        self._ssh_port = ssh_port
+        self._proxy_type = proxy_type
 
         if self._requires_proxy:
             if proxy_type == "process":
@@ -301,6 +303,22 @@ class Desktop(Device):
             proxy_type=config.proxy_type,
             proxy_port=config.proxy_port,
             ssh_port=config.ssh_port,
+        )
+
+    def config(self) -> DesktopConfig:
+        return DesktopConfig(
+            agentd_url=self.base_url,
+            storage_uri=self.storage_uri,
+            type_min_interval=self._type_min_interval,
+            type_max_interval=self._type_max_interval,
+            move_mouse_duration=self._move_mouse_duration,
+            mouse_tween=self._mouse_tween,
+            store_img=self._store_img,
+            requires_proxy=self._requires_proxy,
+            proxy_type=self._proxy_type,
+            proxy_port=self._proxy_port,
+            private_ssh_key=self._private_ssh_key,
+            ssh_port=self._ssh_port,
         )
 
     @classmethod
