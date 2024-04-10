@@ -45,7 +45,7 @@ class StorageStrategy(Enum):
     LOCAL = "local"
 
 
-class DesktopConfig(BaseModel):
+class ConnectConfig(BaseModel):
     agentd_url: Optional[str] = None
     vm: Optional[str] = None
     storage_uri: str = "file://.media"
@@ -282,7 +282,7 @@ class Desktop(Device):
         return cls.create(name=name, config=config)
 
     @classmethod
-    def from_config(cls, config: DesktopConfig) -> "Desktop":
+    def connect(cls, config: ConnectConfig) -> "Desktop":
         vm = None
         if config.vm:
             vms = DesktopVM.find(name=config.vm)
@@ -305,8 +305,8 @@ class Desktop(Device):
             ssh_port=config.ssh_port,
         )
 
-    def config(self) -> DesktopConfig:
-        return DesktopConfig(
+    def connect_config(self) -> ConnectConfig:
+        return ConnectConfig(
             agentd_url=self.base_url,
             storage_uri=self.storage_uri,
             type_min_interval=self._type_min_interval,
@@ -322,8 +322,8 @@ class Desktop(Device):
         )
 
     @classmethod
-    def config_type(cls) -> Type[DesktopConfig]:
-        return DesktopConfig
+    def connect_config_type(cls) -> Type[ConnectConfig]:
+        return ConnectConfig
 
     @classmethod
     def provision_config_type(cls) -> Type[ProvisionConfig]:

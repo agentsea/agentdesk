@@ -968,13 +968,13 @@ files = [
 
 [[package]]
 name = "devicebay"
-version = "0.1.7"
+version = "0.1.8"
 description = "Devices for AI agents"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "devicebay-0.1.7-py3-none-any.whl", hash = "sha256:487ea8405601d1c2a836c21469958c4fa6248564b0b678c6ae913a6125050bc1"},
-    {file = "devicebay-0.1.7.tar.gz", hash = "sha256:9bf702c4f928c4fc17b05a2a8f64e120b599a450753c9d1133189cfeb23790bb"},
+    {file = "devicebay-0.1.8-py3-none-any.whl", hash = "sha256:5c30d2e87ae349fa2a93e424387e43d8ec34f24b3f160129269fc9567cc3e579"},
+    {file = "devicebay-0.1.8.tar.gz", hash = "sha256:6cf310cae8dbba9d0c2e5a6178ee17b1eade9da64dedc9ef71353c30f2bf01ed"},
 ]
 
 [package.dependencies]
@@ -3838,4 +3838,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "6a4d33934f202c17c40957a88423a42bbfad67f5f971b0f148d5bcd231f3d3da"
+content-hash = "5a8688bec9ec91f6c17248e984b5af7cdd56d5ec5b53fd734b551ca72937d45c"
