@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>agentdesk.tool &mdash; AgentDesk 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=01f34227"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            AgentDesk
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Reference</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">↪</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference external" href="https://agentsea.github.io/agentdesk.html">Go to User Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">AgentDesk</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">agentdesk.tool</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for agentdesk.tool</h1><div class="highlight"><pre>
+<span></span><span class="c1"># from __future__ import annotations</span>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">import</span> <span class="nn">atexit</span>
+
+<span class="kn">import</span> <span class="nn">requests</span>
+
+<span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">from</span> <span class="nn">google.cloud</span> <span class="kn">import</span> <span class="n">storage</span>
+<span class="kn">from</span> <span class="nn">toolfuse</span> <span class="kn">import</span> <span class="n">Tool</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">observation</span><span class="p">,</span> <span class="n">Action</span>
+
+<span class="kn">from</span> <span class="nn">.vm.base</span> <span class="kn">import</span> <span class="n">DesktopVM</span><span class="p">,</span> <span class="n">DesktopProvider</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.vm.gce</span> <span class="kn">import</span> <span class="n">GCEProvider</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="s2">&quot;GCE provider unavailable, install with `pip install agentdesk[gce] if desired&quot;</span>
+    <span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.vm.ec2</span> <span class="kn">import</span> <span class="n">EC2Provider</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="s2">&quot;AWS provider unavailable, install with `pip install agentdesk[aws] if desired&quot;</span>
+    <span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.vm.qemu</span> <span class="kn">import</span> <span class="n">QemuProvider</span>
+<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">extract_file_path</span><span class="p">,</span>
+    <span class="n">extract_gcs_info</span><span class="p">,</span>
+    <span class="n">generate_random_string</span><span class="p">,</span>
+    <span class="n">check_port_in_use</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.proxy</span> <span class="kn">import</span> <span class="n">ensure_ssh_proxy</span><span class="p">,</span> <span class="n">cleanup_proxy</span>
+
+
+<span class="k">class</span> <span class="nc">StorageStrategy</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">GCS</span> <span class="o">=</span> <span class="s2">&quot;gcs&quot;</span>
+    <span class="n">LOCAL</span> <span class="o">=</span> <span class="s2">&quot;local&quot;</span>
+
+
+<div class="viewcode-block" id="Desktop">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop">[docs]</a>
+<span class="k">class</span> <span class="nc">Desktop</span><span class="p">(</span><span class="n">Tool</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Desktop OS as a tool via agentd&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">agentd_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">vm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DesktopVM</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">storage_uri</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;file://.media&quot;</span><span class="p">,</span>
+        <span class="n">type_min_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+        <span class="n">type_max_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
+        <span class="n">move_mouse_duration</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">mouse_tween</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;easeInOutQuad&quot;</span><span class="p">,</span>
+        <span class="n">store_img</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">requires_proxy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">proxy_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span><span class="p">,</span>
+        <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span><span class="p">,</span>
+        <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">ssh_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">22</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Connect to an agent desktop</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            agentd_url (str, optional): URL of a running agentd server. Defaults to None.</span>
+<span class="sd">            vm (str, optional): Optional desktop VM to use. Defaults to None.</span>
+<span class="sd">            storage_uri (str): The directory where to store images or videos taken of the VM, supports gs:// or file://. Defaults to file://.media.</span>
+<span class="sd">            type_min_interval (float, optional): Min interval between pressing next key. Defaults to 0.05.</span>
+<span class="sd">            type_max_interval (float, optional): Max interval between pressing next key. Defaults to 0.25.</span>
+<span class="sd">            move_mouse_duration (float, optional): How long should it take to move. Defaults to 1.0.</span>
+<span class="sd">            mouse_tween (str, optional): The movement tween. Defaults to &quot;easeInOutQuad&quot;.</span>
+<span class="sd">            store_img (bool, optional): Whether to store the image in the cloud. Defaults to false</span>
+<span class="sd">            requires_proxy (bool, optional): Whether to use a proxy. Defaults to True.</span>
+<span class="sd">            proxy_type (str, optional): The type of proxy to use. Defaults to process.</span>
+<span class="sd">            proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.</span>
+<span class="sd">            private_ssh_key (str, optional): The private ssh key to use for the proxy. Defaults to None.</span>
+<span class="sd">            ssh_port (int, optional): The port to use for the ssh connection. Defaults to 22.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_vm</span> <span class="o">=</span> <span class="n">vm</span>
+
+        <span class="k">if</span> <span class="n">vm</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;localhost:</span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">addr</span><span class="si">}</span><span class="s2">:8000&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">agentd_url</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;http&quot;</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">storage_uri</span> <span class="o">=</span> <span class="n">storage_uri</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_type_min_interval</span> <span class="o">=</span> <span class="n">type_min_interval</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_type_max_interval</span> <span class="o">=</span> <span class="n">type_max_interval</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_move_mouse_duration</span> <span class="o">=</span> <span class="n">move_mouse_duration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mouse_tween</span> <span class="o">=</span> <span class="n">mouse_tween</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_store_img</span> <span class="o">=</span> <span class="n">store_img</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_proxy_port</span> <span class="o">=</span> <span class="n">proxy_port</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span> <span class="o">=</span> <span class="n">requires_proxy</span> <span class="k">if</span> <span class="n">vm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">proxy_type</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;starting proxy to vm...&quot;</span><span class="p">)</span>
+                <span class="c1"># if check_port_in_use(proxy_port):</span>
+                <span class="c1">#     raise ValueError(</span>
+                <span class="c1">#         f&quot;Port {proxy_port} is already in use&quot;</span>
+                <span class="c1">#     )  # TODO: remove this restriction</span>
+                <span class="n">proxy_pid</span> <span class="o">=</span> <span class="n">ensure_ssh_proxy</span><span class="p">(</span>
+                    <span class="n">local_port</span><span class="o">=</span><span class="n">proxy_port</span><span class="p">,</span>
+                    <span class="n">remote_port</span><span class="o">=</span><span class="mi">8000</span><span class="p">,</span>
+                    <span class="n">ssh_port</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">ssh_port</span> <span class="k">if</span> <span class="n">vm</span> <span class="k">else</span> <span class="n">ssh_port</span><span class="p">,</span>
+                    <span class="n">ssh_user</span><span class="o">=</span><span class="s2">&quot;agentsea&quot;</span><span class="p">,</span>
+                    <span class="n">ssh_host</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">addr</span> <span class="k">if</span> <span class="n">vm</span> <span class="k">else</span> <span class="n">agentd_url</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">cleanup_proxy</span><span class="p">,</span> <span class="n">proxy_pid</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;proxy from local port </span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2"> to remote port 8000 started...&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;vm doesn&#39;t require proxy&quot;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">health</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;ok&quot;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;agentd status is not ok&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">SystemError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;could not connect to desktop, is agentd running? </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;connected to desktop via agentd&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Desktop.ensure">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.ensure">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">ensure</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">provider</span><span class="p">:</span> <span class="n">DesktopProvider</span> <span class="o">=</span> <span class="n">QemuProvider</span><span class="p">(),</span>
+        <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">disk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;30gb&quot;</span><span class="p">,</span>
+        <span class="n">reserve_ip</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">public_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find or create a desktop&quot;&quot;&quot;</span>
+        <span class="n">vm</span> <span class="o">=</span> <span class="n">DesktopVM</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">vm</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">provider</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>
+            <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+            <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
+            <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
+            <span class="n">disk</span><span class="o">=</span><span class="n">disk</span><span class="p">,</span>
+            <span class="n">reserve_ip</span><span class="o">=</span><span class="n">reserve_ip</span><span class="p">,</span>
+            <span class="n">public_ssh_key</span><span class="o">=</span><span class="n">public_ssh_key</span><span class="p">,</span>
+            <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.create">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.create">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">create</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">provider</span><span class="p">:</span> <span class="n">DesktopProvider</span> <span class="o">=</span> <span class="n">QemuProvider</span><span class="p">(),</span>
+        <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">disk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;30gb&quot;</span><span class="p">,</span>
+        <span class="n">reserve_ip</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">public_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop VM&quot;&quot;&quot;</span>
+        <span class="n">vm</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+            <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
+            <span class="n">cpu</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
+            <span class="n">disk</span><span class="o">=</span><span class="n">disk</span><span class="p">,</span>
+            <span class="n">reserve_ip</span><span class="o">=</span><span class="n">reserve_ip</span><span class="p">,</span>
+            <span class="n">public_ssh_key</span><span class="o">=</span><span class="n">public_ssh_key</span><span class="p">,</span>
+            <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.ec2">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.ec2">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">ec2</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">region</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">disk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;30gb&quot;</span><span class="p">,</span>
+        <span class="n">reserve_ip</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">public_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop VM on EC2&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">region</span><span class="p">:</span>
+            <span class="n">region</span> <span class="o">=</span> <span class="s2">&quot;us-east-1&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">provider</span><span class="o">=</span><span class="n">EC2Provider</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="n">region</span><span class="p">),</span>  <span class="c1"># type: ignore</span>
+            <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+            <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
+            <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
+            <span class="n">disk</span><span class="o">=</span><span class="n">disk</span><span class="p">,</span>
+            <span class="n">reserve_ip</span><span class="o">=</span><span class="n">reserve_ip</span><span class="p">,</span>
+            <span class="n">public_ssh_key</span><span class="o">=</span><span class="n">public_ssh_key</span><span class="p">,</span>
+            <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.gce">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.gce">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">gce</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">project</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">zone</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">disk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;30gb&quot;</span><span class="p">,</span>
+        <span class="n">reserve_ip</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">public_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop VM on GCE&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">provider</span><span class="o">=</span><span class="n">GCEProvider</span><span class="p">(</span><span class="n">project_id</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="n">zone</span><span class="p">),</span>  <span class="c1"># type: ignore</span>
+            <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+            <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
+            <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
+            <span class="n">disk</span><span class="o">=</span><span class="n">disk</span><span class="p">,</span>
+            <span class="n">reserve_ip</span><span class="o">=</span><span class="n">reserve_ip</span><span class="p">,</span>
+            <span class="n">public_ssh_key</span><span class="o">=</span><span class="n">public_ssh_key</span><span class="p">,</span>
+            <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.local">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.local">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">local</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a local VM</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str, optional): Name of the vm. Defaults to None.</span>
+<span class="sd">            memory (int, optional): Memory the VM has. Defaults to 4.</span>
+<span class="sd">            cpus (int, optional): CPUs the VM has. Defaults to 2.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Desktop: A desktop</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="n">QemuProvider</span><span class="p">(),</span> <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span> <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.from_vm">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.from_vm">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_vm</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">vm</span><span class="p">:</span> <span class="n">DesktopVM</span><span class="p">,</span> <span class="n">proxy_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span><span class="p">,</span> <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop from a VM</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            vm (DesktopVM): VM to use</span>
+<span class="sd">            proxy_type (str, optional): The type of proxy to use. Defaults to process.</span>
+<span class="sd">            proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Desktop: A desktop</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Desktop</span><span class="p">(</span><span class="n">vm</span><span class="o">=</span><span class="n">vm</span><span class="p">,</span> <span class="n">proxy_type</span><span class="o">=</span><span class="n">proxy_type</span><span class="p">,</span> <span class="n">proxy_port</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.get">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.get">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DesktopVM</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a desktop by name</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Name of the desktop</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Desktop: A desktop</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">DesktopVM</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.find">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.find">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">find</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">DesktopVM</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List all desktops</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            list[DesktopVM]: A list of desktop vms</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">DesktopVM</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.info">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.info">[docs]</a>
+    <span class="k">def</span> <span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get info on the desktop runtime</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: A dictionary of info</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/info&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Desktop.view">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.view">[docs]</a>
+    <span class="k">def</span> <span class="nf">view</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">background</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;View the desktop</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            background (bool, optional): Whether to run in the background and not block. Defaults to False.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vm</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Desktop not created with a VM, don&#39;t know how to proxy&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_vm</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">background</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.health">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.health">[docs]</a>
+    <span class="k">def</span> <span class="nf">health</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Health of agentd</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Agentd health</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/health&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Desktop.open_url">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.open_url">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">open_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Open a URL in chromium</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            url (str): URL to open</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/open_url&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">url</span><span class="p">})</span>
+        <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="Desktop.move_mouse">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.move_mouse">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">move_mouse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Move mouse to a position</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (int): x coordinate</span>
+<span class="sd">            y (int): y coordinate</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/move_mouse&quot;</span><span class="p">,</span>
+            <span class="n">json</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span>
+                <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">,</span>
+                <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_move_mouse_duration</span><span class="p">,</span>
+                <span class="s2">&quot;tween&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mouse_tween</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+        <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="Desktop.click">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.click">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">click</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">button</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Click mouse button</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            button (str, optional): Button to click. Defaults to &quot;left&quot;.</span>
+<span class="sd">            x (Optional[int], optional): X coordinate to move to, if not provided it will click on current location. Defaults to None.</span>
+<span class="sd">            y (Optional[int], optional): Y coordinate to move to, if not provided it will click on current location. Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">body</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;button&quot;</span><span class="p">:</span> <span class="n">button</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">and</span> <span class="n">y</span><span class="p">:</span>
+            <span class="n">body</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">}</span>  <span class="c1"># type: ignore</span>
+
+        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/click&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">body</span><span class="p">)</span>
+        <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="Desktop.press_key">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.press_key">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">press_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Press a key</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            key (str): Which key to press</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/press_key&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">key</span><span class="p">})</span>
+        <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="Desktop.scroll">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.scroll">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">scroll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">clicks</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Scroll the screen</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            clicks (int, optional): Number of clicks, negative scrolls down, positive scrolls up. Defaults to -3.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/scroll&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;clicks&quot;</span><span class="p">:</span> <span class="n">clicks</span><span class="p">})</span>
+        <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="Desktop.drag_mouse">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.drag_mouse">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">drag_mouse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Drag the mouse</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (int): x coordinate</span>
+<span class="sd">            y (int): y coordinate</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/drag_mouse&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">})</span>
+        <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="Desktop.double_click">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.double_click">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">double_click</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Double click the mouse&quot;&quot;&quot;</span>
+        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/double_click&quot;</span><span class="p">)</span>
+        <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="Desktop.type_text">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.type_text">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">type_text</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Type text</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            text (str): Text to type</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/type_text&quot;</span><span class="p">,</span>
+            <span class="n">json</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="n">text</span><span class="p">,</span>
+                <span class="s2">&quot;min_interval&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_type_min_interval</span><span class="p">,</span>
+                <span class="s2">&quot;max_interval&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_type_max_interval</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+        <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="Desktop.take_screenshot">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.take_screenshot">[docs]</a>
+    <span class="nd">@observation</span>
+    <span class="k">def</span> <span class="nf">take_screenshot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Take screenshot</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: b64 encoded image or URI of the image depending on instance settings</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/screenshot&quot;</span><span class="p">)</span>
+        <span class="n">jdict</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_store_img</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">jdict</span><span class="p">[</span><span class="s2">&quot;image&quot;</span><span class="p">]</span>
+
+        <span class="n">image_data</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">jdict</span><span class="p">[</span><span class="s2">&quot;image&quot;</span><span class="p">])</span>
+        <span class="n">image_stream</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">image_data</span><span class="p">)</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">image_stream</span><span class="p">)</span>
+
+        <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;screen-</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">generate_random_string</span><span class="p">()</span><span class="si">}</span><span class="s2">.png&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage_uri</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;file://&quot;</span><span class="p">):</span>
+            <span class="n">filepath</span> <span class="o">=</span> <span class="n">extract_file_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage_uri</span><span class="p">)</span>
+            <span class="n">save_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+            <span class="n">image</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">save_path</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage_uri</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;gs://&quot;</span><span class="p">):</span>
+            <span class="n">bucket_name</span><span class="p">,</span> <span class="n">object_path</span> <span class="o">=</span> <span class="n">extract_gcs_info</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage_uri</span><span class="p">)</span>
+            <span class="n">object_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">object_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+            <span class="n">client</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span>
+            <span class="n">bucket</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">bucket</span><span class="p">(</span><span class="n">bucket_name</span><span class="p">)</span>
+            <span class="n">blob</span> <span class="o">=</span> <span class="n">bucket</span><span class="o">.</span><span class="n">blob</span><span class="p">(</span><span class="n">object_path</span><span class="p">)</span>
+            <span class="n">blob</span><span class="o">.</span><span class="n">upload_from_string</span><span class="p">(</span><span class="n">image_data</span><span class="p">,</span> <span class="n">content_type</span><span class="o">=</span><span class="s2">&quot;image/png&quot;</span><span class="p">)</span>
+
+            <span class="n">blob</span><span class="o">.</span><span class="n">make_public</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">blob</span><span class="o">.</span><span class="n">public_url</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid store_type. Choose &#39;file&#39; or &#39;gcs&#39;.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.mouse_coordinates">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.mouse_coordinates">[docs]</a>
+    <span class="nd">@observation</span>
+    <span class="k">def</span> <span class="nf">mouse_coordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the current mouse coordinates</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple[int, int]: x, y coordinates</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/mouse_coordinates&quot;</span><span class="p">)</span>
+        <span class="n">jdict</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">jdict</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span> <span class="n">jdict</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Desktop.close">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.close">[docs]</a>
+    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SimpleDesktop">
+<a class="viewcode-back" href="../../api.html#agentdesk.SimpleDesktop">[docs]</a>
+<span class="k">class</span> <span class="nc">SimpleDesktop</span><span class="p">(</span><span class="n">Desktop</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A more simple desktop&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SimpleDesktop.actions">
+<a class="viewcode-back" href="../../api.html#agentdesk.SimpleDesktop.actions">[docs]</a>
+    <span class="k">def</span> <span class="nf">actions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Action</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Actions the agent can take</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[Action]: List of actions</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">actionv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actions_list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">actionv</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="p">[</span>
+                <span class="s2">&quot;open_url&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;type_text&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;click&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;scroll&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;press_key&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;move_mouse&quot;</span><span class="p">,</span>
+            <span class="p">]:</span>
+                <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">actionv</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">out</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Kentauros AI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
