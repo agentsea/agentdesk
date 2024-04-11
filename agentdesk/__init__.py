@@ -1,3 +1,3 @@
-from .tool import Desktop, SimpleDesktop, WebApp
+from .tool import Desktop, SimpleDesktop
 
-__all__ = ["Desktop", "SimpleDesktop", "WebApp"]
+__all__ = ["Desktop", "SimpleDesktop"]
