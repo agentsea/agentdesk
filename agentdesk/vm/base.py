@@ -123,11 +123,11 @@ class DesktopVM(WithDB):
         out.ssh_port = record.ssh_port
         out.owner_id = record.owner_id
         out.ssh_key = record.ssh_key
-        if not len(str(record.provider)) == 0:
+        if record.provider:  # type: ignore
             dct = json.loads(str(record.provider))
             out.provider = V1ProviderData(**dct)
         out.metadata = {}
-        if not len(str(record.meta)) == 0:
+        if record.meta:  # type: ignore
             dct = json.loads(str(record.meta))
             out.metadata = dct
         return out
