@@ -16,6 +16,7 @@ from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
 from agentdesk.util import find_ssh_public_key, find_open_port
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
+from agentdesk.key import SSHKeyPair
 
 
 class GCEProvider(DesktopProvider):
@@ -101,7 +102,17 @@ class GCEProvider(DesktopProvider):
         tags["provisioner"] = "agentdesk"  # Your custom labels
 
         if not public_ssh_key:
-            public_ssh_key = find_ssh_public_key()
+            key_pair = SSHKeyPair.generate_key(name, owner_id or "local")
+            public_ssh_key = key_pair.public_key
+            private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
+        else:
+            if not private_ssh_key:
+                raise ValueError(
+                    "private_ssh_key not provided, but required if public_ssh_key is provided"
+                )
+            key_pair = SSHKeyPair(
+                name, public_ssh_key, private_ssh_key, owner_id or "local"
+            )
 
         if public_ssh_key:
             _metadata = compute_v1.Metadata(
@@ -154,7 +165,7 @@ class GCEProvider(DesktopProvider):
             requires_proxy=True,
             owner_id=owner_id,
             metadata=metadata,
-            ssh_key=public_ssh_key,
+            key_pair_name=key_pair.name,
         )
         print(f"\nsuccessfully created desktop '{name}'")
         return new_desktop

@@ -12,6 +12,7 @@ import pycdlib
 import requests
 from namesgenerator import get_random_name
 from tqdm import tqdm
+from agentdesk.key import SSHKeyPair
 
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
@@ -54,6 +55,8 @@ class QemuProvider(DesktopProvider):
 
         if not name:
             name = get_random_name(sep="-")
+            if not name:
+                raise ValueError("could not generate name")
 
         if DesktopVM.name_exists(name):  # type: ignore
             raise ValueError(f"VM name '{name}' already exists")
@@ -95,9 +98,18 @@ class QemuProvider(DesktopProvider):
             progress_bar.close()
 
         # Find or generate an SSH key if not provided
-        public_ssh_key = public_ssh_key or find_ssh_public_key()
         if not public_ssh_key:
-            raise ValueError("SSH key not provided or found")
+            key_pair = SSHKeyPair.generate_key(name, owner_id or "local")
+            public_ssh_key = key_pair.public_key
+            private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
+        else:
+            if not private_ssh_key:
+                raise ValueError(
+                    "private_ssh_key not provided, but required if public_ssh_key is provided"
+                )
+            key_pair = SSHKeyPair(
+                name, public_ssh_key, private_ssh_key, owner_id or "local"
+            )
 
         # Generate user-data
         user_data = f"""#cloud-config
@@ -164,7 +176,7 @@ local-hostname: {name}
             ssh_port=ssh_port,
             owner_id=owner_id,
             metadata=metadata,
-            ssh_key=public_ssh_key,
+            key_pair_name=key_pair.name,
         )
         return desktop
 

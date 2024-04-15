@@ -15,6 +15,7 @@ from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
 from agentdesk.util import find_ssh_public_key, find_open_port
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
+from agentdesk.key import SSHKeyPair
 
 
 class EC2Provider(DesktopProvider):
@@ -70,9 +71,18 @@ class EC2Provider(DesktopProvider):
             # image = custom_ami
             image = JAMMY.ec2
 
-        public_ssh_key = public_ssh_key or find_ssh_public_key()
         if not public_ssh_key:
-            raise ValueError("could not find public ssh key")
+            key_pair = SSHKeyPair.generate_key(name, owner_id or "local")
+            public_ssh_key = key_pair.public_key
+            private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
+        else:
+            if not private_ssh_key:
+                raise ValueError(
+                    "private_ssh_key not provided, but required if public_ssh_key is provided"
+                )
+            key_pair = SSHKeyPair(
+                name, public_ssh_key, private_ssh_key, owner_id or "local"
+            )
 
         user_data = f"""#cloud-config
 users:
@@ -150,7 +160,7 @@ users:
             requires_proxy=True,
             owner_id=owner_id,
             metadata=metadata,
-            ssh_key=public_ssh_key,
+            key_pair_name=key_pair.name,
         )
 
         print(f"\nsuccessfully created desktop '{name}'")

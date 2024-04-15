@@ -14,8 +14,9 @@ from google.cloud import storage
 from devicebay import Device, action, observation, Action, ReactComponent
 
 from .server.models import V1ProviderData
-from .vm.base import DesktopVM, DesktopProvider
+from .vm.base import DesktopVM
 from .vm.load import load_provider
+from .key import SSHKeyPair
 
 try:
     from .vm.gce import GCEProvider
@@ -112,12 +113,15 @@ class Desktop(Device):
         self._vm = vm
         self._agentd_url = agentd_url
 
+        self._key_pair_name = None
         if vm:
             self._agentd_url = f"{vm.addr}:8000"
             if vm.requires_proxy:
                 self.base_url = f"localhost:{proxy_port}"
             else:
                 self.base_url = self._agentd_url
+
+            self._key_pair_name = vm.key_pair_name
         else:
             self.base_url = agentd_url
 
@@ -308,6 +312,15 @@ class Desktop(Device):
         )
 
     def connect_config(self) -> ConnectConfig:
+        ssh_private_key = None
+        if self._key_pair_name:
+            keys = SSHKeyPair.find(name=self._key_pair_name)
+            if not keys:
+                raise ValueError(f"No key found with name {self._key_pair_name}")
+            key_pair = keys[0]
+
+            ssh_private_key = key_pair.decrypt_private_key(key_pair.private_key)
+
         return ConnectConfig(
             agentd_url=self._agentd_url,
             storage_uri=self.storage_uri,
@@ -319,7 +332,7 @@ class Desktop(Device):
             requires_proxy=self._requires_proxy,
             proxy_type=self._proxy_type,
             proxy_port=self._proxy_port,
-            private_ssh_key=self._private_ssh_key,
+            private_ssh_key=ssh_private_key,
             ssh_port=self._ssh_port,
         )
 

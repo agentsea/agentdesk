@@ -33,7 +33,6 @@ from .util import (
     extract_file_path,
     extract_gcs_info,
     generate_random_string,
-    check_port_in_use,
 )
 from .proxy import ensure_ssh_proxy, cleanup_proxy
 
@@ -101,6 +100,7 @@ class Desktop(Tool):
         self._store_img = store_img
         self._proxy_port = proxy_port
         self._requires_proxy = requires_proxy if vm is None else vm.requires_proxy
+        self._private_ssh_key = private_ssh_key
 
         if self._requires_proxy:
             if proxy_type == "process":

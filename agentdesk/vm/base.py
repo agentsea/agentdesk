@@ -21,6 +21,7 @@ from agentdesk.util import (
     check_port_in_use,
 )
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
+from agentdesk.key import SSHKeyPair
 
 
 UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:634820941cbbba4b3cd51149b25d0a4c8d1a35f4"
@@ -46,7 +47,7 @@ class DesktopVM(WithDB):
         metadata: Optional[dict] = None,
         ssh_port: int = 22,
         owner_id: Optional[str] = None,
-        ssh_key: Optional[str] = None,
+        key_pair_name: Optional[str] = None,
     ) -> None:
         if not id:
             id = str(uuid.uuid4())
@@ -66,7 +67,7 @@ class DesktopVM(WithDB):
         self.metadata = metadata
         self.ssh_port = ssh_port
         self.owner_id = owner_id
-        self.ssh_key = ssh_key
+        self.key_pair_name = key_pair_name
 
         self.save()
 
@@ -96,7 +97,7 @@ class DesktopVM(WithDB):
             ssh_port=self.ssh_port,
             meta=metadata,
             owner_id=self.owner_id,
-            ssh_key=self.ssh_key,
+            key_pair_name=self.key_pair_name,
         )
 
     def save(self) -> None:
@@ -122,7 +123,7 @@ class DesktopVM(WithDB):
         out.requires_proxy = record.requires_proxy
         out.ssh_port = record.ssh_port
         out.owner_id = record.owner_id
-        out.ssh_key = record.ssh_key
+        out.key_pair_name = record.key_pair_name
         if record.provider:  # type: ignore
             dct = json.loads(str(record.provider))
             out.provider = V1ProviderData(**dct)
@@ -218,18 +219,31 @@ class DesktopVM(WithDB):
             provider=self.provider,
             meta=self.metadata,
             owner_id=self.owner_id,
+            key_pair_name=self.key_pair_name,
         )
 
     def view(self, background: bool = False) -> None:
         """Opens the desktop in a browser window"""
 
         if self.requires_proxy:
+            keys = SSHKeyPair.find(name=self.key_pair_name)
+            if not keys:
+                raise ValueError(
+                    f"No key pair found with name {self.key_pair_name} and is required for this desktop"
+                )
+            key_pair = keys[0]
+
             if check_port_in_use(6080):
                 raise ValueError(
                     "Port 6080 is already in use, UI requires this port"
                 )  # TODO: remove this restriction
             proxy_pid = ensure_ssh_proxy(
-                6080, 6080, self.ssh_port, "agentsea", self.addr
+                6080,
+                6080,
+                self.ssh_port,
+                "agentsea",
+                self.addr,
+                key_pair.decrypt_private_key(key_pair.private_key),
             )
             atexit.register(cleanup_proxy, proxy_pid)
 

@@ -45,7 +45,16 @@ class V1Desktop(BaseModel):
     provider: Optional[V1ProviderData] = None
     meta: Optional[dict] = None
     owner_id: Optional[str] = None
+    key_pair_name: Optional[str] = None
 
 
 class V1Desktops(BaseModel):
     desktops: List[V1Desktop]
+
+
+class SSHKeyModel(BaseModel):
+    name: str
+    public_key: str
+    created: float
+    id: str
+    private_key: Optional[str] = None
