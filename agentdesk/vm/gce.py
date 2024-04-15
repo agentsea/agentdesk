@@ -102,6 +102,7 @@ class GCEProvider(DesktopProvider):
         tags["provisioner"] = "agentdesk"  # Your custom labels
 
         if not public_ssh_key:
+            print("generating key pair for box...")
             key_pair = SSHKeyPair.generate_key(name, owner_id or "local")
             public_ssh_key = key_pair.public_key
             private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
