@@ -122,6 +122,13 @@ class Desktop(Device):
                 self.base_url = self._agentd_url
 
             self._key_pair_name = vm.key_pair_name
+            keys = SSHKeyPair.find(name=self._key_pair_name)
+            if not keys:
+                raise ValueError(f"No key found with name {self._key_pair_name}")
+            key_pair = keys[0]
+
+            private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
+
         else:
             self.base_url = agentd_url
 
