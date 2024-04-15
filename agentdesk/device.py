@@ -115,8 +115,8 @@ class Desktop(Device):
 
         self._key_pair_name = None
         if vm:
-            self._agentd_url = f"{vm.addr}:8000"
             if vm.requires_proxy:
+                self._agentd_url = vm.addr
                 self.base_url = f"localhost:{proxy_port}"
             else:
                 self.base_url = self._agentd_url
