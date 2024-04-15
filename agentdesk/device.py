@@ -110,12 +110,14 @@ class Desktop(Device):
         """
         super().__init__()
         self._vm = vm
+        self._agentd_url = agentd_url
 
         if vm:
+            self._agentd_url = f"{vm.addr}:8000"
             if vm.requires_proxy:
                 self.base_url = f"localhost:{proxy_port}"
             else:
-                self.base_url = f"{vm.addr}:8000"
+                self.base_url = self._agentd_url
         else:
             self.base_url = agentd_url
 
@@ -133,7 +135,6 @@ class Desktop(Device):
         self._private_ssh_key = private_ssh_key
         self._ssh_port = ssh_port
         self._proxy_type = proxy_type
-        self._agentd_url = agentd_url
 
         if self._requires_proxy:
             if proxy_type == "process":
