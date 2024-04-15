@@ -109,7 +109,6 @@
     <span class="n">extract_file_path</span><span class="p">,</span>
     <span class="n">extract_gcs_info</span><span class="p">,</span>
     <span class="n">generate_random_string</span><span class="p">,</span>
-    <span class="n">check_port_in_use</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">.proxy</span> <span class="kn">import</span> <span class="n">ensure_ssh_proxy</span><span class="p">,</span> <span class="n">cleanup_proxy</span>
 
@@ -179,6 +178,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_store_img</span> <span class="o">=</span> <span class="n">store_img</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_proxy_port</span> <span class="o">=</span> <span class="n">proxy_port</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span> <span class="o">=</span> <span class="n">requires_proxy</span> <span class="k">if</span> <span class="n">vm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_private_ssh_key</span> <span class="o">=</span> <span class="n">private_ssh_key</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">proxy_type</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
