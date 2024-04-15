@@ -133,6 +133,7 @@ class Desktop(Device):
         self._private_ssh_key = private_ssh_key
         self._ssh_port = ssh_port
         self._proxy_type = proxy_type
+        self._agentd_url = agentd_url
 
         if self._requires_proxy:
             if proxy_type == "process":
@@ -307,7 +308,7 @@ class Desktop(Device):
 
     def connect_config(self) -> ConnectConfig:
         return ConnectConfig(
-            agentd_url=self.base_url,
+            agentd_url=self._agentd_url,
             storage_uri=self.storage_uri,
             type_min_interval=self._type_min_interval,
             type_max_interval=self._type_max_interval,
