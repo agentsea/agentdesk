@@ -114,6 +114,14 @@
 
 
 <span class="k">class</span> <span class="nc">StorageStrategy</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An enumeration to define the storage strategy options.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        GCS: Represents the Google Cloud Storage option for storing data.</span>
+<span class="sd">        LOCAL: Represents the local filesystem option for storing data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">GCS</span> <span class="o">=</span> <span class="s2">&quot;gcs&quot;</span>
     <span class="n">LOCAL</span> <span class="o">=</span> <span class="s2">&quot;local&quot;</span>
 
@@ -627,6 +635,11 @@
 <div class="viewcode-block" id="Desktop.close">
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop.close">[docs]</a>
     <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Close the desktop tool.</span>
+
+<span class="sd">        This method is responsible for performing any necessary cleanup operations</span>
+<span class="sd">        before the desktop tool is closed. Currently, it does not perform any actions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 </div>
 
