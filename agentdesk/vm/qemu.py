@@ -17,10 +17,7 @@ from agentdesk.key import SSHKeyPair
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
-from agentdesk.util import (
-    check_command_availability,
-    find_ssh_public_key,
-)
+from agentdesk.util import check_command_availability
 
 META_PYTHON_IMAGE = "python:3.9-slim"
 META_CONTAINER_NAME = "http_server"

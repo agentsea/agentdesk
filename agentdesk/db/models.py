@@ -1,8 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, Float
 from sqlalchemy.ext.declarative import declarative_base
 
-from agentdesk import key
-
 Base = declarative_base()
 
 

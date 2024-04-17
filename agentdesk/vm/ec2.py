@@ -13,7 +13,7 @@ import requests
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
-from agentdesk.util import find_ssh_public_key, find_open_port
+from agentdesk.util import find_open_port
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 from agentdesk.key import SSHKeyPair
 
@@ -209,7 +209,7 @@ users:
         try:
             cleanup_proxy(pid)  # type: ignore
             atexit.unregister(cleanup_proxy)
-        except:
+        except Exception:
             pass
 
     def _ensure_sg(self, name: str, description: str) -> str:

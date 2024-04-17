@@ -160,7 +160,7 @@ def check_ssh_proxy_running(
             cmdline_str = " ".join(cmdline)
             if partial_command_pattern in cmdline_str:
                 return proc.info["pid"]  # type: ignore
-        except Exception as e:
+        except Exception:
             pass
 
     return None
