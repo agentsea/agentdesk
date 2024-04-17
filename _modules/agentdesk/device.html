@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>agentdesk.tool &mdash; AgentDesk 0.1.0 documentation</title>
+  <title>agentdesk.device &mdash; AgentDesk 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
@@ -64,7 +64,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">agentdesk.tool</li>
+      <li class="breadcrumb-item active">agentdesk.device</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -73,23 +73,26 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for agentdesk.tool</h1><div class="highlight"><pre>
+  <h1>Source code for agentdesk.device</h1><div class="highlight"><pre>
 <span></span><span class="c1"># from __future__ import annotations</span>
 <span class="kn">import</span> <span class="nn">base64</span>
 <span class="kn">import</span> <span class="nn">io</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Type</span>
 <span class="kn">import</span> <span class="nn">atexit</span>
 
 <span class="kn">import</span> <span class="nn">requests</span>
-
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">BaseModel</span>
 <span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
 <span class="kn">from</span> <span class="nn">google.cloud</span> <span class="kn">import</span> <span class="n">storage</span>
-<span class="kn">from</span> <span class="nn">toolfuse</span> <span class="kn">import</span> <span class="n">Tool</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">observation</span><span class="p">,</span> <span class="n">Action</span>
+<span class="kn">from</span> <span class="nn">devicebay</span> <span class="kn">import</span> <span class="n">Device</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">observation</span><span class="p">,</span> <span class="n">Action</span><span class="p">,</span> <span class="n">ReactComponent</span>
 
-<span class="kn">from</span> <span class="nn">.vm.base</span> <span class="kn">import</span> <span class="n">DesktopVM</span><span class="p">,</span> <span class="n">DesktopProvider</span>
+<span class="kn">from</span> <span class="nn">.server.models</span> <span class="kn">import</span> <span class="n">V1ProviderData</span>
+<span class="kn">from</span> <span class="nn">.vm.base</span> <span class="kn">import</span> <span class="n">DesktopVM</span>
+<span class="kn">from</span> <span class="nn">.vm.load</span> <span class="kn">import</span> <span class="n">load_provider</span>
+<span class="kn">from</span> <span class="nn">.key</span> <span class="kn">import</span> <span class="n">SSHKeyPair</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">.vm.gce</span> <span class="kn">import</span> <span class="n">GCEProvider</span>
@@ -114,21 +117,41 @@
 
 
 <span class="k">class</span> <span class="nc">StorageStrategy</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    An enumeration to define the storage strategy options.</span>
-
-<span class="sd">    Attributes:</span>
-<span class="sd">        GCS: Represents the Google Cloud Storage option for storing data.</span>
-<span class="sd">        LOCAL: Represents the local filesystem option for storing data.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
     <span class="n">GCS</span> <span class="o">=</span> <span class="s2">&quot;gcs&quot;</span>
     <span class="n">LOCAL</span> <span class="o">=</span> <span class="s2">&quot;local&quot;</span>
 
 
+<span class="k">class</span> <span class="nc">ConnectConfig</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">agentd_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">vm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">storage_uri</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;file://.media&quot;</span>
+    <span class="n">type_min_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span>
+    <span class="n">type_max_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span>
+    <span class="n">move_mouse_duration</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">mouse_tween</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;easeInOutQuad&quot;</span>
+    <span class="n">store_img</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">requires_proxy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">proxy_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span>
+    <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span>
+    <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">ssh_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">22</span>
+
+
+<span class="k">class</span> <span class="nc">ProvisionConfig</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">provider</span><span class="p">:</span> <span class="n">V1ProviderData</span> <span class="o">=</span> <span class="n">V1ProviderData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;qemu&quot;</span><span class="p">)</span>
+    <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">disk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;30gb&quot;</span>
+    <span class="n">reserve_ip</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">public_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span>
+
+
 <div class="viewcode-block" id="Desktop">
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop">[docs]</a>
-<span class="k">class</span> <span class="nc">Desktop</span><span class="p">(</span><span class="n">Tool</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">Desktop</span><span class="p">(</span><span class="n">Device</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Desktop OS as a tool via agentd&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -166,12 +189,24 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_vm</span> <span class="o">=</span> <span class="n">vm</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_agentd_url</span> <span class="o">=</span> <span class="n">agentd_url</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">vm</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_agentd_url</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">addr</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;localhost:</span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">addr</span><span class="si">}</span><span class="s2">:8000&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_agentd_url</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">key_pair_name</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="n">SSHKeyPair</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">keys</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No key found with name </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">key_pair</span> <span class="o">=</span> <span class="n">keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">private_ssh_key</span> <span class="o">=</span> <span class="n">key_pair</span><span class="o">.</span><span class="n">decrypt_private_key</span><span class="p">(</span><span class="n">key_pair</span><span class="o">.</span><span class="n">private_key</span><span class="p">)</span>
+
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">agentd_url</span>
 
@@ -187,6 +222,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_proxy_port</span> <span class="o">=</span> <span class="n">proxy_port</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span> <span class="o">=</span> <span class="n">requires_proxy</span> <span class="k">if</span> <span class="n">vm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_private_ssh_key</span> <span class="o">=</span> <span class="n">private_ssh_key</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ssh_port</span> <span class="o">=</span> <span class="n">ssh_port</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_proxy_type</span> <span class="o">=</span> <span class="n">proxy_type</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">proxy_type</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
@@ -226,14 +263,7 @@
     <span class="k">def</span> <span class="nf">ensure</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">provider</span><span class="p">:</span> <span class="n">DesktopProvider</span> <span class="o">=</span> <span class="n">QemuProvider</span><span class="p">(),</span>
-        <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
-        <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
-        <span class="n">disk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;30gb&quot;</span><span class="p">,</span>
-        <span class="n">reserve_ip</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">public_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">ProvisionConfig</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Find or create a desktop&quot;&quot;&quot;</span>
         <span class="n">vm</span> <span class="o">=</span> <span class="n">DesktopVM</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
@@ -242,14 +272,7 @@
 
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
-            <span class="n">provider</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>
-            <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
-            <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
-            <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
-            <span class="n">disk</span><span class="o">=</span><span class="n">disk</span><span class="p">,</span>
-            <span class="n">reserve_ip</span><span class="o">=</span><span class="n">reserve_ip</span><span class="p">,</span>
-            <span class="n">public_ssh_key</span><span class="o">=</span><span class="n">public_ssh_key</span><span class="p">,</span>
-            <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -259,27 +282,22 @@
     <span class="k">def</span> <span class="nf">create</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">provider</span><span class="p">:</span> <span class="n">DesktopProvider</span> <span class="o">=</span> <span class="n">QemuProvider</span><span class="p">(),</span>
-        <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
-        <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
-        <span class="n">disk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;30gb&quot;</span><span class="p">,</span>
-        <span class="n">reserve_ip</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">public_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">ProvisionConfig</span> <span class="o">=</span> <span class="n">ProvisionConfig</span><span class="p">(),</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop VM&quot;&quot;&quot;</span>
+
+        <span class="n">provider</span> <span class="o">=</span> <span class="n">load_provider</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">provider</span><span class="p">)</span>
         <span class="n">vm</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
-            <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
-            <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
-            <span class="n">cpu</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
-            <span class="n">disk</span><span class="o">=</span><span class="n">disk</span><span class="p">,</span>
-            <span class="n">reserve_ip</span><span class="o">=</span><span class="n">reserve_ip</span><span class="p">,</span>
-            <span class="n">public_ssh_key</span><span class="o">=</span><span class="n">public_ssh_key</span><span class="p">,</span>
-            <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
+            <span class="n">image</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">image</span><span class="p">,</span>
+            <span class="n">memory</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">memory</span><span class="p">,</span>
+            <span class="n">cpu</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">cpus</span><span class="p">,</span>
+            <span class="n">disk</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">disk</span><span class="p">,</span>
+            <span class="n">reserve_ip</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">reserve_ip</span><span class="p">,</span>
+            <span class="n">public_ssh_key</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">public_ssh_key</span><span class="p">,</span>
+            <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">private_ssh_key</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">proxy_port</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">proxy_port</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Desktop.ec2">
@@ -300,9 +318,9 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop VM on EC2&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">region</span><span class="p">:</span>
             <span class="n">region</span> <span class="o">=</span> <span class="s2">&quot;us-east-1&quot;</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
-            <span class="n">provider</span><span class="o">=</span><span class="n">EC2Provider</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="n">region</span><span class="p">),</span>  <span class="c1"># type: ignore</span>
+
+        <span class="n">config</span> <span class="o">=</span> <span class="n">ProvisionConfig</span><span class="p">(</span>
+            <span class="n">provider</span><span class="o">=</span><span class="n">EC2Provider</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="n">region</span><span class="p">)</span><span class="o">.</span><span class="n">to_data</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
             <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
             <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
             <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
@@ -310,7 +328,8 @@
             <span class="n">reserve_ip</span><span class="o">=</span><span class="n">reserve_ip</span><span class="p">,</span>
             <span class="n">public_ssh_key</span><span class="o">=</span><span class="n">public_ssh_key</span><span class="p">,</span>
             <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Desktop.gce">
@@ -330,9 +349,8 @@
         <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop VM on GCE&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
-            <span class="n">provider</span><span class="o">=</span><span class="n">GCEProvider</span><span class="p">(</span><span class="n">project_id</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="n">zone</span><span class="p">),</span>  <span class="c1"># type: ignore</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">ProvisionConfig</span><span class="p">(</span>
+            <span class="n">provider</span><span class="o">=</span><span class="n">GCEProvider</span><span class="p">(</span><span class="n">project_id</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="n">zone</span><span class="p">)</span><span class="o">.</span><span class="n">to_data</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
             <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
             <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
             <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
@@ -340,7 +358,8 @@
             <span class="n">reserve_ip</span><span class="o">=</span><span class="n">reserve_ip</span><span class="p">,</span>
             <span class="n">public_ssh_key</span><span class="o">=</span><span class="n">public_ssh_key</span><span class="p">,</span>
             <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Desktop.local">
@@ -362,7 +381,86 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            Desktop: A desktop</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="n">QemuProvider</span><span class="p">(),</span> <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span> <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">)</span></div>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">ProvisionConfig</span><span class="p">(</span>
+            <span class="n">provider</span><span class="o">=</span><span class="n">QemuProvider</span><span class="p">()</span><span class="o">.</span><span class="n">to_data</span><span class="p">(),</span> <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span> <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.connect">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.connect">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConnectConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
+        <span class="n">vm</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="p">:</span>
+            <span class="n">vms</span> <span class="o">=</span> <span class="n">DesktopVM</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">vms</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;VM </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="si">}</span><span class="s2"> was not found&quot;</span><span class="p">)</span>
+            <span class="n">vm</span> <span class="o">=</span> <span class="n">vms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">agentd_url</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">agentd_url</span><span class="p">,</span>
+            <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">private_ssh_key</span><span class="p">,</span>
+            <span class="n">vm</span><span class="o">=</span><span class="n">vm</span><span class="p">,</span>
+            <span class="n">storage_uri</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">storage_uri</span><span class="p">,</span>
+            <span class="n">type_min_interval</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">type_min_interval</span><span class="p">,</span>
+            <span class="n">type_max_interval</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">type_max_interval</span><span class="p">,</span>
+            <span class="n">move_mouse_duration</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">move_mouse_duration</span><span class="p">,</span>
+            <span class="n">mouse_tween</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">mouse_tween</span><span class="p">,</span>
+            <span class="n">store_img</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">store_img</span><span class="p">,</span>
+            <span class="n">requires_proxy</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">requires_proxy</span><span class="p">,</span>
+            <span class="n">proxy_type</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">proxy_type</span><span class="p">,</span>
+            <span class="n">proxy_port</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">proxy_port</span><span class="p">,</span>
+            <span class="n">ssh_port</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">ssh_port</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.connect_config">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.connect_config">[docs]</a>
+    <span class="k">def</span> <span class="nf">connect_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConnectConfig</span><span class="p">:</span>
+        <span class="n">ssh_private_key</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span><span class="p">:</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="n">SSHKeyPair</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">keys</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No key found with name </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">key_pair</span> <span class="o">=</span> <span class="n">keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">ssh_private_key</span> <span class="o">=</span> <span class="n">key_pair</span><span class="o">.</span><span class="n">decrypt_private_key</span><span class="p">(</span><span class="n">key_pair</span><span class="o">.</span><span class="n">private_key</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ConnectConfig</span><span class="p">(</span>
+            <span class="n">agentd_url</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_agentd_url</span><span class="p">,</span>
+            <span class="n">storage_uri</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">storage_uri</span><span class="p">,</span>
+            <span class="n">type_min_interval</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_type_min_interval</span><span class="p">,</span>
+            <span class="n">type_max_interval</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_type_max_interval</span><span class="p">,</span>
+            <span class="n">move_mouse_duration</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_move_mouse_duration</span><span class="p">,</span>
+            <span class="n">mouse_tween</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_mouse_tween</span><span class="p">,</span>
+            <span class="n">store_img</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_store_img</span><span class="p">,</span>
+            <span class="n">requires_proxy</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span><span class="p">,</span>
+            <span class="n">proxy_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_proxy_type</span><span class="p">,</span>
+            <span class="n">proxy_port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_proxy_port</span><span class="p">,</span>
+            <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">ssh_private_key</span><span class="p">,</span>
+            <span class="n">ssh_port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_ssh_port</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.connect_config_type">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.connect_config_type">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">connect_config_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">ConnectConfig</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">ConnectConfig</span></div>
+
+
+<div class="viewcode-block" id="Desktop.provision_config_type">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.provision_config_type">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">provision_config_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">ProvisionConfig</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">ProvisionConfig</span></div>
+
+
+<div class="viewcode-block" id="Desktop.react_component">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.react_component">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">react_component</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReactComponent</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ReactComponent</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="Desktop.from_vm">
@@ -635,11 +733,6 @@
 <div class="viewcode-block" id="Desktop.close">
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop.close">[docs]</a>
     <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Close the desktop tool.</span>
-
-<span class="sd">        This method is responsible for performing any necessary cleanup operations</span>
-<span class="sd">        before the desktop tool is closed. Currently, it does not perform any actions.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 </div>
 
