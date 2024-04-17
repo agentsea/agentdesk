@@ -70,6 +70,7 @@ class ProvisionConfig(BaseModel):
     reserve_ip: bool = False
     public_ssh_key: Optional[str] = None
     private_ssh_key: Optional[str] = None
+    proxy_port: int = 8000
 
 
 class Desktop(Device):
@@ -213,7 +214,7 @@ class Desktop(Device):
             public_ssh_key=config.public_ssh_key,
             private_ssh_key=config.private_ssh_key,
         )
-        return cls.from_vm(vm)
+        return cls.from_vm(vm, proxy_port=config.proxy_port)
 
     @classmethod
     def ec2(

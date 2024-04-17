@@ -1,3 +1,3 @@
-from .tool import Desktop, SimpleDesktop
+from .device import Desktop, SimpleDesktop
 
 __all__ = ["Desktop", "SimpleDesktop"]
