@@ -37,7 +37,7 @@ def get_pg_conn() -> Engine:
 
 
 def get_sqlite_conn() -> Engine:
-    print("\nconnecting to local sqlite db ./data/agentdesk.db")
+    print("connecting to local sqlite db ./data/agentdesk.db")
     os.makedirs(os.path.dirname("./data/agentdesk.db"), exist_ok=True)
     engine = create_engine("sqlite:///./data/agentdesk.db")
     return engine

@@ -91,6 +91,7 @@ class Desktop(Device):
         proxy_port: int = 8000,
         private_ssh_key: Optional[str] = None,
         ssh_port: int = 22,
+        check_health: bool = True,
     ) -> None:
         """Connect to an agent desktop
 
@@ -108,6 +109,7 @@ class Desktop(Device):
             proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.
             private_ssh_key (str, optional): The private ssh key to use for the proxy. Defaults to None.
             ssh_port (int, optional): The port to use for the ssh connection. Defaults to 22.
+            check_health (bool, optional): Whether to check the health of the server. Defaults to True.
         """
         super().__init__()
         self._vm = vm
@@ -167,13 +169,16 @@ class Desktop(Device):
                     f"proxy from local port {proxy_port} to remote port 8000 started..."
                 )
                 self.base_url = f"http://localhost:{proxy_port}"
+            if proxy_type == "mock":
+                pass
         else:
             print("vm doesn't require proxy")
 
         try:
-            resp = self.health()
-            if resp["status"] != "ok":
-                raise ValueError("agentd status is not ok")
+            if check_health:
+                resp = self.health()
+                if resp["status"] != "ok":
+                    raise ValueError("agentd status is not ok")
         except Exception as e:
             raise SystemError(f"could not connect to desktop, is agentd running? {e}")
 

@@ -38,7 +38,7 @@ class SSHKeyRecord(Base):
 
     id = Column(String, primary_key=True, index=True)
     owner_id = Column(String, nullable=False)
-    public_key = Column(String, unique=True, index=True)
+    public_key = Column(String, index=True)
     private_key = Column(String)
     name = Column(String, index=True)
     created = Column(Float)
