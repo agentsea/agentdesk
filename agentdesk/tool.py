@@ -38,6 +38,14 @@ from .proxy import ensure_ssh_proxy, cleanup_proxy
 
 
 class StorageStrategy(Enum):
+    """
+    An enumeration to define the storage strategy options.
+
+    Attributes:
+        GCS: Represents the Google Cloud Storage option for storing data.
+        LOCAL: Represents the local filesystem option for storing data.
+    """
+
     GCS = "gcs"
     LOCAL = "local"
 
@@ -484,6 +492,11 @@ class Desktop(Tool):
         return jdict["x"], jdict["y"]
 
     def close(self):
+        """Close the desktop tool.
+
+        This method is responsible for performing any necessary cleanup operations
+        before the desktop tool is closed. Currently, it does not perform any actions.
+        """
         pass
 
 
