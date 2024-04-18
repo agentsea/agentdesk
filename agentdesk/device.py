@@ -74,7 +74,7 @@ class ProvisionConfig(BaseModel):
 
 
 class Desktop(Device):
-    """Desktop OS as a tool via agentd"""
+    """Desktop OS as a device via agentd"""
 
     def __init__(
         self,
@@ -179,10 +179,9 @@ class Desktop(Device):
                 resp = self.health()
                 if resp["status"] != "ok":
                     raise ValueError("agentd status is not ok")
+                print("connected to desktop via agentd")
         except Exception as e:
             raise SystemError(f"could not connect to desktop, is agentd running? {e}")
-
-        print("connected to desktop via agentd")
 
     @classmethod
     def ensure(
@@ -362,7 +361,11 @@ class Desktop(Device):
 
     @classmethod
     def from_vm(
-        cls, vm: DesktopVM, proxy_type: str = "process", proxy_port: int = 8000
+        cls,
+        vm: DesktopVM,
+        proxy_type: str = "process",
+        proxy_port: int = 8000,
+        check_health: bool = True,
     ) -> "Desktop":
         """Create a desktop from a VM
 
@@ -370,11 +373,17 @@ class Desktop(Device):
             vm (DesktopVM): VM to use
             proxy_type (str, optional): The type of proxy to use. Defaults to process.
             proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.
+            check_health (bool, optional): Check the health of the VM. Defaults to True.
 
         Returns:
             Desktop: A desktop
         """
-        return Desktop(vm=vm, proxy_type=proxy_type, proxy_port=8000)
+        return Desktop(
+            vm=vm,
+            proxy_type=proxy_type,
+            proxy_port=proxy_port,
+            check_health=check_health,
+        )
 
     @classmethod
     def get(cls, name: str) -> Optional[DesktopVM]:
