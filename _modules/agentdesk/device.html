@@ -152,7 +152,7 @@
 <div class="viewcode-block" id="Desktop">
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop">[docs]</a>
 <span class="k">class</span> <span class="nc">Desktop</span><span class="p">(</span><span class="n">Device</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Desktop OS as a tool via agentd&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Desktop OS as a device via agentd&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -257,10 +257,9 @@
                 <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">health</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;ok&quot;</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;agentd status is not ok&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;connected to desktop via agentd&quot;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">SystemError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;could not connect to desktop, is agentd running? </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;connected to desktop via agentd&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Desktop.ensure">
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop.ensure">[docs]</a>
@@ -472,7 +471,11 @@
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop.from_vm">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_vm</span><span class="p">(</span>
-        <span class="bp">cls</span><span class="p">,</span> <span class="n">vm</span><span class="p">:</span> <span class="n">DesktopVM</span><span class="p">,</span> <span class="n">proxy_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span><span class="p">,</span> <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">vm</span><span class="p">:</span> <span class="n">DesktopVM</span><span class="p">,</span>
+        <span class="n">proxy_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span><span class="p">,</span>
+        <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span><span class="p">,</span>
+        <span class="n">check_health</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop from a VM</span>
 
@@ -480,11 +483,17 @@
 <span class="sd">            vm (DesktopVM): VM to use</span>
 <span class="sd">            proxy_type (str, optional): The type of proxy to use. Defaults to process.</span>
 <span class="sd">            proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.</span>
+<span class="sd">            check_health (bool, optional): Check the health of the VM. Defaults to True.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Desktop: A desktop</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Desktop</span><span class="p">(</span><span class="n">vm</span><span class="o">=</span><span class="n">vm</span><span class="p">,</span> <span class="n">proxy_type</span><span class="o">=</span><span class="n">proxy_type</span><span class="p">,</span> <span class="n">proxy_port</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">Desktop</span><span class="p">(</span>
+            <span class="n">vm</span><span class="o">=</span><span class="n">vm</span><span class="p">,</span>
+            <span class="n">proxy_type</span><span class="o">=</span><span class="n">proxy_type</span><span class="p">,</span>
+            <span class="n">proxy_port</span><span class="o">=</span><span class="n">proxy_port</span><span class="p">,</span>
+            <span class="n">check_health</span><span class="o">=</span><span class="n">check_health</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Desktop.get">
