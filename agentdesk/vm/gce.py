@@ -50,8 +50,7 @@ class GCEProvider(DesktopProvider):
         disk: str = "30gb",
         tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
-        public_ssh_key: Optional[str] = None,
-        private_ssh_key: Optional[str] = None,
+        ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> DesktopVM:
@@ -103,8 +102,7 @@ class GCEProvider(DesktopProvider):
         tags["provisioner"] = "agentdesk"
         tags["owner"] = owner_id or "local"
 
-        if not public_ssh_key:
-            print("generating key pair for box...")
+        if not ssh_key_pair:
             key_pair = SSHKeyPair.generate_key(
                 f"{name}-{generate_short_hash(generate_random_string())}",
                 owner_id or "local",
@@ -113,13 +111,13 @@ class GCEProvider(DesktopProvider):
             public_ssh_key = key_pair.public_key
             private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
         else:
-            if not private_ssh_key:
-                raise ValueError(
-                    "private_ssh_key not provided, but required if public_ssh_key is provided"
-                )
-            key_pair = SSHKeyPair(
-                name, public_ssh_key, private_ssh_key, owner_id or "local"
-            )
+            key_pairs = SSHKeyPair.find(name=ssh_key_pair, owner_id=owner_id or "local")
+            if not key_pairs:
+                raise ValueError(f"SSH key pair '{ssh_key_pair}' not found")
+            key_pair = key_pairs[0]
+
+        public_ssh_key = key_pair.public_key
+        private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
 
         if public_ssh_key:
             _metadata = compute_v1.Metadata(

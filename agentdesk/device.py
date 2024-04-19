@@ -68,8 +68,7 @@ class ProvisionConfig(BaseModel):
     cpus: int = 2
     disk: str = "30gb"
     reserve_ip: bool = False
-    public_ssh_key: Optional[str] = None
-    private_ssh_key: Optional[str] = None
+    ssh_key_pair: Optional[str] = None
     proxy_port: int = 8000
 
 
@@ -215,8 +214,7 @@ class Desktop(Device):
             cpu=config.cpus,
             disk=config.disk,
             reserve_ip=config.reserve_ip,
-            public_ssh_key=config.public_ssh_key,
-            private_ssh_key=config.private_ssh_key,
+            ssh_key_pair=config.ssh_key_pair,
         )
         return cls.from_vm(vm, proxy_port=config.proxy_port)
 
@@ -230,8 +228,7 @@ class Desktop(Device):
         cpus: int = 2,
         disk: str = "30gb",
         reserve_ip: bool = False,
-        public_ssh_key: Optional[str] = None,
-        private_ssh_key: Optional[str] = None,
+        ssh_key_pair: Optional[str] = None,
     ) -> "Desktop":
         """Create a desktop VM on EC2"""
         if not region:
@@ -244,8 +241,7 @@ class Desktop(Device):
             cpus=cpus,
             disk=disk,
             reserve_ip=reserve_ip,
-            public_ssh_key=public_ssh_key,
-            private_ssh_key=private_ssh_key,
+            ssh_key_pair=ssh_key_pair,
         )
         return cls.create(name=name, config=config)
 
@@ -260,8 +256,7 @@ class Desktop(Device):
         cpus: int = 2,
         disk: str = "30gb",
         reserve_ip: bool = False,
-        public_ssh_key: Optional[str] = None,
-        private_ssh_key: Optional[str] = None,
+        ssh_key_pair: Optional[str] = None,
     ) -> "Desktop":
         """Create a desktop VM on GCE"""
         config = ProvisionConfig(
@@ -271,8 +266,7 @@ class Desktop(Device):
             cpus=cpus,
             disk=disk,
             reserve_ip=reserve_ip,
-            public_ssh_key=public_ssh_key,
-            private_ssh_key=private_ssh_key,
+            ssh_key_pair=ssh_key_pair,
         )
         return cls.create(name=name, config=config)
 

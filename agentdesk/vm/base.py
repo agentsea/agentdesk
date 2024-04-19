@@ -336,8 +336,7 @@ class DesktopProvider(ABC, Generic[DP]):
         disk: str = "30gb",
         tags: Optional[Dict[str, str]] = None,
         reserve_ip: bool = False,
-        public_ssh_key: Optional[str] = None,
-        private_ssh_key: Optional[str] = None,
+        ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> DesktopVM:
@@ -351,8 +350,7 @@ class DesktopProvider(ABC, Generic[DP]):
             disk (str): Disk allotment. Defaults to 30gb.
             tags (List[str], optional): Tags to apply to the VM. Defaults to None.
             reserve_ip (bool, optional): Reserve an IP address. Defaults to False.
-            public_ssh_key (str, optional): SSH key to use. Defaults to use ~/.ssh/id_rsa.pub.
-            private_ssh_key (str, optional): SSH key to use. Defaults to use ~/.ssh/id_rsa.
+            ssh_key_pair (str, optional): SSH key pair name to use. Defaults to None.
             owner_id (str, optional): Owner of the VM. Defaults to None.
             metadata (Dict[str, Any], optional): Metadata to apply to the VM. Defaults to None.
 

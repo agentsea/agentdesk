@@ -36,12 +36,6 @@ def create(
         False,
         help="Whether to reserve an IP address for the desktop.",
     ),
-    public_ssh_key: Optional[str] = typer.Option(
-        None, help="The public SSH key for the desktop. Optional."
-    ),
-    private_ssh_key: Optional[str] = typer.Option(
-        None, help="The private SSH key for the desktop. Optional."
-    ),
 ):
     if not name:
         name = get_random_name(sep="-")
@@ -58,8 +52,6 @@ def create(
             cpu=cpu,
             disk=disk,
             reserve_ip=reserve_ip,
-            public_ssh_key=public_ssh_key,
-            private_ssh_key=private_ssh_key,
         )
     except KeyboardInterrupt:
         print("Keyboard interrupt received, exiting...")
