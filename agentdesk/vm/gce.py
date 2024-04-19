@@ -1,9 +1,9 @@
 from __future__ import annotations
-from token import OP
 from typing import List, Optional, Dict, Tuple, Any
 import re
 import time
 import atexit
+import base64
 
 from google.cloud import compute_v1
 from google.cloud import _helpers
@@ -100,7 +100,6 @@ class GCEProvider(DesktopProvider):
         if not tags:
             tags = {}
         tags["provisioner"] = "agentdesk"
-        tags["owner"] = owner_id or "local"
 
         if not ssh_key_pair:
             key_pair = SSHKeyPair.generate_key(
@@ -119,12 +118,19 @@ class GCEProvider(DesktopProvider):
         public_ssh_key = key_pair.public_key
         private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
 
+        if not metadata:
+            metadata = {}
+        if owner_id:
+            metadata["owner"] = owner_id
+
         if public_ssh_key:
-            _metadata = compute_v1.Metadata(
-                items=[{"key": "ssh-keys", "value": f"agentsea:{public_ssh_key}"}]
-            )
+            metadata["ssh-keys"] = f"agentsea:{public_ssh_key}"
         else:
             raise ValueError("No SSH key provided and could not find one")
+
+        _metadata = compute_v1.Metadata(
+            items=[{"key": k, "value": v} for k, v in metadata.items()]
+        )
 
         # Instance creation with network tags and metadata
         instance = compute_v1.Instance(
