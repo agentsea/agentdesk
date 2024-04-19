@@ -8,6 +8,8 @@ from typing import Optional
 import socket
 from subprocess import CalledProcessError, DEVNULL
 from datetime import datetime
+import hashlib
+import base64
 
 from google.cloud import storage
 from PIL import Image
@@ -161,3 +163,11 @@ def convert_unix_to_datetime(unix_timestamp: int) -> str:
     dt = datetime.utcfromtimestamp(unix_timestamp)
     friendly_format = dt.strftime("%Y-%m-%d %H:%M:%S")
     return friendly_format
+
+
+def generate_short_hash(data: str) -> str:
+    hash_object = hashlib.sha256(data.encode())  # You can use sha1 or sha256
+    hash_digest = hash_object.digest()
+    # Using urlsafe base64 encoding to get URL-friendly hash
+    short_hash = base64.urlsafe_b64encode(hash_digest).decode("utf-8")
+    return short_hash[:6]

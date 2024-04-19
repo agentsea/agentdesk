@@ -1,4 +1,5 @@
 from __future__ import annotations
+from token import OP
 from typing import List, Optional, Dict, Tuple, Any
 import re
 import time
@@ -14,7 +15,7 @@ import json
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
-from agentdesk.util import find_open_port
+from agentdesk.util import find_open_port, generate_short_hash, generate_random_string
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 from agentdesk.key import SSHKeyPair
 
@@ -99,11 +100,16 @@ class GCEProvider(DesktopProvider):
 
         if not tags:
             tags = {}
-        tags["provisioner"] = "agentdesk"  # Your custom labels
+        tags["provisioner"] = "agentdesk"
+        tags["owner"] = owner_id or "local"
 
         if not public_ssh_key:
             print("generating key pair for box...")
-            key_pair = SSHKeyPair.generate_key(name, owner_id or "local")
+            key_pair = SSHKeyPair.generate_key(
+                f"{name}-{generate_short_hash(generate_random_string())}",
+                owner_id or "local",
+                metadata={"generated_for": name},
+            )
             public_ssh_key = key_pair.public_key
             private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
         else:
@@ -271,8 +277,8 @@ class GCEProvider(DesktopProvider):
             return int(cpu_memory[1]), f"{int(cpu_memory[2]) // 1024}gb"
         return 0, "unknown"
 
-    def delete(self, name: str) -> None:
-        desktop = DesktopVM.get(name)
+    def delete(self, name: str, owner_id: Optional[str] = None) -> None:
+        desktop = DesktopVM.get(name, owner_id=owner_id)
         if not desktop:
             raise ValueError(f"Desktop {name} not found")
 
@@ -287,8 +293,23 @@ class GCEProvider(DesktopProvider):
         # Delete the Desktop record
         desktop.remove()
 
-    def start(self, name: str, private_ssh_key: Optional[str] = None) -> None:
-        desk = DesktopVM.get(name)
+        keys = SSHKeyPair.find(owner_id=owner_id or "local")
+        if keys:
+            for key in keys:
+                if (
+                    "generated_for" in key.metadata
+                    and key.metadata["generated_for"] == name
+                ):
+                    key.delete(key.name, key.owner_id)
+                    print(f"Deleted SSH key {key.name}")
+
+    def start(
+        self,
+        name: str,
+        private_ssh_key: Optional[str] = None,
+        owner_id: Optional[str] = None,
+    ) -> None:
+        desk = DesktopVM.get(name, owner_id=owner_id)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance_client = compute_v1.InstancesClient(credentials=self.credentials)
@@ -308,8 +329,8 @@ class GCEProvider(DesktopProvider):
         desk.status = "running"
         desk.save()
 
-    def stop(self, name: str) -> None:
-        desk = DesktopVM.get(name)
+    def stop(self, name: str, owner_id: Optional[str] = None) -> None:
+        desk = DesktopVM.get(name, owner_id=owner_id)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance_client = compute_v1.InstancesClient(credentials=self.credentials)
@@ -333,9 +354,9 @@ class GCEProvider(DesktopProvider):
 
         return out
 
-    def get(self, name: str) -> Optional[DesktopVM]:
+    def get(self, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
         try:
-            return DesktopVM.get(name)
+            return DesktopVM.get(name, owner_id=owner_id)
         except ValueError:
             return None
 

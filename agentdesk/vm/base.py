@@ -143,10 +143,12 @@ class DesktopVM(WithDB):
         raise ValueError("no session")
 
     @classmethod
-    def get(cls, name: str) -> Optional[DesktopVM]:
+    def get(cls, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
         for db in cls.get_db():
             record = (
-                db.query(V1DesktopRecord).filter(V1DesktopRecord.name == name).first()
+                db.query(V1DesktopRecord)
+                .filter_by(name=name, owner_id=owner_id)
+                .first()
             )
             if record is None:
                 return None
@@ -182,10 +184,12 @@ class DesktopVM(WithDB):
             db.commit()
 
     @classmethod
-    def name_exists(cls, name: str) -> bool:
+    def name_exists(cls, name: str, owner_id: Optional[str] = None) -> bool:
         for db in cls.get_db():
             record = (
-                db.query(V1DesktopRecord).filter(V1DesktopRecord.name == name).first()
+                db.query(V1DesktopRecord)
+                .filter_by(name=name, owner_id=owner_id)
+                .first()
             )
             if record is None:
                 return False
@@ -358,16 +362,22 @@ class DesktopProvider(ABC, Generic[DP]):
         pass
 
     @abstractmethod
-    def delete(self, name: str) -> None:
+    def delete(self, name: str, owner_id: Optional[str] = None) -> None:
         """Delete a VM
 
         Args:
             name (str): Name of the VM
+            owner_id (str, optional): Owner of the VM. Defaults to None
         """
         pass
 
     @abstractmethod
-    def start(self, name: str, private_ssh_key: Optional[str] = None) -> None:
+    def start(
+        self,
+        name: str,
+        private_ssh_key: Optional[str] = None,
+        owner_id: Optional[str] = None,
+    ) -> None:
         """Start a VM
 
         Args:
@@ -377,11 +387,12 @@ class DesktopProvider(ABC, Generic[DP]):
         pass
 
     @abstractmethod
-    def stop(self, name: str) -> None:
+    def stop(self, name: str, owner_id: Optional[str] = None) -> None:
         """Stop a VM
 
         Args:
             name (str): Name of the VM
+            owner_id (str, optional): Owner of the VM. Defaults to None
         """
         pass
 
@@ -395,11 +406,12 @@ class DesktopProvider(ABC, Generic[DP]):
         pass
 
     @abstractmethod
-    def get(self, name: str) -> Optional[DesktopVM]:
+    def get(self, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
         """Get a VM
 
         Args:
             name (str): Name of the VM
+            owner_id (str, optional): Owner of the VM. Defaults to None
         """
         pass
 

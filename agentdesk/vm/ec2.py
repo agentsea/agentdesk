@@ -13,7 +13,7 @@ import requests
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
-from agentdesk.util import find_open_port
+from agentdesk.util import find_open_port, generate_short_hash, generate_random_string
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 from agentdesk.key import SSHKeyPair
 
@@ -39,7 +39,7 @@ class EC2Provider(DesktopProvider):
             self.session = boto3.Session(region_name=self.region)
 
         self.ec2: EC2ServiceResource = self.session.resource("ec2")
-        self.ec2_client: EC2Client = self.session.client("ec2")
+        self.ec2_client: EC2Client = self.session.client("ec2")  # type: ignore
 
     def create(
         self,
@@ -72,7 +72,11 @@ class EC2Provider(DesktopProvider):
             image = JAMMY.ec2
 
         if not public_ssh_key:
-            key_pair = SSHKeyPair.generate_key(name, owner_id or "local")
+            key_pair = SSHKeyPair.generate_key(
+                f"{name}-{generate_short_hash(generate_random_string())}",
+                owner_id or "local",
+                metadata={"generated_for": name},
+            )
             public_ssh_key = key_pair.public_key
             private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
         else:
@@ -109,6 +113,7 @@ users:
                 "ResourceType": "instance",
                 "Tags": [
                     {"Key": "Name", "Value": name},
+                    {"Key": "Owner", "Value": owner_id or "local"},
                     {"Key": "provisioner", "Value": "agentdesk"},
                 ]
                 + [{"Key": k, "Value": v} for k, v in (tags or {}).items()],
@@ -359,8 +364,8 @@ users:
         except self.ec2_client.exceptions.ClientError as e:
             print(f"Failed to delete SSH key {name}: {e}")
 
-    def delete(self, name: str) -> None:
-        instance = self._get_instance_by_name(name)
+    def delete(self, name: str, owner_id: Optional[str] = None) -> None:
+        instance = self._get_instance_by_name(name, owner_id=owner_id)
         if instance:
             # Release EIP if reserved for the instance
             # self._release_eip(instance) # TODO
@@ -381,8 +386,23 @@ users:
                 )
             desk.remove()
 
-    def start(self, name: str, private_ssh_key: Optional[str] = None) -> None:
-        desk = DesktopVM.get(name)
+        keys = SSHKeyPair.find(owner_id=owner_id or "local")
+        if keys:
+            for key in keys:
+                if (
+                    "generated_for" in key.metadata
+                    and key.metadata["generated_for"] == name
+                ):
+                    key.delete(key.name, key.owner_id)
+                    print(f"Deleted SSH key {key.name}")
+
+    def start(
+        self,
+        name: str,
+        private_ssh_key: Optional[str] = None,
+        owner_id: Optional[str] = None,
+    ) -> None:
+        desk = DesktopVM.get(name, owner_id=owner_id)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance = self._get_instance_by_name(name)
@@ -399,8 +419,8 @@ users:
         desk.status = "running"
         desk.save()
 
-    def stop(self, name: str) -> None:
-        desk = DesktopVM.get(name)
+    def stop(self, name: str, owner_id: Optional[str] = None) -> None:
+        desk = DesktopVM.get(name, owner_id)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance = self._get_instance_by_name(name)
@@ -428,8 +448,8 @@ users:
             return None
         return DesktopVM.load(instance.id)
 
-    def get(self, name: str) -> Optional[DesktopVM]:
-        return DesktopVM.get(name)
+    def get(self, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
+        return DesktopVM.get(name, owner_id=owner_id)
 
     def to_data(self) -> V1ProviderData:
         provider = V1ProviderData(type="ec2")
@@ -443,10 +463,16 @@ users:
             return cls(data.args["region"])
         raise ValueError("No region specified in provider data")
 
-    def _get_instance_by_name(self, name: str) -> Optional[EC2Instance]:
-        instances = self.ec2.instances.filter(
-            Filters=[{"Name": "tag:Name", "Values": [name]}]
-        )
+    def _get_instance_by_name(
+        self, name: str, owner_id: Optional[str] = None
+    ) -> Optional[EC2Instance]:
+        filters = [{"Name": "tag:Name", "Values": [name]}]
+
+        if owner_id is not None:
+            filters.append({"Name": "Owner", "Values": [owner_id]})
+
+        instances = self.ec2.instances.filter(Filters=filters)  # type: ignore
+
         return next((instance for instance in instances), None)
 
     def _get_root_device_size(self, instance: EC2Instance) -> str:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import subprocess
+from token import OP
 import psutil
 from typing import List, Optional, Dict, Any
 import os
@@ -17,7 +18,11 @@ from agentdesk.key import SSHKeyPair
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
-from agentdesk.util import check_command_availability
+from agentdesk.util import (
+    check_command_availability,
+    generate_short_hash,
+    generate_random_string,
+)
 
 META_PYTHON_IMAGE = "python:3.9-slim"
 META_CONTAINER_NAME = "http_server"
@@ -96,7 +101,11 @@ class QemuProvider(DesktopProvider):
 
         # Find or generate an SSH key if not provided
         if not public_ssh_key:
-            key_pair = SSHKeyPair.generate_key(name, owner_id or "local")
+            key_pair = SSHKeyPair.generate_key(
+                f"{name}-{generate_short_hash(generate_random_string())}",
+                owner_id or "local",
+                metadata={"generated_for": name},
+            )
             public_ssh_key = key_pair.public_key
             private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
         else:
@@ -229,9 +238,9 @@ local-hostname: {name}
         os.remove(user_data_path)
         os.remove(meta_data_path)
 
-    def delete(self, name: str) -> None:
+    def delete(self, name: str, owner_id: Optional[str] = None) -> None:
         """Delete a local QEMU VM."""
-        desktop = DesktopVM.get(name)
+        desktop = DesktopVM.get(name, owner_id=owner_id)
         if not desktop:
             raise ValueError(f"Desktop '{name}' does not exist.")
         if psutil.pid_exists(desktop.pid):  # type: ignore
@@ -240,10 +249,21 @@ local-hostname: {name}
             process.wait()
         DesktopVM.delete(desktop.id)
 
+        keys = SSHKeyPair.find(owner_id=owner_id or "local")
+        if keys:
+            for key in keys:
+                if (
+                    "generated_for" in key.metadata
+                    and key.metadata["generated_for"] == name
+                ):
+                    key.delete(key.name, key.owner_id)
+                    print(f"Deleted SSH key {key.name}")
+
     def start(
         self,
         name: str,
         private_ssh_key: Optional[str] = None,
+        owner_id: Optional[str] = None,
     ) -> None:
         """Start a local QEMU VM."""
         # Starting a local VM might be equivalent to creating it, as QEMU processes don't persist.
@@ -251,9 +271,9 @@ local-hostname: {name}
             "Start method is not available for QEMU VMs. Use create() instead."
         )
 
-    def stop(self, name: str) -> None:
+    def stop(self, name: str, owner_id: Optional[str] = None) -> None:
         """Stop a local QEMU VM."""
-        self.delete(name)
+        self.delete(name, owner_id=owner_id)
 
     def list(self) -> List[DesktopVM]:
         """List local QEMU VMs."""
@@ -265,10 +285,10 @@ local-hostname: {name}
             and desktop.provider.type == "qemu"
         ]
 
-    def get(self, name: str) -> Optional[DesktopVM]:
+    def get(self, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
         """Get a local QEMU VM."""
         try:
-            desktop = DesktopVM.get(name)
+            desktop = DesktopVM.get(name, owner_id=owner_id)
             if not desktop:
                 return None
             if (
