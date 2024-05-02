@@ -120,7 +120,7 @@ class Desktop(Device):
                 self._agentd_url = vm.addr
                 self.base_url = f"localhost:{proxy_port}"
             else:
-                self.base_url = self._agentd_url
+                self.base_url = vm.addr
 
             self._key_pair_name = vm.key_pair_name
             keys = SSHKeyPair.find(name=self._key_pair_name)
