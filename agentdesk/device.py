@@ -316,6 +316,10 @@ class Desktop(Device):
             ssh_port=config.ssh_port,
         )
 
+    def disconnect(self) -> None:
+        """Disconnect from the device"""
+        pass
+
     def connect_config(self) -> ConnectConfig:
         ssh_private_key = None
         if self._key_pair_name:

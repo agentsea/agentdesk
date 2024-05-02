@@ -13,7 +13,7 @@ from cryptography.fernet import Fernet
 
 from .db.models import SSHKeyRecord
 from .db.conn import WithDB
-from .server.models import SSHKeyModel
+from .server.models import V1SSHKey
 
 
 @dataclass
@@ -154,8 +154,8 @@ class SSHKeyPair(WithDB):
                 db.delete(record)
                 db.commit()
 
-    def to_schema(self) -> SSHKeyModel:
-        return SSHKeyModel(
+    def to_v1(self) -> V1SSHKey:
+        return V1SSHKey(
             id=self.id,
             public_key=self.public_key,
             name=self.name,

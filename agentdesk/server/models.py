@@ -52,7 +52,7 @@ class V1Desktops(BaseModel):
     desktops: List[V1Desktop]
 
 
-class SSHKeyModel(BaseModel):
+class V1SSHKey(BaseModel):
     name: str
     public_key: str
     created: float
