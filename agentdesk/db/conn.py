@@ -15,7 +15,7 @@ DB_TYPE = os.environ.get("DB_TYPE", "sqlite")
 def get_pg_conn() -> Engine:
     # Helper function to get environment variable with fallback
     def get_env_var(key: str) -> str:
-        task_key = f"DESK_{key}"
+        task_key = f"DESKS_{key}"
         value = os.environ.get(task_key)
         if value is None:
             value = os.environ.get(key)
@@ -39,9 +39,9 @@ def get_pg_conn() -> Engine:
 
 
 def get_sqlite_conn() -> Engine:
-    db_name = os.environ.get("DESK_DB_NAME", "desks.db")
-    db_path = os.environ.get("DESK_DB_PATH", "./.data")
-    db_test = os.environ.get("DESK_DB_TEST", "false") == "true"
+    db_name = os.environ.get("DESKS_DB_NAME", "desks.db")
+    db_path = os.environ.get("DESKS_DB_PATH", "./.data")
+    db_test = os.environ.get("DESKS_DB_TEST", "false") == "true"
     if db_test:
         db_name = f"desk_test_{int(time.time())}.db"
     logger.debug(f"connecting to local sqlite db ./.data/{db_name}")
