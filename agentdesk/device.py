@@ -123,7 +123,7 @@ class Desktop(Device):
                 self.base_url = vm.addr
                 if vm.provider and vm.provider.type == "qemu":
                     self.base_url = f"{vm.addr}:8000"
-                self._agentd_url = vm.addr
+                self._agentd_url = self.base_url
 
             self._key_pair_name = vm.key_pair_name
             keys = SSHKeyPair.find(name=self._key_pair_name)
