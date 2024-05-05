@@ -26,7 +26,7 @@ Agentdesk provides full featured desktop environments which can be programatical
 
 ▶ Built on [agentd](https://github.com/agentsea/agentd) a runtime daemon which exposes a REST API for interacting with the desktop.
 
-▶ Implements the [ToolsV1 protocol](https://github.com/agentsea/opentool)
+▶ Implements the [DeviceBay Protocol](https://github.com/agentsea/devicebay)
 
 ## Installation
 
