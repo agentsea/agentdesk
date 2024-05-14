@@ -335,9 +335,11 @@ def export_keypair(
         )  # Set file mode to read/write for the owner, and read for others
 
         print(
-            f"Decrypted private key for device '{key.name}' saved to {private_key_file_name}"
+            f"Decrypted private key for device '{key.name}' saved to {os.path.abspath(private_key_file_name)}"
         )
-        print(f"Public key for device '{key.name}' saved to {public_key_file_name}")
+        print(
+            f"Public key for device '{key.name}' saved to {os.path.abspath(public_key_file_name)}"
+        )
 
 
 @app.command(
