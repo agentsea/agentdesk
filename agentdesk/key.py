@@ -145,7 +145,7 @@ class SSHKeyPair(WithDB):
         raise Exception("no session")
 
     @classmethod
-    def find_name_like(cls, name: str) -> List["SSHKeyPair"]:
+    def find_name_starts_like(cls, name: str) -> List["SSHKeyPair"]:
         """
         Find SSHKeyPair instances where the name field matches the given pattern.
         """

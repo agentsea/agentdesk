@@ -290,9 +290,9 @@ def export_keypair(
     if not dev_mode:
         print("Developer mode is not enabled.")
         raise typer.Exit()
-    keys = SSHKeyPair.find_name_like(name=name)
+    keys = SSHKeyPair.find_name_starts_like(name=name)
     if not keys:
-        print(f"No SSH keys found for device '{name}'")
+        print(f"No SSH keys found for device like '{name}'")
         return
 
     banner = r"""
