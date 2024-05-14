@@ -33,16 +33,6 @@ class SSHKeyPair(WithDB):
         self.save()
 
     @classmethod
-    def all(cls) -> List["SSHKeyPair"]:
-        """
-        Retrieve all SSHKeyPair instances from the database.
-        """
-        for db in cls.get_db():
-            records = db.query(SSHKeyRecord).all()
-            return [cls.from_record(record) for record in records]
-        raise Exception("No database session available")
-
-    @classmethod
     def get_encryption_key(cls) -> bytes:
         # Step 1: Try to get the key from an environment variable
         key = os.getenv("ENCRYPTION_KEY")

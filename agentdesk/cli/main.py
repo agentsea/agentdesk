@@ -347,7 +347,7 @@ def list_keys():
     if not dev_mode:
         print("Developer mode is not enabled.")
         raise typer.Exit()
-    keys = SSHKeyPair.all()
+    keys = SSHKeyPair.find()
     if not keys:
         print("No SSH keys found")
         return
