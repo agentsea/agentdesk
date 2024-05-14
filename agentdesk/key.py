@@ -11,9 +11,9 @@ from pathlib import Path
 import paramiko
 from cryptography.fernet import Fernet
 
-from .db.models import SSHKeyRecord
-from .db.conn import WithDB
-from .server.models import V1SSHKey
+from agentdesk.db.models import SSHKeyRecord
+from agentdesk.db.conn import WithDB
+from agentdesk.server.models import V1SSHKey
 
 
 @dataclass
@@ -143,6 +143,22 @@ class SSHKeyPair(WithDB):
             return [cls.from_record(record) for record in records]
 
         raise Exception("no session")
+
+    @classmethod
+    def find_name_starts_like(cls, name: str) -> List["SSHKeyPair"]:
+        """
+        Find SSHKeyPair instances where the name field matches the given pattern.
+        """
+        for db in cls.get_db():
+            name_pattern = name + "%"
+            records = (
+                db.query(SSHKeyRecord)
+                .filter(SSHKeyRecord.name.like(name_pattern))
+                .all()
+            )
+            return [cls.from_record(record) for record in records]
+
+        raise Exception("No database session available")
 
     @classmethod
     def delete(cls, name: str, owner_id: str) -> None:

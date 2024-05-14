@@ -10,8 +10,21 @@ from agentdesk.server.models import V1ProviderData
 from agentdesk.vm.load import load_provider
 from agentdesk.vm import DesktopVM
 from agentdesk.util import convert_unix_to_datetime
+from agentdesk.key import SSHKeyPair
 
 app = typer.Typer(no_args_is_help=True)
+
+# Global option to enable dev-specific commands
+dev_mode: bool = typer.Option(False, "--dev", help="Enable developer-specific commands")
+
+
+@app.callback()
+def main(dev: bool = dev_mode):
+    global dev_mode
+    dev_mode = dev
+
+    if dev_mode:
+        print(f"dev_mode: {dev_mode}")
 
 
 @app.command(help="Create a desktop.")
@@ -263,6 +276,88 @@ def clear_cache():
 
     print(f"cleared cache in {dir}")
 
+
+# START Dev mode commands
+@app.command(
+    name="export-keypair",
+    help="Dev mode: Export the decrypted private key and public key for a device.",
+)
+def export_keypair(
+    name: str = typer.Argument(
+        ..., help="The name of the device to export the keys for."
+    ),
+):
+    if not dev_mode:
+        print("Developer mode is not enabled.")
+        raise typer.Exit()
+    keys = SSHKeyPair.find_name_starts_like(name=name)
+    if not keys:
+        print(f"No SSH keys found for device like '{name}'")
+        return
+
+    banner = r"""
+    ╔══════════════════════════════════════════════════════════════════════╗
+    ║                                                                      ║
+    ║                        ███╗   ██╗███████╗ ██████╗                    ║
+    ║                        ████╗  ██║██╔════╝██╔═══██╗                   ║
+    ║                        ██╔██╗ ██║█████╗  ██║   ██║                   ║
+    ║                        ██║╚██╗██║██╔══╝  ██║   ██║                   ║
+    ║                   ██╗  ██║ ╚████║██║     ╚██████╔╝                   ║
+    ║                   ╚═╝  ╚═╝  ╚═══╝╚═╝      ╚═════╝                    ║
+    ║                                                                      ║
+    ║                        I N F O R M A T I O N                         ║
+    ║                                                                      ║
+    ║  Securely manage the lifecycle of exported cryptographic material.   ║
+    ║  Ensure private keys are stored and transmitted securely.            ║
+    ║  Delete private keys when they are no longer needed.                 ║
+    ║                                                                      ║
+    ║  Stay informed. Stay secure. Protect your secrets.                   ║
+    ║                                                                      ║
+    ╚══════════════════════════════════════════════════════════════════════╝
+    """
+    print(banner)
+
+    for key in keys:
+        decrypted_key = SSHKeyPair.decrypt_private_key(key.private_key)
+        private_key_file_name = f"{key.name}.pem"
+        public_key_file_name = f"{key.name}.pub"
+
+        with open(private_key_file_name, "w") as file:
+            file.write(decrypted_key)
+        os.chmod(
+            private_key_file_name, 0o600
+        )  # Set file mode to read/write for the owner only
+
+        with open(public_key_file_name, "w") as file:
+            file.write(key.public_key)
+        os.chmod(
+            public_key_file_name, 0o644
+        )  # Set file mode to read/write for the owner, and read for others
+
+        print(
+            f"Decrypted private key for device '{key.name}' saved to {private_key_file_name}"
+        )
+        print(f"Public key for device '{key.name}' saved to {public_key_file_name}")
+
+
+@app.command(
+    name="list-keys", help="Dev mode: List all SSH keys stored in the local database."
+)
+def list_keys():
+    if not dev_mode:
+        print("Developer mode is not enabled.")
+        raise typer.Exit()
+    keys = SSHKeyPair.find()
+    if not keys:
+        print("No SSH keys found")
+        return
+
+    print("SSH Keys:")
+    for key in keys:
+        print(f"Device Name: {key.name}, Public Key: {key.public_key}")
+
+
+# END Dev mode commands
 
 if __name__ == "__main__":
     app()
