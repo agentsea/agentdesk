@@ -295,7 +295,7 @@ def export_keypair(
         print(f"No SSH keys found for device '{name}'")
         return
 
-    banner = r""" L17 R22
+    banner = r"""
     ╔══════════════════════════════════════════════════════════════════════╗
     ║                                                                      ║
     ║                        ███╗   ██╗███████╗ ██████╗                    ║
