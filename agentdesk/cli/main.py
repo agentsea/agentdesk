@@ -295,6 +295,28 @@ def export_keypair(
         print(f"No SSH keys found for device '{name}'")
         return
 
+    banner = r""" L17 R22
+    ╔══════════════════════════════════════════════════════════════════════╗
+    ║                                                                      ║
+    ║                        ███╗   ██╗███████╗ ██████╗                    ║
+    ║                        ████╗  ██║██╔════╝██╔═══██╗                   ║
+    ║                        ██╔██╗ ██║█████╗  ██║   ██║                   ║
+    ║                        ██║╚██╗██║██╔══╝  ██║   ██║                   ║
+    ║                   ██╗  ██║ ╚████║██║     ╚██████╔╝                   ║
+    ║                   ╚═╝  ╚═╝  ╚═══╝╚═╝      ╚═════╝                    ║
+    ║                                                                      ║
+    ║                        I N F O R M A T I O N                         ║
+    ║                                                                      ║
+    ║  Securely manage the lifecycle of exported cryptographic material.   ║
+    ║  Ensure private keys are stored and transmitted securely.            ║
+    ║  Delete private keys when they are no longer needed.                 ║
+    ║                                                                      ║
+    ║  Stay informed. Stay secure. Protect your secrets.                   ║
+    ║                                                                      ║
+    ╚══════════════════════════════════════════════════════════════════════╝
+    """
+    print(banner)
+
     for key in keys:
         decrypted_key = SSHKeyPair.decrypt_private_key(key.private_key)
         private_key_file_name = f"{key.name}.pem"
