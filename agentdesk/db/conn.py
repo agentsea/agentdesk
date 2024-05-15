@@ -40,11 +40,16 @@ def get_pg_conn() -> Engine:
 
 def get_sqlite_conn() -> Engine:
     db_name = os.environ.get("DESKS_DB_NAME", "desks.db")
-    db_path = os.environ.get("DESKS_DB_PATH", "./.data")
-    db_test = os.environ.get("DESKS_DB_TEST", "false") == "true"
+    agentsea_home_path = os.path.expanduser(
+        os.environ.get("AGENTSEA_HOME", "~/.agentsea")
+    )
+    db_path = os.path.expanduser(
+        os.environ.get("AGENTSEA_DB_DIR", os.path.join(agentsea_home_path, "data"))
+    )
+    db_test = os.environ.get("AGENTSEA_DB_TEST", "false") == "true"
     if db_test:
         db_name = f"desk_test_{int(time.time())}.db"
-    logger.debug(f"connecting to local sqlite db ./.data/{db_name}")
+    logger.debug(f"connecting to local sqlite db {db_path}/{db_name}")
     os.makedirs(os.path.dirname(f"{db_path}/{db_name}"), exist_ok=True)
     engine = create_engine(f"sqlite:///{db_path}/{db_name}")
     return engine
