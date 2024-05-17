@@ -13,6 +13,7 @@ from agentdesk.vm.load import load_provider
 from agentdesk.vm import DesktopVM
 from agentdesk.util import convert_unix_to_datetime
 from agentdesk.key import SSHKeyPair
+from agentdesk.config import AGENTSEA_HOME
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -286,10 +287,10 @@ def start(
 
 @app.command(help="Clean cache")
 def clear_cache():
-    dir = os.path.expanduser("~/.agentsea/")
-    shutil.rmtree(dir)
+    vm_dir = os.path.join(AGENTSEA_HOME, "vms")
+    shutil.rmtree(vm_dir)
 
-    print(f"cleared cache in {dir}")
+    print(f"cleared cache in {vm_dir}")
 
 
 # START Dev mode commands
