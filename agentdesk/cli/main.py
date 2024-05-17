@@ -280,7 +280,7 @@ def clear_cache():
 # START Dev mode commands
 @app.command(
     name="export-keypair",
-    help="Dev mode: Export the decrypted private key and public key for a device.",
+    help="Export the decrypted private key and public key for a device. Requires dev mode enabled.",
 )
 def export_keypair(
     name: str = typer.Argument(
@@ -343,7 +343,8 @@ def export_keypair(
 
 
 @app.command(
-    name="list-keys", help="Dev mode: List all SSH keys stored in the local database."
+    name="list-keys",
+    help="List all SSH keys stored in the local database. Requires dev mode enabled.",
 )
 def list_keys():
     if not dev_mode:
