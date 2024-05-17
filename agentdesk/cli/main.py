@@ -21,7 +21,7 @@ dev_mode: bool = typer.Option(False, "--dev", help="Enable developer-specific co
 
 
 try:
-    __version__ = pkgversion("surfkit")
+    __version__ = pkgversion("agentdesk")
 except PackageNotFoundError:
     # Fallback version or error handling
     __version__ = "unknown"
