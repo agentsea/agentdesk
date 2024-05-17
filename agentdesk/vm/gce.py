@@ -72,15 +72,17 @@ class GCEProvider(DesktopProvider):
 
         images_client = compute_v1.ImagesClient(credentials=self.credentials)
 
+        # Ensure the image_project_id is set to the correct public project
+        image_project_id = "agentsea-dev"
+        source_image_url = f"projects/{image_project_id}/global/images/{image}"
+
         # Check if the image exists
-        img = images_client.get(project=self.project_id, image=image)
+        img = images_client.get(project=image_project_id, image=image)
         if img.status != "READY":
             raise ValueError("Image is not ready")
 
         instance_client = compute_v1.InstancesClient(credentials=self.credentials)
         machine_type = f"zones/{self.zone}/machineTypes/custom-{cpu}-{memory * 1024}"
-        image_project_id = "agentsea-dev"
-        source_image_url = f"projects/{image_project_id}/global/images/{image}"
 
         disk_config = compute_v1.AttachedDiskInitializeParams(
             disk_size_gb=int(disk[:-2]), source_image=source_image_url
