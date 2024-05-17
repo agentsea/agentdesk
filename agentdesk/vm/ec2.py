@@ -235,7 +235,7 @@ users:
             )
             if security_groups["SecurityGroups"]:
                 # Security group already exists
-                return security_groups["SecurityGroups"][0]["GroupId"]
+                return security_groups["SecurityGroups"][0]["GroupId"]  # type: ignore
         except ClientError as e:
             print(f"Error checking for existing security group: {e}")
 

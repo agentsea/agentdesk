@@ -18,6 +18,7 @@ from agentdesk.key import SSHKeyPair
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
+from agentdesk.config import AGENTSEA_HOME
 from agentdesk.util import (
     check_command_availability,
     generate_short_hash,
@@ -63,7 +64,7 @@ class QemuProvider(DesktopProvider):
             raise ValueError(f"VM name '{name}' already exists")
 
         # Directory to store VM images
-        vm_dir = os.path.expanduser("~/.agentsea/vms")
+        vm_dir = os.path.join(AGENTSEA_HOME, "vms")
         os.makedirs(vm_dir, exist_ok=True)
 
         if not image:
@@ -164,8 +165,8 @@ local-hostname: {name}
             print(f"An error occurred: {e}")
             os.killpg(os.getpgid(process.pid), signal.SIGINT)  # type: ignore
             raise
-
-        print(f"\nsuccessfully created desktop '{name}'")
+        
+        print("connected to desktop")
 
         # Create and return a Desktop object
         desktop = DesktopVM(
@@ -183,6 +184,7 @@ local-hostname: {name}
             metadata=metadata,
             key_pair_name=key_pair.name,
         )
+        print(f"\nsuccessfully created desktop '{name}'")
         return desktop
 
     def _wait_till_ready(self, agentd_port: int) -> None:
