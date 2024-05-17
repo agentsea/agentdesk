@@ -2,6 +2,8 @@ from typing import Optional
 import typer
 import shutil
 import os
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as pkgversion
 
 from tabulate import tabulate
 from namesgenerator import get_random_name
@@ -16,6 +18,19 @@ app = typer.Typer(no_args_is_help=True)
 
 # Global option to enable dev-specific commands
 dev_mode: bool = typer.Option(False, "--dev", help="Enable developer-specific commands")
+
+
+try:
+    __version__ = pkgversion("surfkit")
+except PackageNotFoundError:
+    # Fallback version or error handling
+    __version__ = "unknown"
+
+
+@app.command(help="Show the version of the CLI")
+def version():
+    """Show the CLI version."""
+    typer.echo(__version__)
 
 
 @app.callback()
