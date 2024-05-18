@@ -1,6 +1,5 @@
 from __future__ import annotations
 import subprocess
-from token import OP
 import psutil
 from typing import List, Optional, Dict, Any
 import os
@@ -139,11 +138,13 @@ local-hostname: {name}
 
         self._create_iso("cidata.iso", user_data, meta_data)
 
+        pid_file = f"{name}.pid"  # File to store the PID
+
         command = (
-            f"qemu-system-x86_64 -nographic -hda {image_path} -m {memory}G "
+            f"nohup qemu-system-x86_64 -nographic -hda {image_path} -m {memory}G "
             f"-smp {cpu} -netdev user,id=vmnet,hostfwd=tcp::5900-:5900,hostfwd=tcp::{sockify_port}-:6080,hostfwd=tcp::{agentd_port}-:8000,hostfwd=tcp::{ssh_port}-:22 "
             "-device e1000,netdev=vmnet "
-            f"-cdrom cidata.iso"
+            f"-cdrom cidata.iso >/dev/null 2>&1 & echo $! > {pid_file}"
         )
 
         # Set environment variables
@@ -154,21 +155,16 @@ local-hostname: {name}
         try:
             if self.log_vm:
                 process = subprocess.Popen(command, shell=True)
+                pid = process.pid
             else:
-                process = subprocess.Popen(
-                    command,
-                    shell=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    env=env,
-                )
+                subprocess.run(command, shell=True, env=env, check=True)
+                self._wait_till_ready(agentd_port)
 
-            time.sleep(1)  # Give it a moment to potentially fail
-            if process.poll() is not None and process.returncode != 0:
-                raise subprocess.CalledProcessError(
-                    process.returncode,
-                    command,
-                )
+                # Read the PID from the file
+                with open(pid_file, "r") as file:
+                    pid = int(file.read().strip())
+
+                os.remove(pid_file)
 
             self._wait_till_ready(agentd_port)
 
@@ -193,7 +189,7 @@ local-hostname: {name}
             cpu=cpu,
             memory=memory,  # type: ignore
             disk=disk,
-            pid=process.pid,
+            pid=pid,
             image=image,
             provider=self.to_data(),
             requires_proxy=False,
@@ -278,7 +274,7 @@ local-hostname: {name}
                 psutil.AccessDenied,
                 psutil.ZombieProcess,
             ) as e:
-                print(f"Error accessing process: {e}")
+                logger.debug(f"Error accessing process: {e}")
                 continue
 
         if not found_process:
