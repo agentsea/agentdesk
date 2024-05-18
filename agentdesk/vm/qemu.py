@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import tempfile
 import time
 import signal
+import logging
 
 import pycdlib
 import requests
@@ -27,6 +28,8 @@ from agentdesk.util import (
 
 META_PYTHON_IMAGE = "python:3.9-slim"
 META_CONTAINER_NAME = "http_server"
+
+logger = logging.getLogger(__name__)
 
 
 class QemuProvider(DesktopProvider):
@@ -143,6 +146,10 @@ local-hostname: {name}
             f"-cdrom cidata.iso"
         )
 
+        # Set environment variables
+        env = os.environ.copy()
+        env["AGENTDESK"] = name
+
         # Start the QEMU process
         try:
             if self.log_vm:
@@ -153,10 +160,21 @@ local-hostname: {name}
                     shell=True,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    env=env,
+                )
+
+            time.sleep(1)  # Give it a moment to potentially fail
+            if process.poll() is not None and process.returncode != 0:
+                raise subprocess.CalledProcessError(
+                    process.returncode,
+                    command,
                 )
 
             self._wait_till_ready(agentd_port)
 
+        except subprocess.CalledProcessError as e:
+            print(f"Command '{command}' returned non-zero exit status {e.returncode}.")
+            raise
         except KeyboardInterrupt:
             print("Keyboard interrupt received, terminating process...")
             os.killpg(os.getpgid(process.pid), signal.SIGINT)  # type: ignore
@@ -165,7 +183,7 @@ local-hostname: {name}
             print(f"An error occurred: {e}")
             os.killpg(os.getpgid(process.pid), signal.SIGINT)  # type: ignore
             raise
-        
+
         print("connected to desktop")
 
         # Create and return a Desktop object
@@ -244,11 +262,32 @@ local-hostname: {name}
         desktop = DesktopVM.get(name, owner_id=owner_id)
         if not desktop:
             raise ValueError(f"Desktop '{name}' does not exist.")
-        if psutil.pid_exists(desktop.pid):  # type: ignore
-            process = psutil.Process(desktop.pid)
-            process.terminate()
-            process.wait()
-        DesktopVM.delete(desktop.id)
+
+        # Find the process by AGENTDESK environment variable
+        found_process = False
+        for process in psutil.process_iter(["pid", "environ"]):
+            try:
+                env = process.environ()
+                if "AGENTDESK" in env and env["AGENTDESK"] == name:
+                    process.terminate()
+                    process.wait()
+                    found_process = True
+                    break
+            except (
+                psutil.NoSuchProcess,
+                psutil.AccessDenied,
+                psutil.ZombieProcess,
+            ) as e:
+                print(f"Error accessing process: {e}")
+                continue
+
+        if not found_process:
+            print(
+                f"No running process found for VM '{name}' with AGENTDESK environment variable."
+            )
+
+        desktop.remove()
+        logger.debug(f"Deleted desktop VM record for '{name}'.")
 
         keys = SSHKeyPair.find(owner_id=owner_id or "local")
         if keys:
@@ -258,7 +297,7 @@ local-hostname: {name}
                     and key.metadata["generated_for"] == name
                 ):
                     key.delete(key.name, key.owner_id)
-                    print(f"Deleted SSH key {key.name}")
+                    logger.debug(f"Deleted SSH key {key.name}")
 
     def start(
         self,
@@ -321,16 +360,22 @@ local-hostname: {name}
                 isinstance(desktop.provider, V1ProviderData)
                 and desktop.provider.type == "qemu"
             ):
-                # Check if the process is still running
-                if desktop.pid and psutil.pid_exists(desktop.pid):
-                    process = psutil.Process(desktop.pid)
-                    if not process.is_running():
-                        if log:
-                            print(f"removing vm '{desktop.name}' from state")
-                        desktop.remove()
-                        return
-                else:
+                # Check if the process is still running by AGENTDESK environment variable
+                process_exists = False
+                for process in psutil.process_iter(["pid", "environ"]):
+                    try:
+                        env = process.environ()
+                        if "AGENTDESK" in env and env["AGENTDESK"] == desktop.name:
+                            process_exists = True
+                            break
+                    except (
+                        psutil.NoSuchProcess,
+                        psutil.AccessDenied,
+                        psutil.ZombieProcess,
+                    ):
+                        continue
+
+                if not process_exists:
                     if log:
                         print(f"removing vm '{desktop.name}' from state")
                     desktop.remove()
-                    return

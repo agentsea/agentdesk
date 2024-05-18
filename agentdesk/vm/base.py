@@ -102,9 +102,14 @@ class DesktopVM(WithDB):
 
     def save(self) -> None:
         for db in self.get_db():
-            record = self.to_record()
-            db.merge(record)
-            db.commit()
+            try:
+                record = self.to_record()
+                db.merge(record)
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                print(f"Error saving DesktopVM: {e}")
+                raise
 
     @classmethod
     def from_record(cls, record: V1DesktopRecord) -> DesktopVM:
