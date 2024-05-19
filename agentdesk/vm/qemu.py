@@ -8,6 +8,7 @@ import tempfile
 import time
 import signal
 import logging
+import shutil
 
 import pycdlib
 import requests
@@ -85,21 +86,24 @@ class QemuProvider(DesktopProvider):
                 )
             image_name = os.path.basename(image)
 
-        image_path = os.path.join(vm_dir, image_name)
+        base_image_path = os.path.join(vm_dir, image_name)
 
         # Download image only if it does not exist
-        if not os.path.exists(image_path) and image.startswith("https://"):  # type: ignore
+        if not os.path.exists(base_image_path) and image.startswith("https://"):  # type: ignore
             print(f"Downloading image '{image}'...")
             response = requests.get(image, stream=True)  # type: ignore
             total_size_in_bytes = int(response.headers.get("content-length", 0))
             block_size = 8192  # Size of each chunk
 
             progress_bar = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
-            with open(image_path, "wb") as f:
+            with open(base_image_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=block_size):
                     progress_bar.update(len(chunk))
                     f.write(chunk)
             progress_bar.close()
+
+        image_path = os.path.join(vm_dir, f"{name}.qcow2")
+        shutil.copy(base_image_path, image_path)
 
         # Find or generate an SSH key if not provided
         if not ssh_key_pair:
@@ -284,6 +288,11 @@ local-hostname: {name}
 
         desktop.remove()
         logger.debug(f"Deleted desktop VM record for '{name}'.")
+
+        vm_dir = os.path.join(AGENTSEA_HOME, "vms")
+        image_path = os.path.join(vm_dir, f"{name}.qcow2")
+
+        os.remove(image_path)
 
         keys = SSHKeyPair.find(owner_id=owner_id or "local")
         if keys:
