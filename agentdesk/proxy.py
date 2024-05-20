@@ -7,10 +7,15 @@ import socket
 import select
 import time
 import contextlib
-import tempfile
+import logging
 
 import paramiko
 import psutil
+
+from .config import AGENTSEA_KEY_DIR
+from .util import generate_short_hash
+
+logger = logging.getLogger(__name__)
 
 
 class SSHPortForwarding:
@@ -144,7 +149,7 @@ def check_ssh_proxy_running(
 ) -> Optional[int]:
     """Check if an SSH proxy process is running based on the local and remote port, SSH port, user, and host."""
 
-    print("checking if ssh proxy is running...")
+    logger.debug("checking if ssh proxy is running...")
     # Construct a partial command pattern to match.
     # Since we don't know the temporary key file name, we'll omit it from the search.
     partial_command_pattern = (
@@ -173,17 +178,24 @@ def setup_ssh_proxy(
     ssh_user: str = "agentsea",
     ssh_host: str = "localhost",
     ssh_key: Optional[str] = None,
+    log_error: bool = True,
 ) -> Optional[subprocess.Popen]:
     """Set up an SSH proxy if it's not already running."""
 
     # Handle SSH key temporary file creation
-    temp_key_file = None
+    key_filepath = None
     if ssh_key:
-        temp_key_file = tempfile.NamedTemporaryFile(delete=False)
-        temp_key_file.write(ssh_key.encode())
-        temp_key_file.close()
+        os.makedirs(AGENTSEA_KEY_DIR, exist_ok=True)
+        os.chmod(AGENTSEA_KEY_DIR, 0o700)
 
-        os.chmod(temp_key_file.name, 0o600)
+        key_filepath = os.path.join(
+            AGENTSEA_KEY_DIR, f"id_rsa_{generate_short_hash(ssh_key)}"
+        )
+
+        with open(key_filepath, "wb") as f:
+            f.write(ssh_key.encode())
+
+        os.chmod(key_filepath, 0o600)
 
     ssh_command = (
         "ssh "
@@ -195,47 +207,54 @@ def setup_ssh_proxy(
         f"-p {ssh_port} "
     )
     if ssh_key:
-        ssh_command += f"-i {temp_key_file.name} "  # type: ignore
+        ssh_command += f"-i {key_filepath} "  # type: ignore
     ssh_command += f"{ssh_user}@{ssh_host}"
 
-    print("Executing command: ", ssh_command)
+    logger.debug(f"Executing command: {ssh_command}")
     try:
         proxy_process = subprocess.Popen(
             ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         # Give it a moment to fail, SSH should exit immediately if there's an error
-        time.sleep(1)
+        time.sleep(0.5)
         if proxy_process.poll() is not None:
             _, err = proxy_process.communicate()
-            print(f"SSH proxy failed to start. Error: {err.decode()}")
+            if log_error:
+                logger.error(f"SSH proxy failed to start. Error: {err.decode()}")
             return None
     except Exception as e:
-        print(f"Error starting SSH proxy: {e}")
+        if log_error:
+            logger.error(f"Error starting SSH proxy: {e}")
         raise
     finally:
-        if temp_key_file:
-            os.unlink(temp_key_file.name)  # Clean up the temporary file
+        if key_filepath:
+            os.unlink(key_filepath)  # Clean up the temporary file
 
-    print(f"SSH proxy setup on local port {local_port}")
+    logger.debug(f"SSH proxy setup on local port {local_port}")
     return proxy_process
 
 
-def cleanup_proxy(pid: int) -> None:
+def cleanup_proxy(pid: int, log_error: bool = True) -> None:
     """Terminate the SSH proxy process with the given PID."""
 
     try:
         proc = psutil.Process(pid)
         proc.terminate()  # Terminate the process
         proc.wait()  # Wait for the process to terminate
-        print(f"SSH proxy with PID {pid} terminated.")
+        logger.debug(f"SSH proxy with PID {pid} terminated.")
     except psutil.NoSuchProcess:
-        print(f"No process found with PID {pid}.")
+        if log_error:
+            logger.error(f"No process found with PID {pid}.")
     except psutil.AccessDenied:
-        print(f"Access denied when trying to terminate the process with PID {pid}.")
+        if log_error:
+            logger.error(
+                f"Access denied when trying to terminate the process with PID {pid}."
+            )
     except Exception as e:
-        print(
-            f"An error occurred while trying to terminate the process with PID {pid}: {e}"
-        )
+        if log_error:
+            logger.error(
+                f"An error occurred while trying to terminate the process with PID {pid}: {e}"
+            )
 
 
 def ensure_ssh_proxy(
@@ -245,6 +264,7 @@ def ensure_ssh_proxy(
     ssh_user: str = "agentsea",
     ssh_host: str = "localhost",
     ssh_key: Optional[str] = None,
+    log_error: bool = True,
 ) -> int:
     """Ensure that an SSH proxy is running and return its PID."""
     pid = None
@@ -253,15 +273,22 @@ def ensure_ssh_proxy(
             local_port, remote_port, ssh_port, ssh_user, ssh_host
         )
     except Exception as e:
-        print(f"Failed to check if proxy is running: {e}")
+        if log_error:
+            logger.error(f"Failed to check if proxy is running: {e}")
         pass
     if pid:
-        print("Existing SSH proxy found.")
+        logger.debug("Existing SSH proxy found.")
         return pid  # PID of the already running process
 
-    print("SSH proxy not found, starting one...")
+    logger.debug("SSH proxy not found, starting one...")
     process = setup_ssh_proxy(
-        local_port, remote_port, ssh_port, ssh_user, ssh_host, ssh_key
+        local_port,
+        remote_port,
+        ssh_port,
+        ssh_user,
+        ssh_host,
+        ssh_key,
+        log_error=log_error,
     )
     if process is None:
         # If setup_ssh_proxy returned None, it means the port is in use but no PID was found.
@@ -288,7 +315,7 @@ def ensure_managed_ssh_proxy(
     process_started: bool = False
 
     if pid is None:
-        print("SSH proxy not found, starting one...")
+        logger.debug("SSH proxy not found, starting one...")
         process = setup_ssh_proxy(
             local_port, remote_port, ssh_port, ssh_user, ssh_host, ssh_key
         )
@@ -301,5 +328,5 @@ def ensure_managed_ssh_proxy(
         yield pid
     finally:
         if process_started:
-            print(f"Cleaning up newly started SSH proxy with PID {pid}...")
+            logger.debug(f"Cleaning up newly started SSH proxy with PID {pid}...")
             cleanup_proxy(pid)

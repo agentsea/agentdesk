@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Tuple, Any
 import re
 import time
 import atexit
-import base64
+import logging
 
 from google.cloud import compute_v1
 from google.cloud import _helpers
@@ -18,6 +18,8 @@ from agentdesk.server.models import V1ProviderData
 from agentdesk.util import find_open_port, generate_short_hash, generate_random_string
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 from agentdesk.key import SSHKeyPair
+
+logger = logging.getLogger(__name__)
 
 
 class GCEProvider(DesktopProvider):
@@ -200,27 +202,28 @@ class GCEProvider(DesktopProvider):
             print("waiting for desktop to be ready...")
             time.sleep(3)
             try:
-                print("ensuring up ssh proxy...")
+                logger.debug("ensuring up ssh proxy...")
                 pid = ensure_ssh_proxy(
                     local_port=local_agentd_port,
                     remote_port=8000,
                     ssh_host=addr,
                     ssh_key=private_ssh_key,
+                    log_error=False,
                 )
                 atexit.register(cleanup_proxy, pid)
 
-                print("calling agentd...")
+                logger.debug("calling agentd...")
                 response = requests.get(f"http://localhost:{local_agentd_port}/health")
-                print("agentd response: ", response)
+                logger.debug(f"agentd response: {response}")
                 if response.status_code == 200:
                     ready = True
 
                 cleanup_proxy(pid)
                 atexit.unregister(cleanup_proxy)
             except Exception as e:
-                print("Exception while waiting for desktop to be ready: ", e)
+                logger.debug(f"Exception while waiting for desktop to be ready: {e}")
                 try:
-                    cleanup_proxy(pid)  # type: ignore
+                    cleanup_proxy(pid, log_error=False)  # type: ignore
                     atexit.unregister(cleanup_proxy)
                 except Exception:
                     pass
