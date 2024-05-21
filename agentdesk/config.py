@@ -17,6 +17,9 @@ AGENTSEA_LOG_DIR = os.path.expanduser(
 AGENTSEA_PROC_DIR = os.path.expanduser(
     os.environ.get("AGENTSEA_PROC_DIR", os.path.join(AGENTSEA_HOME, "proc"))
 )
+AGENTSEA_KEY_DIR = os.path.expanduser(
+    os.environ.get("AGENTSEA_KEY_DIR", os.path.join(AGENTSEA_HOME, "keys"))
+)
 DB_TEST = os.environ.get("AGENTSEA_DB_TEST", "false") == "true"
 DB_NAME = os.environ.get("DESKS_DB_NAME", "desks.db")
 if DB_TEST:

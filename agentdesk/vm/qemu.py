@@ -211,13 +211,13 @@ local-hostname: {name}
             print("waiting for desktop to be ready...")
             time.sleep(3)
             try:
-                print("calling agentd...")
+                logger.debug("calling agentd...")
                 response = requests.get(f"http://localhost:{agentd_port}/health")
-                print("agentd response: ", response)
+                logger.debug(f"agentd response: {response}")
                 if response.status_code == 200:
                     ready = True
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"agentd error: {e}")
 
     def _create_iso(self, output_iso: str, user_data: str, meta_data: str) -> None:
         iso = pycdlib.PyCdlib()  # type: ignore

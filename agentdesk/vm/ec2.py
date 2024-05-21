@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List, Optional, Dict, Any
 import atexit
 import time
+import logging
 
 import boto3
 from mypy_boto3_ec2.service_resource import Instance as EC2Instance
@@ -16,6 +17,9 @@ from agentdesk.server.models import V1ProviderData
 from agentdesk.util import find_open_port, generate_short_hash, generate_random_string
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 from agentdesk.key import SSHKeyPair
+
+
+logger = logging.getLogger(__name__)
 
 
 class EC2Provider(DesktopProvider):
@@ -187,29 +191,30 @@ users:
             print("waiting for desktop to be ready...")
             time.sleep(3)
             try:
-                print("ensuring up ssh proxy...")
+                logger.debug("ensuring up ssh proxy...")
                 pid = ensure_ssh_proxy(
                     local_port=local_agentd_port,
                     remote_port=8000,
                     ssh_host=addr,
                     ssh_key=private_ssh_key,
+                    log_error=False,
                 )
                 atexit.register(cleanup_proxy, pid)
 
-                print("calling agentd...")
+                logger.debug("calling agentd...")
                 response = requests.get(f"http://localhost:{local_agentd_port}/health")
-                print("agentd response: ", response)
+                logger.debug(f"agentd response: {response}")
                 if response.status_code == 200:
                     ready = True
                 cleanup_proxy(pid)
                 atexit.unregister(cleanup_proxy)
             except Exception:
                 try:
-                    cleanup_proxy(pid)  # type: ignore
+                    cleanup_proxy(pid, log_error=False)  # type: ignore
                 except Exception:
                     pass
 
-        print("cleaning up tunnel")
+        logger.debug("cleaning up tunnel")
         try:
             cleanup_proxy(pid)  # type: ignore
             atexit.unregister(cleanup_proxy)
