@@ -37,7 +37,7 @@ from .util import (
     extract_gcs_info,
     generate_random_string,
 )
-from .proxy import ensure_ssh_proxy, cleanup_proxy, cleanup_ssh_key
+from .proxy import ensure_ssh_proxy, cleanup_proxy
 
 
 class StorageStrategy(Enum):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import os
 import subprocess
-from typing import Optional, Generator, Tuple
+from typing import Optional, Generator
 import threading
 import socket
 import select
@@ -12,8 +12,6 @@ import atexit
 
 import paramiko
 import psutil
-
-from agentdesk import key
 
 from .config import AGENTSEA_KEY_DIR
 from .util import generate_short_hash
@@ -290,11 +288,8 @@ def ensure_ssh_proxy(
         ssh_key (Optional[str], optional): SSH private key. Defaults to None.
         log_error (bool, optional): Whether to log errors. Defaults to True.
 
-    Raises:
-        RuntimeError: _description_
-
     Returns:
-        Tuple[int, Optional[str]]: A process pid and the temp filepath of the private key.
+        int: A process pid.
     """
     pid = None
     try:
