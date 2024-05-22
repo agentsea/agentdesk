@@ -37,7 +37,7 @@ from .util import (
     extract_gcs_info,
     generate_random_string,
 )
-from .proxy import ensure_ssh_proxy, cleanup_proxy
+from .proxy import ensure_ssh_proxy, cleanup_proxy, cleanup_ssh_key
 
 
 class StorageStrategy(Enum):
@@ -154,10 +154,6 @@ class Desktop(Device):
         if self._requires_proxy:
             if proxy_type == "process":
                 print("starting proxy to vm...")
-                # if check_port_in_use(proxy_port):
-                #     raise ValueError(
-                #         f"Port {proxy_port} is already in use"
-                #     )  # TODO: remove this restriction
                 proxy_pid = ensure_ssh_proxy(
                     local_port=proxy_port,
                     remote_port=8000,

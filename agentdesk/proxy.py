@@ -1,16 +1,19 @@
 from __future__ import annotations
 import os
 import subprocess
-from typing import Optional, Generator
+from typing import Optional, Generator, Tuple
 import threading
 import socket
 import select
 import time
 import contextlib
 import logging
+import atexit
 
 import paramiko
 import psutil
+
+from agentdesk import key
 
 from .config import AGENTSEA_KEY_DIR
 from .util import generate_short_hash
@@ -171,6 +174,15 @@ def check_ssh_proxy_running(
     return None
 
 
+def cleanup_ssh_key(filepath: str) -> None:
+    """Terminate the SSH proxy process with the given PID."""
+
+    try:
+        os.unlink(filepath)
+    except Exception as e:
+        pass
+
+
 def setup_ssh_proxy(
     local_port: int = 6080,
     remote_port: int = 6080,
@@ -221,16 +233,17 @@ def setup_ssh_proxy(
             _, err = proxy_process.communicate()
             if log_error:
                 logger.error(f"SSH proxy failed to start. Error: {err.decode()}")
-            return None
+            if key_filepath:
+                os.unlink(key_filepath)
+            raise Exception(f"SSH proxy failed to start: Error: {err.decode()}")
     except Exception as e:
         if log_error:
             logger.error(f"Error starting SSH proxy: {e}")
         raise
-    finally:
-        if key_filepath:
-            os.unlink(key_filepath)  # Clean up the temporary file
 
     logger.debug(f"SSH proxy setup on local port {local_port}")
+    if key_filepath:
+        atexit.register(cleanup_ssh_key, key_filepath)
     return proxy_process
 
 
@@ -266,7 +279,23 @@ def ensure_ssh_proxy(
     ssh_key: Optional[str] = None,
     log_error: bool = True,
 ) -> int:
-    """Ensure that an SSH proxy is running and return its PID."""
+    """Ensure that an SSH proxy is running and return its PID.
+
+    Args:
+        local_port (int, optional): Local port. Defaults to 6080.
+        remote_port (int, optional): Remote port. Defaults to 6080.
+        ssh_port (int, optional): SSH port. Defaults to 22.
+        ssh_user (str, optional): SSH user. Defaults to "agentsea".
+        ssh_host (str, optional): SSH host. Defaults to "localhost".
+        ssh_key (Optional[str], optional): SSH private key. Defaults to None.
+        log_error (bool, optional): Whether to log errors. Defaults to True.
+
+    Raises:
+        RuntimeError: _description_
+
+    Returns:
+        Tuple[int, Optional[str]]: A process pid and the temp filepath of the private key.
+    """
     pid = None
     try:
         pid = check_ssh_proxy_running(
@@ -313,7 +342,6 @@ def ensure_managed_ssh_proxy(
         local_port, remote_port, ssh_port, ssh_user, ssh_host
     )
     process_started: bool = False
-
     if pid is None:
         logger.debug("SSH proxy not found, starting one...")
         process = setup_ssh_proxy(
