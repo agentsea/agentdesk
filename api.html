@@ -62,6 +62,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.gce"><code class="docutils literal notranslate"><span class="pre">Desktop.gce()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.get"><code class="docutils literal notranslate"><span class="pre">Desktop.get()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.health"><code class="docutils literal notranslate"><span class="pre">Desktop.health()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.hot_key"><code class="docutils literal notranslate"><span class="pre">Desktop.hot_key()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.info"><code class="docutils literal notranslate"><span class="pre">Desktop.info()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.local"><code class="docutils literal notranslate"><span class="pre">Desktop.local()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.mouse_coordinates"><code class="docutils literal notranslate"><span class="pre">Desktop.mouse_coordinates()</span></code></a></li>
@@ -305,6 +306,37 @@ when the tool is no longer needed.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="agentdesk.Desktop.hot_key">
+<span class="sig-name descname"><span class="pre">hot_key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/agentdesk/device.html#Desktop.hot_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#agentdesk.Desktop.hot_key" title="Link to this definition"></a></dt>
+<dd><p>Press a hot key. For example ctrl+c</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keys</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – Which keys to press. Options are:
+[ “t”, “n”, “r”, “ “, “!”, ‘&quot;’, “#”, “$”, “%”, “&amp;”, “'”,
+“(”, “)”, “*”, “+”, “,”, “-”, “.”, “/”, “0”, “1”, “2”, “3”,
+“4”, “5”, “6”, “7”, “8”, “9”, “:”, “;”, “&lt;”, “=”, “&gt;”, “?”, “&#64;”,
+“[”, “\”, “]”, “^”, “_”, “`”, “a”, “b”, “c”, “d”, “e”,
+“f”, “g”, “h”, “i”, “j”, “k”, “l”, “m”, “n”, “o”, “p”, “q”, “r”, “s”,
+“t”, “u”, “v”, “w”, “x”, “y”, “z”, “{”, “|”, “}”, “~”, “accept”, “add”,
+“alt”, “altleft”, “altright”, “apps”, “backspace”, “browserback”,
+“browserfavorites”, “browserforward”, “browserhome”, “browserrefresh”,
+“browsersearch”, “browserstop”, “capslock”, “clear”, “convert”, “ctrl”,
+“ctrlleft”, “ctrlright”, “decimal”, “del”, “delete”, “divide”, “down”,
+“end”, “enter”, “esc”, “escape”, “execute”, “f1”, “f10”, “f11”, “f12”,
+“f13”, “f14”, “f15”, “f16”, “f17”, “f18”, “f19”, “f2”, “f20”, “f21”,
+“f22”, “f23”, “f24”, “f3”, “f4”, “f5”, “f6”, “f7”, “f8”, “f9”, “final”,
+“fn”, “help”, “home”, “insert”, “left”, “numlock”, “pagedown”, “pageup”, “pause”,
+“pgdn”, “pgup”, “playpause”, “prevtrack”, “print”, “printscreen”,
+“prntscrn”, “prtsc”, “prtscr”, “return”, “right”, “scrolllock”,
+“select”, “separator”, “shift”, “shiftleft”, “shiftright”, “sleep”,
+“space”, “stop”, “subtract”, “tab”, “up”, “volumedown”, “volumemute”,
+“volumeup”, “win”, “winleft”, “winright”, “yen”, “command”, “option”,
+“optionleft”, “optionright” ]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="agentdesk.Desktop.info">
 <span class="sig-name descname"><span class="pre">info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/agentdesk/device.html#Desktop.info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#agentdesk.Desktop.info" title="Link to this definition"></a></dt>
 <dd><p>Get info on the desktop runtime</p>
@@ -384,7 +416,27 @@ when the tool is no longer needed.</p>
 <dd><p>Press a key</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – Which key to press</p>
+<dd class="field-odd"><p><strong>key</strong> (<em>str</em>) – Which key to press. Options are:
+[ “t”, “n”, “r”, “ “, “!”, ‘&quot;’, “#”, “$”, “%”, “&amp;”, “'”,
+“(”, “)”, “*”, “+”, “,”, “-”, “.”, “/”, “0”, “1”, “2”, “3”,
+“4”, “5”, “6”, “7”, “8”, “9”, “:”, “;”, “&lt;”, “=”, “&gt;”, “?”, “&#64;”,
+“[”, “\”, “]”, “^”, “_”, “`”, “a”, “b”, “c”, “d”, “e”,
+“f”, “g”, “h”, “i”, “j”, “k”, “l”, “m”, “n”, “o”, “p”, “q”, “r”, “s”,
+“t”, “u”, “v”, “w”, “x”, “y”, “z”, “{”, “|”, “}”, “~”, “accept”, “add”,
+“alt”, “altleft”, “altright”, “apps”, “backspace”, “browserback”,
+“browserfavorites”, “browserforward”, “browserhome”, “browserrefresh”,
+“browsersearch”, “browserstop”, “capslock”, “clear”, “convert”, “ctrl”,
+“ctrlleft”, “ctrlright”, “decimal”, “del”, “delete”, “divide”, “down”,
+“end”, “enter”, “esc”, “escape”, “execute”, “f1”, “f10”, “f11”, “f12”,
+“f13”, “f14”, “f15”, “f16”, “f17”, “f18”, “f19”, “f2”, “f20”, “f21”,
+“f22”, “f23”, “f24”, “f3”, “f4”, “f5”, “f6”, “f7”, “f8”, “f9”, “final”,
+“fn”, “help”, “home”, “insert”, “left”, “numlock”, “pagedown”, “pageup”, “pause”,
+“pgdn”, “pgup”, “playpause”, “prevtrack”, “print”, “printscreen”,
+“prntscrn”, “prtsc”, “prtscr”, “return”, “right”, “scrolllock”,
+“select”, “separator”, “shift”, “shiftleft”, “shiftright”, “sleep”,
+“space”, “stop”, “subtract”, “tab”, “up”, “volumedown”, “volumemute”,
+“volumeup”, “win”, “winleft”, “winright”, “yen”, “command”, “option”,
+“optionleft”, “optionright” ]</p>
 </dd>
 </dl>
 </dd></dl>

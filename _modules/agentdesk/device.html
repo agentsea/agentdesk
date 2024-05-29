@@ -75,24 +75,24 @@
              
   <h1>Source code for agentdesk.device</h1><div class="highlight"><pre>
 <span></span><span class="c1"># from __future__ import annotations</span>
+<span class="kn">import</span> <span class="nn">atexit</span>
 <span class="kn">import</span> <span class="nn">base64</span>
 <span class="kn">import</span> <span class="nn">io</span>
-<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Type</span>
-<span class="kn">import</span> <span class="nn">atexit</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">requests</span>
-<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">BaseModel</span>
-<span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">from</span> <span class="nn">devicebay</span> <span class="kn">import</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">ReactComponent</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">observation</span>
 <span class="kn">from</span> <span class="nn">google.cloud</span> <span class="kn">import</span> <span class="n">storage</span>
-<span class="kn">from</span> <span class="nn">devicebay</span> <span class="kn">import</span> <span class="n">Device</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">observation</span><span class="p">,</span> <span class="n">Action</span><span class="p">,</span> <span class="n">ReactComponent</span>
+<span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">BaseModel</span>
 
+<span class="kn">from</span> <span class="nn">.key</span> <span class="kn">import</span> <span class="n">SSHKeyPair</span>
 <span class="kn">from</span> <span class="nn">.server.models</span> <span class="kn">import</span> <span class="n">V1ProviderData</span>
 <span class="kn">from</span> <span class="nn">.vm.base</span> <span class="kn">import</span> <span class="n">DesktopVM</span>
 <span class="kn">from</span> <span class="nn">.vm.load</span> <span class="kn">import</span> <span class="n">load_provider</span>
-<span class="kn">from</span> <span class="nn">.key</span> <span class="kn">import</span> <span class="n">SSHKeyPair</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">.vm.gce</span> <span class="kn">import</span> <span class="n">GCEProvider</span>
@@ -107,13 +107,9 @@
         <span class="s2">&quot;AWS provider unavailable, install with `pip install agentdesk[aws] if desired&quot;</span>
     <span class="p">)</span>
 
+<span class="kn">from</span> <span class="nn">.proxy</span> <span class="kn">import</span> <span class="n">cleanup_proxy</span><span class="p">,</span> <span class="n">ensure_ssh_proxy</span>
+<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="n">extract_file_path</span><span class="p">,</span> <span class="n">extract_gcs_info</span><span class="p">,</span> <span class="n">generate_random_string</span>
 <span class="kn">from</span> <span class="nn">.vm.qemu</span> <span class="kn">import</span> <span class="n">QemuProvider</span>
-<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">extract_file_path</span><span class="p">,</span>
-    <span class="n">extract_gcs_info</span><span class="p">,</span>
-    <span class="n">generate_random_string</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">.proxy</span> <span class="kn">import</span> <span class="n">ensure_ssh_proxy</span><span class="p">,</span> <span class="n">cleanup_proxy</span>
 
 
 <span class="k">class</span> <span class="nc">StorageStrategy</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
@@ -625,9 +621,62 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Press a key</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            key (str): Which key to press</span>
+<span class="sd">            key (str): Which key to press. Options are:</span>
+<span class="sd">                [ &quot;\\t&quot;, &quot;\\n&quot;, &quot;\\r&quot;, &quot; &quot;, &quot;!&quot;, &#39;\\&quot;&#39;, &quot;\\#&quot;, &quot;\\$&quot;, &quot;\\%&quot;, &quot;\\&amp;&quot;, &quot;\\&#39;&quot;,</span>
+<span class="sd">                &quot;\\(&quot;, &quot;\\)&quot;, &quot;\\*&quot;, &quot;\\+&quot;, &quot;,&quot;, &quot;-&quot;, &quot;\\.&quot;, &quot;/&quot;, &quot;0&quot;, &quot;1&quot;, &quot;2&quot;, &quot;3&quot;,</span>
+<span class="sd">                &quot;4&quot;, &quot;5&quot;, &quot;6&quot;, &quot;7&quot;, &quot;8&quot;, &quot;9&quot;, &quot;:&quot;, &quot;;&quot;, &quot;&lt;&quot;, &quot;=&quot;, &quot;&gt;&quot;, &quot;\\?&quot;, &quot;@&quot;,</span>
+<span class="sd">                &quot;\\[&quot;, &quot;\\\\&quot;, &quot;\\]&quot;, &quot;\\^&quot;, &quot;\\_&quot;, &quot;\\`&quot;, &quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;, &quot;e&quot;,</span>
+<span class="sd">                &quot;f&quot;, &quot;g&quot;, &quot;h&quot;, &quot;i&quot;, &quot;j&quot;, &quot;k&quot;, &quot;l&quot;, &quot;m&quot;, &quot;n&quot;, &quot;o&quot;, &quot;p&quot;, &quot;q&quot;, &quot;r&quot;, &quot;s&quot;,</span>
+<span class="sd">                &quot;t&quot;, &quot;u&quot;, &quot;v&quot;, &quot;w&quot;, &quot;x&quot;, &quot;y&quot;, &quot;z&quot;, &quot;{&quot;, &quot;|&quot;, &quot;}&quot;, &quot;~&quot;, &quot;accept&quot;, &quot;add&quot;,</span>
+<span class="sd">                &quot;alt&quot;, &quot;altleft&quot;, &quot;altright&quot;, &quot;apps&quot;, &quot;backspace&quot;, &quot;browserback&quot;,</span>
+<span class="sd">                &quot;browserfavorites&quot;, &quot;browserforward&quot;, &quot;browserhome&quot;, &quot;browserrefresh&quot;,</span>
+<span class="sd">                &quot;browsersearch&quot;, &quot;browserstop&quot;, &quot;capslock&quot;, &quot;clear&quot;, &quot;convert&quot;, &quot;ctrl&quot;,</span>
+<span class="sd">                &quot;ctrlleft&quot;, &quot;ctrlright&quot;, &quot;decimal&quot;, &quot;del&quot;, &quot;delete&quot;, &quot;divide&quot;, &quot;down&quot;,</span>
+<span class="sd">                &quot;end&quot;, &quot;enter&quot;, &quot;esc&quot;, &quot;escape&quot;, &quot;execute&quot;, &quot;f1&quot;, &quot;f10&quot;, &quot;f11&quot;, &quot;f12&quot;,</span>
+<span class="sd">                &quot;f13&quot;, &quot;f14&quot;, &quot;f15&quot;, &quot;f16&quot;, &quot;f17&quot;, &quot;f18&quot;, &quot;f19&quot;, &quot;f2&quot;, &quot;f20&quot;, &quot;f21&quot;,</span>
+<span class="sd">                &quot;f22&quot;, &quot;f23&quot;, &quot;f24&quot;, &quot;f3&quot;, &quot;f4&quot;, &quot;f5&quot;, &quot;f6&quot;, &quot;f7&quot;, &quot;f8&quot;, &quot;f9&quot;, &quot;final&quot;,</span>
+<span class="sd">                &quot;fn&quot;, &quot;help&quot;, &quot;home&quot;, &quot;insert&quot;, &quot;left&quot;, &quot;numlock&quot;, &quot;pagedown&quot;, &quot;pageup&quot;, &quot;pause&quot;,</span>
+<span class="sd">                &quot;pgdn&quot;, &quot;pgup&quot;, &quot;playpause&quot;, &quot;prevtrack&quot;, &quot;print&quot;, &quot;printscreen&quot;,</span>
+<span class="sd">                &quot;prntscrn&quot;, &quot;prtsc&quot;, &quot;prtscr&quot;, &quot;return&quot;, &quot;right&quot;, &quot;scrolllock&quot;,</span>
+<span class="sd">                &quot;select&quot;, &quot;separator&quot;, &quot;shift&quot;, &quot;shiftleft&quot;, &quot;shiftright&quot;, &quot;sleep&quot;,</span>
+<span class="sd">                &quot;space&quot;, &quot;stop&quot;, &quot;subtract&quot;, &quot;tab&quot;, &quot;up&quot;, &quot;volumedown&quot;, &quot;volumemute&quot;,</span>
+<span class="sd">                &quot;volumeup&quot;, &quot;win&quot;, &quot;winleft&quot;, &quot;winright&quot;, &quot;yen&quot;, &quot;command&quot;, &quot;option&quot;,</span>
+<span class="sd">                &quot;optionleft&quot;, &quot;optionright&quot; ]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/press_key&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">key</span><span class="p">})</span>
+        <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="Desktop.hot_key">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.hot_key">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">hot_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Press a hot key. For example ctrl+c</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            keys (List[str]): Which keys to press. Options are:</span>
+<span class="sd">                [ &quot;\\t&quot;, &quot;\\n&quot;, &quot;\\r&quot;, &quot; &quot;, &quot;!&quot;, &#39;\\&quot;&#39;, &quot;\\#&quot;, &quot;\\$&quot;, &quot;\\%&quot;, &quot;\\&amp;&quot;, &quot;\\&#39;&quot;,</span>
+<span class="sd">                &quot;\\(&quot;, &quot;\\)&quot;, &quot;\\*&quot;, &quot;\\+&quot;, &quot;,&quot;, &quot;-&quot;, &quot;\\.&quot;, &quot;/&quot;, &quot;0&quot;, &quot;1&quot;, &quot;2&quot;, &quot;3&quot;,</span>
+<span class="sd">                &quot;4&quot;, &quot;5&quot;, &quot;6&quot;, &quot;7&quot;, &quot;8&quot;, &quot;9&quot;, &quot;:&quot;, &quot;;&quot;, &quot;&lt;&quot;, &quot;=&quot;, &quot;&gt;&quot;, &quot;\\?&quot;, &quot;@&quot;,</span>
+<span class="sd">                &quot;\\[&quot;, &quot;\\\\&quot;, &quot;\\]&quot;, &quot;\\^&quot;, &quot;\\_&quot;, &quot;\\`&quot;, &quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;d&quot;, &quot;e&quot;,</span>
+<span class="sd">                &quot;f&quot;, &quot;g&quot;, &quot;h&quot;, &quot;i&quot;, &quot;j&quot;, &quot;k&quot;, &quot;l&quot;, &quot;m&quot;, &quot;n&quot;, &quot;o&quot;, &quot;p&quot;, &quot;q&quot;, &quot;r&quot;, &quot;s&quot;,</span>
+<span class="sd">                &quot;t&quot;, &quot;u&quot;, &quot;v&quot;, &quot;w&quot;, &quot;x&quot;, &quot;y&quot;, &quot;z&quot;, &quot;{&quot;, &quot;|&quot;, &quot;}&quot;, &quot;~&quot;, &quot;accept&quot;, &quot;add&quot;,</span>
+<span class="sd">                &quot;alt&quot;, &quot;altleft&quot;, &quot;altright&quot;, &quot;apps&quot;, &quot;backspace&quot;, &quot;browserback&quot;,</span>
+<span class="sd">                &quot;browserfavorites&quot;, &quot;browserforward&quot;, &quot;browserhome&quot;, &quot;browserrefresh&quot;,</span>
+<span class="sd">                &quot;browsersearch&quot;, &quot;browserstop&quot;, &quot;capslock&quot;, &quot;clear&quot;, &quot;convert&quot;, &quot;ctrl&quot;,</span>
+<span class="sd">                &quot;ctrlleft&quot;, &quot;ctrlright&quot;, &quot;decimal&quot;, &quot;del&quot;, &quot;delete&quot;, &quot;divide&quot;, &quot;down&quot;,</span>
+<span class="sd">                &quot;end&quot;, &quot;enter&quot;, &quot;esc&quot;, &quot;escape&quot;, &quot;execute&quot;, &quot;f1&quot;, &quot;f10&quot;, &quot;f11&quot;, &quot;f12&quot;,</span>
+<span class="sd">                &quot;f13&quot;, &quot;f14&quot;, &quot;f15&quot;, &quot;f16&quot;, &quot;f17&quot;, &quot;f18&quot;, &quot;f19&quot;, &quot;f2&quot;, &quot;f20&quot;, &quot;f21&quot;,</span>
+<span class="sd">                &quot;f22&quot;, &quot;f23&quot;, &quot;f24&quot;, &quot;f3&quot;, &quot;f4&quot;, &quot;f5&quot;, &quot;f6&quot;, &quot;f7&quot;, &quot;f8&quot;, &quot;f9&quot;, &quot;final&quot;,</span>
+<span class="sd">                &quot;fn&quot;, &quot;help&quot;, &quot;home&quot;, &quot;insert&quot;, &quot;left&quot;, &quot;numlock&quot;, &quot;pagedown&quot;, &quot;pageup&quot;, &quot;pause&quot;,</span>
+<span class="sd">                &quot;pgdn&quot;, &quot;pgup&quot;, &quot;playpause&quot;, &quot;prevtrack&quot;, &quot;print&quot;, &quot;printscreen&quot;,</span>
+<span class="sd">                &quot;prntscrn&quot;, &quot;prtsc&quot;, &quot;prtscr&quot;, &quot;return&quot;, &quot;right&quot;, &quot;scrolllock&quot;,</span>
+<span class="sd">                &quot;select&quot;, &quot;separator&quot;, &quot;shift&quot;, &quot;shiftleft&quot;, &quot;shiftright&quot;, &quot;sleep&quot;,</span>
+<span class="sd">                &quot;space&quot;, &quot;stop&quot;, &quot;subtract&quot;, &quot;tab&quot;, &quot;up&quot;, &quot;volumedown&quot;, &quot;volumemute&quot;,</span>
+<span class="sd">                &quot;volumeup&quot;, &quot;win&quot;, &quot;winleft&quot;, &quot;winright&quot;, &quot;yen&quot;, &quot;command&quot;, &quot;option&quot;,</span>
+<span class="sd">                &quot;optionleft&quot;, &quot;optionright&quot; ]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/hot_key&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;keys&quot;</span><span class="p">:</span> <span class="n">keys</span><span class="p">})</span>
         <span class="k">return</span></div>
 
 
