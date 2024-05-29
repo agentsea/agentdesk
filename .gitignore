@@ -163,3 +163,4 @@ data/
 scratch/
 *.iso
 .data
+scratch.ipynb

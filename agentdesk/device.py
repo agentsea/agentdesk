@@ -1,22 +1,22 @@
 # from __future__ import annotations
+import atexit
 import base64
 import io
-from enum import Enum
-import time
 import os
-from typing import Tuple, Optional, List, Any, Type
-import atexit
+import time
+from enum import Enum
+from typing import Any, List, Optional, Tuple, Type, Union
 
 import requests
-from pydantic import BaseModel
-from PIL import Image
+from devicebay import Action, Device, ReactComponent, action, observation
 from google.cloud import storage
-from devicebay import Device, action, observation, Action, ReactComponent
+from PIL import Image
+from pydantic import BaseModel
 
+from .key import SSHKeyPair
 from .server.models import V1ProviderData
 from .vm.base import DesktopVM
 from .vm.load import load_provider
-from .key import SSHKeyPair
 
 try:
     from .vm.gce import GCEProvider
@@ -31,13 +31,9 @@ except ImportError:
         "AWS provider unavailable, install with `pip install agentdesk[aws] if desired"
     )
 
+from .proxy import cleanup_proxy, ensure_ssh_proxy
+from .util import extract_file_path, extract_gcs_info, generate_random_string
 from .vm.qemu import QemuProvider
-from .util import (
-    extract_file_path,
-    extract_gcs_info,
-    generate_random_string,
-)
-from .proxy import ensure_ssh_proxy, cleanup_proxy
 
 
 class StorageStrategy(Enum):
@@ -485,9 +481,59 @@ class Desktop(Device):
         """Press a key
 
         Args:
-            key (str): Which key to press
+            key (str): Which key to press. Options are:
+                [ "\\t", "\\n", "\\r", " ", "!", '\\"', "\\#", "\\$", "\\%", "\\&", "\\'",
+                "\\(", "\\)", "\\*", "\\+", ",", "-", "\\.", "/", "0", "1", "2", "3",
+                "4", "5", "6", "7", "8", "9", ":", ";", "<", "=", ">", "\\?", "@",
+                "\\[", "\\\\", "\\]", "\\^", "\\_", "\\`", "a", "b", "c", "d", "e",
+                "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s",
+                "t", "u", "v", "w", "x", "y", "z", "{", "|", "}", "~", "accept", "add",
+                "alt", "altleft", "altright", "apps", "backspace", "browserback",
+                "browserfavorites", "browserforward", "browserhome", "browserrefresh",
+                "browsersearch", "browserstop", "capslock", "clear", "convert", "ctrl",
+                "ctrlleft", "ctrlright", "decimal", "del", "delete", "divide", "down",
+                "end", "enter", "esc", "escape", "execute", "f1", "f10", "f11", "f12",
+                "f13", "f14", "f15", "f16", "f17", "f18", "f19", "f2", "f20", "f21",
+                "f22", "f23", "f24", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "final",
+                "fn", "help", "home", "insert", "left", "numlock", "pagedown", "pageup", "pause",
+                "pgdn", "pgup", "playpause", "prevtrack", "print", "printscreen",
+                "prntscrn", "prtsc", "prtscr", "return", "right", "scrolllock",
+                "select", "separator", "shift", "shiftleft", "shiftright", "sleep",
+                "space", "stop", "subtract", "tab", "up", "volumedown", "volumemute",
+                "volumeup", "win", "winleft", "winright", "yen", "command", "option",
+                "optionleft", "optionright" ]
         """
         requests.post(f"{self.base_url}/press_key", json={"key": key})
+        return
+
+    @action
+    def hot_key(self, keys: List[str]) -> None:
+        """Press a hot key. For example ctrl+c
+
+        Args:
+            keys (List[str]): Which keys to press. Options are:
+                [ "\\t", "\\n", "\\r", " ", "!", '\\"', "\\#", "\\$", "\\%", "\\&", "\\'",
+                "\\(", "\\)", "\\*", "\\+", ",", "-", "\\.", "/", "0", "1", "2", "3",
+                "4", "5", "6", "7", "8", "9", ":", ";", "<", "=", ">", "\\?", "@",
+                "\\[", "\\\\", "\\]", "\\^", "\\_", "\\`", "a", "b", "c", "d", "e",
+                "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s",
+                "t", "u", "v", "w", "x", "y", "z", "{", "|", "}", "~", "accept", "add",
+                "alt", "altleft", "altright", "apps", "backspace", "browserback",
+                "browserfavorites", "browserforward", "browserhome", "browserrefresh",
+                "browsersearch", "browserstop", "capslock", "clear", "convert", "ctrl",
+                "ctrlleft", "ctrlright", "decimal", "del", "delete", "divide", "down",
+                "end", "enter", "esc", "escape", "execute", "f1", "f10", "f11", "f12",
+                "f13", "f14", "f15", "f16", "f17", "f18", "f19", "f2", "f20", "f21",
+                "f22", "f23", "f24", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "final",
+                "fn", "help", "home", "insert", "left", "numlock", "pagedown", "pageup", "pause",
+                "pgdn", "pgup", "playpause", "prevtrack", "print", "printscreen",
+                "prntscrn", "prtsc", "prtscr", "return", "right", "scrolllock",
+                "select", "separator", "shift", "shiftleft", "shiftright", "sleep",
+                "space", "stop", "subtract", "tab", "up", "volumedown", "volumemute",
+                "volumeup", "win", "winleft", "winright", "yen", "command", "option",
+                "optionleft", "optionright" ]
+        """
+        requests.post(f"{self.base_url}/hot_key", json={"keys": keys})
         return
 
     @action
