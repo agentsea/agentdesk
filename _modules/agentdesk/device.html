@@ -117,6 +117,8 @@
     <span class="n">LOCAL</span> <span class="o">=</span> <span class="s2">&quot;local&quot;</span>
 
 
+<div class="viewcode-block" id="ConnectConfig">
+<a class="viewcode-back" href="../../api.html#agentdesk.ConnectConfig">[docs]</a>
 <span class="k">class</span> <span class="nc">ConnectConfig</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
     <span class="n">agentd_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">vm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -130,9 +132,12 @@
     <span class="n">proxy_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span>
     <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span>
     <span class="n">private_ssh_key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">ssh_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">22</span>
+    <span class="n">ssh_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">22</span></div>
 
 
+
+<div class="viewcode-block" id="ProvisionConfig">
+<a class="viewcode-back" href="../../api.html#agentdesk.ProvisionConfig">[docs]</a>
 <span class="k">class</span> <span class="nc">ProvisionConfig</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
     <span class="n">provider</span><span class="p">:</span> <span class="n">V1ProviderData</span> <span class="o">=</span> <span class="n">V1ProviderData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;qemu&quot;</span><span class="p">)</span>
     <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -141,7 +146,8 @@
     <span class="n">disk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;30gb&quot;</span>
     <span class="n">reserve_ip</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">ssh_key_pair</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span>
+    <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span></div>
+
 
 
 <div class="viewcode-block" id="Desktop">
@@ -334,7 +340,8 @@
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">project</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">zone</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">zone</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;us-central1-a&quot;</span><span class="p">,</span>
+        <span class="n">region</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;us-central1&quot;</span><span class="p">,</span>
         <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
         <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
@@ -344,7 +351,7 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop VM on GCE&quot;&quot;&quot;</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">ProvisionConfig</span><span class="p">(</span>
-            <span class="n">provider</span><span class="o">=</span><span class="n">GCEProvider</span><span class="p">(</span><span class="n">project_id</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="n">zone</span><span class="p">)</span><span class="o">.</span><span class="n">to_data</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
+            <span class="n">provider</span><span class="o">=</span><span class="n">GCEProvider</span><span class="p">(</span><span class="n">project_id</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="n">zone</span><span class="p">,</span> <span class="n">region</span><span class="o">=</span><span class="n">region</span><span class="p">)</span><span class="o">.</span><span class="n">to_data</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
             <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
             <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
             <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
