@@ -1,23 +1,24 @@
 from __future__ import annotations
-from typing import List, Optional, Dict, Tuple, Any
+
+import atexit
+import json
+import logging
 import re
 import time
-import atexit
-import logging
+from typing import Any, Dict, List, Optional, Tuple
 
-from google.cloud import compute_v1
-from google.cloud import _helpers
+import requests
+from google.cloud import _helpers, compute_v1
 from google.oauth2.service_account import Credentials
 from namesgenerator import get_random_name
-import requests
-import json
 
-from .base import DesktopVM, DesktopProvider
-from .img import JAMMY
-from agentdesk.server.models import V1ProviderData
-from agentdesk.util import find_open_port, generate_short_hash, generate_random_string
-from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 from agentdesk.key import SSHKeyPair
+from agentdesk.proxy import cleanup_proxy, ensure_ssh_proxy
+from agentdesk.server.models import V1ProviderData
+from agentdesk.util import find_open_port, generate_random_string, generate_short_hash
+
+from .base import DesktopProvider, DesktopVM
+from .img import JAMMY
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class GCEProvider(DesktopProvider):
         self,
         project_id: Optional[str] = None,
         zone: str = "us-central1-a",
-        region: Optional[str] = "us-central1",
+        region: str = "us-central1",
         gcp_credentials_json: Optional[str] = None,
     ):
         """Initialize the GCP VM Provider with project, zone, region, and optional JSON credentials."""

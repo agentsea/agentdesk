@@ -245,7 +245,8 @@ class Desktop(Device):
         cls,
         name: Optional[str] = None,
         project: Optional[str] = None,
-        zone: Optional[str] = None,
+        zone: str = "us-central1-a",
+        region: str = "us-central1",
         image: Optional[str] = None,
         memory: int = 4,
         cpus: int = 2,
@@ -255,7 +256,7 @@ class Desktop(Device):
     ) -> "Desktop":
         """Create a desktop VM on GCE"""
         config = ProvisionConfig(
-            provider=GCEProvider(project_id=project, zone=zone).to_data(),  # type: ignore
+            provider=GCEProvider(project_id=project, zone=zone, region=region).to_data(),  # type: ignore
             image=image,
             memory=memory,
             cpus=cpus,
