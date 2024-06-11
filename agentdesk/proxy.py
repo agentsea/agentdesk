@@ -1,14 +1,15 @@
 from __future__ import annotations
-import os
-import subprocess
-from typing import Optional, Generator
-import threading
-import socket
-import select
-import time
+
+import atexit
 import contextlib
 import logging
-import atexit
+import os
+import select
+import socket
+import subprocess
+import threading
+import time
+from typing import Generator, Optional
 
 import paramiko
 import psutil
@@ -226,7 +227,7 @@ def setup_ssh_proxy(
             ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         # Give it a moment to fail, SSH should exit immediately if there's an error
-        time.sleep(0.5)
+        time.sleep(1)
         if proxy_process.poll() is not None:
             _, err = proxy_process.communicate()
             if log_error:
