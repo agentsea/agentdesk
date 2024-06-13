@@ -13,4 +13,4 @@ and manipulating mouse and keyboard actions on them via HTTP.
    :maxdepth: 1
    :caption: ↪
 
-   Go to User Guide <https://agentsea.github.io/agentdesk.html>
+   Go to User Guide <https://docs.hub.agentsea.ai/agentdesk/intro>

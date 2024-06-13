@@ -10,10 +10,10 @@
   <p align="center">
     Desktops for AI agents &nbsp; :computer:
     <br />
-    <a href="https://github.com/agentsea/agentdesk"><strong>Explore the docs »</strong></a>
+    <a href="https://docs.hub.agentsea.ai/agentdesk/intro"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/agentsea/agentdesk">View Demo</a>
+    <a href="https://github.com/agentsea/agentdesk/blob/main/examples/drawing/demo.ipynb">View Demo</a>
     ·
     <a href="https://github.com/agentsea/agentdesk/issues">Report Bug</a>
     ·
@@ -22,11 +22,12 @@
   <br>
 </p>
 
-Agentdesk provides full featured desktop environments which can be programatically controlled by AI agents. Spin them up locally or in the cloud.
+AgentDesk provides full-featured desktop environments which can be programatically controlled by AI agents. 
+Spin them up locally or in the cloud.
 
 ▶ Built on [agentd](https://github.com/agentsea/agentd) a runtime daemon which exposes a REST API for interacting with the desktop.
 
-▶ Implements the [DeviceBay Protocol](https://github.com/agentsea/devicebay)
+▶ Implements the [DeviceBay Protocol](https://github.com/agentsea/devicebay).
 
 ## Installation
 
@@ -161,12 +162,16 @@ grid_img = processor.process_b64(img)
 
 ## Examples
 
+### Drawing Bot
+
+See how to use a web-based drawing app with AgentDesk in our [notebook](./examples/drawing/demo.ipynb).
+
 ### GPT-4V
 
-See how to use GPT-4V with AgentDesk in our [notebook](./examples/gpt4v/note.ipynb) or [agent](./examples/gpt4v/main.py)
+See how to use GPT-4V with AgentDesk in our [notebook](./examples/gpt4v/note.ipynb) or [agent](./examples/gpt4v/main.py).
 
 ## Developing
 
 Please open an issue before creating a PR.
 
-Changes to the VM happen in [agentd](https://github.com/agentsea/agentd)
+Changes to the VM happen in [agentd](https://github.com/agentsea/agentd).
