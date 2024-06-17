@@ -13,7 +13,7 @@
     <a href="https://docs.hub.agentsea.ai/agentdesk/intro"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/agentsea/agentdesk/blob/main/examples/drawing/demo.ipynb">View Demo</a>
+    <a href="https://youtu.be/exoOUUwFRB8">View Demo</a>
     ·
     <a href="https://github.com/agentsea/agentdesk/issues">Report Bug</a>
     ·
