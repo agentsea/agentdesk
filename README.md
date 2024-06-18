@@ -170,6 +170,10 @@ See how to use a web-based drawing app with AgentDesk in our [notebook](./exampl
 
 See how to use GPT-4V with AgentDesk in our [notebook](./examples/gpt4v/note.ipynb) or [agent](./examples/gpt4v/main.py).
 
+## Community
+
+Come join us on [Discord](https://discord.gg/hhaq7XYPS6).
+
 ## Developing
 
 Please open an issue before creating a PR.
