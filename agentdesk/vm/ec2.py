@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 class EC2Provider(DesktopProvider):
     """VM provider using AWS EC2"""
 
+    AVAILABLE_REGIONS = {"us-east-1", "us-west-1", "us-west-2", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"}
+
     def __init__(
         self,
         region: str,
@@ -464,7 +466,13 @@ users:
     @classmethod
     def from_data(cls, data: V1ProviderData) -> EC2Provider:
         if data.args and "region" in data.args:
-            return cls(data.args["region"])
+            region = data.args["region"]
+            if region not in cls.AVAILABLE_REGIONS:
+                raise ValueError(
+                    f"Invalid region: {region}. Available regions are: "
+                    f"{', '.join(sorted(cls.AVAILABLE_REGIONS))}"
+                )
+            return cls(region)
         raise ValueError("No region specified in provider data")
 
     def _get_instance_by_name(
