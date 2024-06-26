@@ -44,8 +44,8 @@ class EC2Provider(DesktopProvider):
         else:
             self.session = boto3.Session(region_name=self.region)
 
-        self.ec2: EC2ServiceResource = self.session.resource("ec2")
-        self.ec2_client: EC2Client = self.session.client("ec2")  # type: ignore
+        self.ec2: EC2ServiceResource = self.session.resource("ec2", region_name=self.region)  # type: ignore
+        self.ec2_client: EC2Client = self.session.client("ec2", region_name=self.region)  # type: ignore
 
     def create(
         self,
@@ -69,12 +69,7 @@ class EC2Provider(DesktopProvider):
             raise ValueError(f"VM name '{name}' already exists")
 
         if not image:
-            # Dynamically select the latest custom AMI based on a naming pattern
-            # custom_ami = self._get_latest_custom_ami()
-            # if not custom_ami:
-            #     raise ValueError("Custom AMI not found")
-            # image = custom_ami
-            image = JAMMY.ec2
+            image = self._get_ami_id_by_name(JAMMY.ec2)
 
         if not ssh_key_pair:
             key_pair = SSHKeyPair.generate_key(
@@ -325,34 +320,24 @@ users:
                 return key_name
             raise
 
-    def _get_latest_custom_ami(self) -> Optional[str]:
+    def _get_ami_id_by_name(self, ami_name: str) -> str:
         """
         Find the latest custom AMI based on a specific naming pattern.
 
         Returns:
             The AMI ID of the latest custom AMI if found, otherwise None.
         """
-        ec2_client = boto3.client("ec2", region_name=self.region)
-        filters = [
-            {"Name": "name", "Values": ["agentd-ubuntu-22.04-*"]},
-            {
-                "Name": "owner-id",
-                "Values": ["596381348884"],
-            },  # Ubuntu's owner ID, adjust if your AMI has a different owner
-        ]
-        # Describe images with the specified filters
-        response = ec2_client.describe_images(Filters=filters)  # type: ignore
-
-        images = response.get("Images", [])
+        images = self.ec2_client.describe_images(
+            Filters=[
+                {
+                    'Name': 'name',
+                    'Values': [ami_name]
+                }
+            ]
+        ).get("Images", [])
         if not images:
-            return None
-
-        # Sort images by creation date in descending order
-        sorted_images = sorted(images, key=lambda x: x["CreationDate"], reverse=True)  # type: ignore
-
-        # Return the AMI ID of the latest image
-        latest_ami = sorted_images[0]["ImageId"]  # type: ignore
-        return latest_ami
+            raise ValueError(f"No images found with name: {ami_name} in region {self.region}")
+        return images[0]["ImageId"]
 
     def _release_eip(self, instance: EC2Instance) -> None:
         # Assuming you have tagged your EIPs or have a way to associate them with instances
