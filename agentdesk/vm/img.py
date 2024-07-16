@@ -16,7 +16,7 @@ class Image:
 JAMMY = Image(
     "jammy",
     "Ubuntu 22.04 Jammy server with agentd",
-    gce="agentd-ubuntu-22-04-u20240530022848",
-    ec2="agentd-ubuntu-22.04-20240529073401",
-    qcow2="https://storage.googleapis.com/agentsea-vms/jammy/latest/agentd-jammy.qcow2",
+    gce="agentd-ubuntu-22-04-u20240711093315-patch1",
+    ec2="agentd-ubuntu-22.04-20240529073401-patch1",
+    qcow2="https://storage.googleapis.com/agentsea-vms/jammy/agentd-ubuntu-qemu-07202412121737-patch1.qcow2",
 )

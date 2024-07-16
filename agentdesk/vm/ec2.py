@@ -288,16 +288,16 @@ users:
         # This is a simple mapping. Update it according to your needs.
         if cpu <= 2:
             if memory <= 4:
-                return "t2.micro"
+                return "t2.medium"
             elif memory <= 8:
-                return "t2.small"
+                return "t2.large"
             else:
                 return "t2.medium"
         elif cpu <= 4:
             if memory <= 16:
-                return "t2.large"
-            else:
                 return "t2.xlarge"
+            else:
+                return "t2.2xlarge"
         else:
             # Default to a larger instance for higher requirements
             return "t2.2xlarge"
@@ -458,7 +458,7 @@ users:
                     f"{', '.join(sorted(cls.AVAILABLE_REGIONS))}"
                 )
             return cls(region)
-        raise ValueError("No region specified in provider data")
+        return cls("us-east-1")
 
     def _get_instance_by_name(
         self, name: str, owner_id: Optional[str] = None
