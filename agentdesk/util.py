@@ -10,10 +10,28 @@ from subprocess import CalledProcessError, DEVNULL
 from datetime import datetime
 import hashlib
 import base64
+from io import BytesIO
 
 from google.cloud import storage
 from PIL import Image
 
+
+def b64_to_image(base64_str: str) -> Image.Image:
+    """Converts a base64 string to a PIL Image object.
+
+    Args:
+        base64_str (str): The base64 string, potentially with MIME type as part of a data URI.
+
+    Returns:
+        Image.Image: The converted PIL Image object.
+    """
+    # Strip the MIME type prefix if present
+    if "," in base64_str:
+        base64_str = base64_str.split(",")[1]
+
+    image_data = base64.b64decode(base64_str)
+    image = Image.open(BytesIO(image_data))
+    return image
 
 def extract_file_path(uri):
     """Extracts the file path from a URI"""

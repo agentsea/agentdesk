@@ -32,7 +32,7 @@ except ImportError:
     )
 
 from .proxy import cleanup_proxy, ensure_ssh_proxy
-from .util import extract_file_path, extract_gcs_info, generate_random_string
+from .util import extract_file_path, extract_gcs_info, generate_random_string, b64_to_image
 from .vm.qemu import QemuProvider
 
 
@@ -582,7 +582,7 @@ class Desktop(Device):
         return
 
     @observation
-    def take_screenshot(self) -> str:
+    def take_screenshot(self) -> Image.Image:
         """Take screenshot
 
         Returns:
@@ -592,7 +592,7 @@ class Desktop(Device):
         jdict = response.json()
 
         if not self._store_img:
-            return jdict["image"]
+            return b64_to_image(jdict["image"])
 
         image_data = base64.b64decode(jdict["image"])
         image_stream = io.BytesIO(image_data)
