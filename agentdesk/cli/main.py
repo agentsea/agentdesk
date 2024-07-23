@@ -201,6 +201,12 @@ def delete(
 @app.command(help="View a desktop in a browser.")
 def view(
     name: str = typer.Argument(..., help="The name of the desktop to view."),
+    bind: str = typer.Option(
+        "127.0.0.1", help="The address to bind the vnc to."
+    ),
+    browser: bool = typer.Option(
+        True, help="Whether to not open the browser automatically."
+    )
 ):
     desktop = DesktopVM.get(name)
     if not desktop:
@@ -218,7 +224,7 @@ def view(
             print(f"Desktop '{name}' not found")
             return
 
-    desktop.view()
+    desktop.view(bind_addr=bind, browser=browser)
 
 
 @app.command(help="Refresh a provider.")

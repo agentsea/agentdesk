@@ -231,7 +231,7 @@ class DesktopVM(WithDB):
             key_pair_name=self.key_pair_name,
         )
 
-    def view(self, background: bool = False) -> None:
+    def view(self, background: bool = False, bind_addr: str = "127.0.0.1", browser: bool = True) -> None:
         """Opens the desktop in a browser window"""
 
         if self.requires_proxy:
@@ -253,6 +253,7 @@ class DesktopVM(WithDB):
                 "agentsea",
                 self.addr,
                 key_pair.decrypt_private_key(key_pair.private_key),
+                bind_addr=bind_addr,
             )
             atexit.register(cleanup_proxy, proxy_pid)
 
@@ -284,7 +285,10 @@ class DesktopVM(WithDB):
             print("waiting for UI container to start...")
             time.sleep(10)
 
-        webbrowser.open(f"http://localhost:{host_port}")
+        if browser:
+            webbrowser.open(f"http://localhost:{host_port}")
+        else:
+            print(f"\n>>> UI available at http://localhost:{host_port}\n")
 
         if background:
             return
@@ -318,7 +322,7 @@ class DesktopVM(WithDB):
         atexit.register(onexit)
         try:
             while True:
-                print(f"proxying desktop vnc '{self.name}' to localhost:6080...")
+                print(f"proxying desktop vnc '{self.name}' to {bind_addr}:6080...")
                 time.sleep(20)
         except KeyboardInterrupt:
             print("Keyboard interrupt received, exiting...")
