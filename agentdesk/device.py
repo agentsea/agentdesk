@@ -592,7 +592,7 @@ class Desktop(Device):
         jdict = response.json()
 
         if not self._store_img:
-            return b64_to_image(jdict["image"])
+            return jdict["image"]
 
         image_data = base64.b64decode(jdict["image"])
         image_stream = io.BytesIO(image_data)
