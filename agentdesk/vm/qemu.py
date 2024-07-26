@@ -9,12 +9,14 @@ import time
 import signal
 import logging
 import shutil
+import atexit
 
 import pycdlib
 import requests
 from namesgenerator import get_random_name
 from tqdm import tqdm
 from agentdesk.key import SSHKeyPair
+from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 
 from .base import DesktopVM, DesktopProvider
 from .img import JAMMY
@@ -24,6 +26,7 @@ from agentdesk.util import (
     check_command_availability,
     generate_short_hash,
     generate_random_string,
+    find_open_port,
 )
 
 META_PYTHON_IMAGE = "python:3.9-slim"
@@ -136,9 +139,9 @@ users:
         meta_data = f"""instance-id: {name}
 local-hostname: {name}
 """
-        sockify_port: int = 6080
+
         agentd_port: int = 8000
-        ssh_port = 2222
+        ssh_port = find_open_port(2222, 3333)
 
         self._create_iso("cidata.iso", user_data, meta_data)
 
@@ -146,7 +149,7 @@ local-hostname: {name}
 
         command = (
             f"nohup qemu-system-x86_64 -nographic -hda {image_path} -m {memory}G "
-            f"-smp {cpu} -netdev user,id=vmnet,hostfwd=tcp::5900-:5900,hostfwd=tcp::{sockify_port}-:6080,hostfwd=tcp::{agentd_port}-:8000,hostfwd=tcp::{ssh_port}-:22 "
+            f"-smp {cpu} -netdev user,id=vmnet,hostfwd=tcp::{ssh_port}-:22 "
             "-device e1000,netdev=vmnet "
             f"-cdrom cidata.iso >/dev/null 2>&1 & echo $! > {pid_file}"
         )
@@ -162,7 +165,7 @@ local-hostname: {name}
                 pid = process.pid
             else:
                 subprocess.run(command, shell=True, env=env, check=True)
-                self._wait_till_ready(agentd_port)
+                self._wait_till_ready(ssh_port, private_ssh_key)
 
                 # Read the PID from the file
                 with open(pid_file, "r") as file:
@@ -170,7 +173,7 @@ local-hostname: {name}
 
                 os.remove(pid_file)
 
-            self._wait_till_ready(agentd_port)
+            self._wait_till_ready(ssh_port, private_ssh_key)
 
         except subprocess.CalledProcessError as e:
             print(f"Command '{command}' returned non-zero exit status {e.returncode}.")
@@ -196,7 +199,7 @@ local-hostname: {name}
             pid=pid,
             image=image,
             provider=self.to_data(),
-            requires_proxy=False,
+            requires_proxy=True,
             ssh_port=ssh_port,
             owner_id=owner_id,
             metadata=metadata,
@@ -205,14 +208,38 @@ local-hostname: {name}
         print(f"\nsuccessfully created desktop '{name}'")
         return desktop
 
-    def _wait_till_ready(self, agentd_port: int) -> None:
+    def _wait_till_ready(self, ssh_port: int, private_ssh_key: Optional[str] = None) -> None:
+        local_agentd_port = find_open_port(8000, 9000)
+        if not local_agentd_port:
+            raise ValueError("could not find open port")
+        print("using local port:", local_agentd_port)
+        print("waiting for desktop to be ready...")
+
         ready = False
         while not ready:
             print("waiting for desktop to be ready...")
             time.sleep(3)
             try:
+                try:
+                    logger.debug("ensuring up ssh proxy...")
+                    print("setting up ssh proxy")
+                    pid = ensure_ssh_proxy(
+                        local_port=local_agentd_port,
+                        remote_port=8000,
+                        ssh_host="localhost",
+                        ssh_key=private_ssh_key,
+                        ssh_port=ssh_port,
+                        log_error=False,
+                    )
+                    print("setup ssh proxy: ", pid)
+                    atexit.register(cleanup_proxy, pid)
+                except Exception:
+                    try:
+                        cleanup_proxy(pid, log_error=False)  # type: ignore
+                    except Exception:
+                        pass
                 logger.debug("calling agentd...")
-                response = requests.get(f"http://localhost:{agentd_port}/health")
+                response = requests.get(f"http://localhost:{local_agentd_port}/health")
                 logger.debug(f"agentd response: {response}")
                 if response.status_code == 200:
                     ready = True
