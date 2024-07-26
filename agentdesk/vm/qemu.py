@@ -212,7 +212,6 @@ local-hostname: {name}
         local_agentd_port = find_open_port(8000, 9000)
         if not local_agentd_port:
             raise ValueError("could not find open port")
-        print("using local port:", local_agentd_port)
         print("waiting for desktop to be ready...")
 
         ready = False
@@ -222,7 +221,6 @@ local-hostname: {name}
             try:
                 try:
                     logger.debug("ensuring up ssh proxy...")
-                    print("setting up ssh proxy")
                     pid = ensure_ssh_proxy(
                         local_port=local_agentd_port,
                         remote_port=8000,
@@ -231,7 +229,6 @@ local-hostname: {name}
                         ssh_port=ssh_port,
                         log_error=False,
                     )
-                    print("setup ssh proxy: ", pid)
                     atexit.register(cleanup_proxy, pid)
                 except Exception:
                     try:
