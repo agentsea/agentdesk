@@ -377,6 +377,7 @@ class Desktop(Device):
             proxy_type=proxy_type,
             proxy_port=proxy_port,
             check_health=check_health,
+            ssh_port=vm.ssh_port,
         )
 
     @classmethod
