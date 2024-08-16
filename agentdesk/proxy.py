@@ -190,7 +190,7 @@ def setup_ssh_proxy(
     ssh_host: str = "localhost",
     ssh_key: Optional[str] = None,
     log_error: bool = True,
-    bind_addr: str = "127.0.0.1",
+    bind_addr: str = "0.0.0.0",
 ) -> Optional[subprocess.Popen]:
     """Set up an SSH proxy if it's not already running."""
 
@@ -278,7 +278,7 @@ def ensure_ssh_proxy(
     ssh_host: str = "localhost",
     ssh_key: Optional[str] = None,
     log_error: bool = True,
-    bind_addr: str = "127.0.0.1",
+    bind_addr: str = "0.0.0.0",
 ) -> int:
     """Ensure that an SSH proxy is running and return its PID.
 
@@ -290,7 +290,7 @@ def ensure_ssh_proxy(
         ssh_host (str, optional): SSH host. Defaults to "localhost".
         ssh_key (Optional[str], optional): SSH private key. Defaults to None.
         log_error (bool, optional): Whether to log errors. Defaults to True.
-        bind_addr (str, optional): Bind address. Defaults to "127.0.0.1".
+        bind_addr (str, optional): Bind address. Defaults to "0.0.0.0".
 
     Returns:
         int: A process pid.
@@ -317,6 +317,7 @@ def ensure_ssh_proxy(
         ssh_host,
         ssh_key,
         log_error=log_error,
+        bind_addr=bind_addr,
     )
     if process is None:
         # If setup_ssh_proxy returned None, it means the port is in use but no PID was found.
