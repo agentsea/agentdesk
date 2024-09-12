@@ -25,7 +25,15 @@ logger = logging.getLogger(__name__)
 class EC2Provider(DesktopProvider):
     """VM provider using AWS EC2"""
 
-    AVAILABLE_REGIONS = {"us-east-1", "us-west-1", "us-west-2", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"}
+    AVAILABLE_REGIONS = {
+        "us-east-1",
+        "us-west-1",
+        "us-west-2",
+        "eu-west-1",
+        "eu-central-1",
+        "ap-southeast-1",
+        "ap-northeast-1",
+    }
 
     def __init__(
         self,
@@ -69,7 +77,7 @@ class EC2Provider(DesktopProvider):
             raise ValueError(f"VM name '{name}' already exists")
 
         if not image:
-            image = self._get_ami_id_by_name(JAMMY.ec2)
+            image = self._get_ami_id_by_name(JAMMY.ec2)  # type: ignore
 
         if not ssh_key_pair:
             key_pair = SSHKeyPair.generate_key(
@@ -328,16 +336,13 @@ users:
             The AMI ID of the latest custom AMI if found, otherwise None.
         """
         images = self.ec2_client.describe_images(
-            Filters=[
-                {
-                    'Name': 'name',
-                    'Values': [ami_name]
-                }
-            ]
+            Filters=[{"Name": "name", "Values": [ami_name]}]
         ).get("Images", [])
         if not images:
-            raise ValueError(f"No images found with name: {ami_name} in region {self.region}")
-        return images[0]["ImageId"]
+            raise ValueError(
+                f"No images found with name: {ami_name} in region {self.region}"
+            )
+        return images[0]["ImageId"]  # type: ignore
 
     def _release_eip(self, instance: EC2Instance) -> None:
         # Assuming you have tagged your EIPs or have a way to associate them with instances

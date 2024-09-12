@@ -142,6 +142,8 @@ local-hostname: {name}
 
         agentd_port: int = 8000
         ssh_port = find_open_port(2222, 3333)
+        if not ssh_port:
+            raise RuntimeError("could not find an open port for SSH")
 
         self._create_iso("cidata.iso", user_data, meta_data)
 
@@ -208,7 +210,9 @@ local-hostname: {name}
         print(f"\nsuccessfully created desktop '{name}'")
         return desktop
 
-    def _wait_till_ready(self, ssh_port: int, private_ssh_key: Optional[str] = None) -> None:
+    def _wait_till_ready(
+        self, ssh_port: int, private_ssh_key: Optional[str] = None
+    ) -> None:
         local_agentd_port = find_open_port(8000, 9000)
         if not local_agentd_port:
             raise ValueError("could not find open port")
