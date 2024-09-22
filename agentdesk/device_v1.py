@@ -15,17 +15,17 @@ from pydantic import BaseModel
 
 from .key import SSHKeyPair
 from .server.models import V1ProviderData
-from .runtime.base import DesktopInstance
-from .runtime.load import load_provider
+from .vm.base import DesktopInstance
+from .vm.load import load_provider
 
 try:
-    from .runtime.gce import GCEProvider
+    from .vm.gce import GCEProvider
 except ImportError:
     print(
         "GCE provider unavailable, install with `pip install agentdesk[gce] if desired"
     )
 try:
-    from .runtime.ec2 import EC2Provider
+    from .vm.ec2 import EC2Provider
 except ImportError:
     print(
         "AWS provider unavailable, install with `pip install agentdesk[aws] if desired"
@@ -38,7 +38,7 @@ from .util import (
     generate_random_string,
     b64_to_image,
 )
-from .runtime.qemu import QemuProvider
+from .vm.qemu import QemuProvider
 
 
 class StorageStrategy(Enum):
@@ -596,7 +596,7 @@ class Desktop(Device):
         Returns:
             str: b64 encoded image or URI of the image depending on instance settings
         """
-        response = requests.post(f"{self.base_url}/screenshot")
+        response = requests.post(f"{self.base_url}/v1/screenshots")
         jdict = response.json()
 
         if not self._store_img:

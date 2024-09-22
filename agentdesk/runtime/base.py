@@ -27,7 +27,7 @@ from agentdesk.key import SSHKeyPair
 UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:634820941cbbba4b3cd51149b25d0a4c8d1a35f4"
 
 
-class DesktopVM(WithDB):
+class DesktopInstance(WithDB):
     """A remote desktop VM which is accesible for AI agents"""
 
     def __init__(
@@ -108,12 +108,12 @@ class DesktopVM(WithDB):
                 db.commit()
             except Exception as e:
                 db.rollback()
-                print(f"Error saving DesktopVM: {e}")
+                print(f"Error saving DesktopInstance: {e}")
                 raise
 
     @classmethod
-    def from_record(cls, record: V1DesktopRecord) -> DesktopVM:
-        out = cls.__new__(DesktopVM)  # type: ignore
+    def from_record(cls, record: V1DesktopRecord) -> DesktopInstance:
+        out = cls.__new__(DesktopInstance)  # type: ignore
         out.id = record.id
         out.name = record.name
         out.addr = record.addr
@@ -139,7 +139,7 @@ class DesktopVM(WithDB):
         return out
 
     @classmethod
-    def load(cls, id: str) -> DesktopVM:
+    def load(cls, id: str) -> DesktopInstance:
         for db in cls.get_db():
             record = db.query(V1DesktopRecord).filter(V1DesktopRecord.id == id).first()
             if record is None:
@@ -148,7 +148,9 @@ class DesktopVM(WithDB):
         raise ValueError("no session")
 
     @classmethod
-    def get(cls, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
+    def get(
+        cls, name: str, owner_id: Optional[str] = None
+    ) -> Optional[DesktopInstance]:
         for db in cls.get_db():
             record = (
                 db.query(V1DesktopRecord)
@@ -160,7 +162,7 @@ class DesktopVM(WithDB):
             return cls.from_record(record)
 
     @classmethod
-    def find(cls, **kwargs) -> List[DesktopVM]:
+    def find(cls, **kwargs) -> List[DesktopInstance]:
         """Find desktops by given keyword arguments."""
         out = []
         for db in cls.get_db():
@@ -231,7 +233,12 @@ class DesktopVM(WithDB):
             key_pair_name=self.key_pair_name,
         )
 
-    def view(self, background: bool = False, bind_addr: str = "127.0.0.1", browser: bool = True) -> None:
+    def view(
+        self,
+        background: bool = False,
+        bind_addr: str = "127.0.0.1",
+        browser: bool = True,
+    ) -> None:
         """Opens the desktop in a browser window"""
 
         if self.requires_proxy:
@@ -348,7 +355,7 @@ class DesktopProvider(ABC, Generic[DP]):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> DesktopVM:
+    ) -> DesktopInstance:
         """Create a Desktop
 
         Args:
@@ -404,7 +411,7 @@ class DesktopProvider(ABC, Generic[DP]):
         pass
 
     @abstractmethod
-    def list(self) -> List[DesktopVM]:
+    def list(self) -> List[DesktopInstance]:
         """List VMs
 
         Returns:
@@ -413,7 +420,9 @@ class DesktopProvider(ABC, Generic[DP]):
         pass
 
     @abstractmethod
-    def get(self, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
+    def get(
+        self, name: str, owner_id: Optional[str] = None
+    ) -> Optional[DesktopInstance]:
         """Get a VM
 
         Args:
