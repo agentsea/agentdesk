@@ -182,11 +182,37 @@ class DesktopInstance(WithDB):
         return out
 
     @classmethod
-    def delete(cls, id: str) -> None:
+    def delete(cls, id: str, force: bool = False) -> None:
+        try:
+            instances = DesktopInstance.find(id=id)
+            if instances is None:
+                raise ValueError(f"Desktop with id {id} not found")
+
+            instance = instances[0]
+            if not instance.provider:
+                raise ValueError(f"Desktop with id {id} not found")
+
+            if instance.provider.type == "kube":
+                from .kube import KubernetesProvider, KubeConnectConfig
+
+                if not instance.provider.args:
+                    raise ValueError(f"No args for kube provider while deleting {id}")
+
+                cfg = KubeConnectConfig.model_validate_json(
+                    instance.provider.args["cfg"]
+                )
+                provider = KubernetesProvider(cfg=cfg)
+
+                provider.delete(instance.name)
+        except Exception as e:
+            if not force:
+                raise e
+
         for db in cls.get_db():
             record = db.query(V1DesktopRecord).filter(V1DesktopRecord.id == id).first()
             if record is None:
                 raise ValueError(f"Desktop with id {id} not found")
+
             db.delete(record)
             db.commit()
 

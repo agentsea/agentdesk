@@ -333,6 +333,7 @@ class KubernetesProvider(DesktopProvider):
 
     def refresh(self, log: bool = True) -> None:
         """Refresh state"""
+
         label_selector = "provisioner=agentdesk"
         running_pods = self.core_api.list_namespaced_pod(
             namespace=self.namespace, label_selector=label_selector
@@ -353,7 +354,7 @@ class KubernetesProvider(DesktopProvider):
                 print(
                     f"Instance '{instance_name}' is in the database but not running. Removing from database."
                 )
-                instance.delete(force=True)
+                instance.delete(instance.id, force=True)
 
         logger.debug(
             "Refresh complete. State synchronized between Kubernetes and the database."
@@ -658,7 +659,7 @@ class KubernetesProvider(DesktopProvider):
             try:
                 if response:  # type: ignore
                     response.close()
-            except:
+            except Exception:
                 pass
 
     def setup_signal_handlers(self):
