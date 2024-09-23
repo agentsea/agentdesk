@@ -1,7 +1,7 @@
 import sys
 import os
-from agentdesk.vm import GCEProvider
-from agentdesk.vm.img import JAMMY
+from agentdesk.runtime.gce import GCEProvider
+from agentdesk.runtime.img import JAMMY
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 # TODO

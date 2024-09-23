@@ -319,7 +319,7 @@ class KubernetesProvider(DesktopProvider):
         )
 
     @classmethod
-    def from_data(cls, data: V1ProviderData) -> DP:
+    def from_data(cls, data: V1ProviderData) -> "KubernetesProvider":
         """From provider data
 
         Args:
