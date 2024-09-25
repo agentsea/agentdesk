@@ -5,7 +5,7 @@ import io
 import os
 import time
 from enum import Enum
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Tuple, Type
 
 import requests
 from devicebay import Action, Device, ReactComponent, action, observation
@@ -36,7 +36,6 @@ from .util import (
     extract_file_path,
     extract_gcs_info,
     generate_random_string,
-    b64_to_image,
 )
 from .runtime.qemu import QemuProvider
 
@@ -63,7 +62,7 @@ class ConnectConfig(BaseModel):
 
 
 class ProvisionConfig(BaseModel):
-    provider: V1ProviderData = V1ProviderData(type="qemu")
+    provider: V1ProviderData = V1ProviderData(type="docker")
     image: Optional[str] = None
     memory: int = 4
     cpus: int = 2

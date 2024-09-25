@@ -13,7 +13,7 @@ from docker.errors import NotFound, APIError
 from tqdm import tqdm
 from namesgenerator import get_random_name
 
-from .base import DesktopInstance, V1ProviderData
+from .base import DesktopInstance, V1ProviderData, DesktopProvider
 from agentdesk.util import find_open_port
 
 
@@ -24,7 +24,7 @@ class DockerConnectConfig(BaseModel):
     timeout: Optional[int] = None
 
 
-class DockerProvider:
+class DockerProvider(DesktopProvider):
     """A docker desktop provider"""
 
     def __init__(self, cfg: Optional[DockerConnectConfig] = None) -> None:
@@ -98,8 +98,16 @@ class DockerProvider:
         if not image:
             image = "us-docker.pkg.dev/agentsea-dev/agentd/desktop-webtop:latest"
 
-        port = find_open_port(9090, 10090)
-        if not port:
+        agentd_port = find_open_port(9090, 10090)
+        if not agentd_port:
+            raise ValueError("Could not find open port")
+
+        display_port = find_open_port(3000, 4000)
+        if not display_port:
+            raise ValueError("Could not find open port")
+
+        ws_vnc_port = find_open_port(3100, 4100)
+        if not ws_vnc_port:
             raise ValueError("Could not find open port")
 
         env_vars = {}
@@ -116,7 +124,11 @@ class DockerProvider:
         container_params = {
             "image": image,
             "network": "agentsea",
-            "ports": {port: port},
+            "ports": {
+                agentd_port: agentd_port,
+                display_port: display_port,
+                ws_vnc_port: ws_vnc_port,
+            },
             "environment": env_vars,
             "detach": True,
             "labels": labels,
@@ -144,7 +156,7 @@ class DockerProvider:
             raise RuntimeError(f"Container '{name}' did not start in time")
 
         # Check /health endpoint
-        health_url = f"http://localhost:{port}/health"
+        health_url = f"http://localhost:{agentd_port}/health"
         for _ in range(60):
             try:
                 print("waiting for agent to be ready...")
@@ -161,12 +173,16 @@ class DockerProvider:
 
         return DesktopInstance(
             name=name,
-            addr=f"http://localhost:{port}",
+            addr=f"http://localhost:{agentd_port}",
             cpu=cpu,
             memory=f"{memory}Gi",
             disk=disk,
             owner_id=owner_id,
             metadata=metadata,
+            agentd_port=agentd_port,
+            display_port=display_port,
+            ws_vnc_port=ws_vnc_port,
+            requires_proxy=False,
         )
 
     def delete(self, name: str, owner_id: Optional[str] = None) -> None:
@@ -256,7 +272,7 @@ class DockerProvider:
         """
         args = {}
         if self._cfg:
-            args["cfg"] = self._cfg.model_dump()
+            args["cfg"] = self._cfg.model_dump_json()
 
         return V1ProviderData(
             type="docker",
@@ -270,7 +286,11 @@ class DockerProvider:
         Args:
             data (ProviderData): Provider data
         """
-        return cls(cfg=DockerConnectConfig.model_validate(data.args))
+        if data.args:
+            cfg = DockerConnectConfig.model_validate_json(data.args["cfg"])
+        else:
+            cfg = DockerConnectConfig()
+        return cls(cfg=cfg)
 
     def refresh(self, log: bool = True) -> None:
         """Refresh state"""

@@ -2,34 +2,35 @@
 import atexit
 import base64
 import io
-import os
-import time
 from enum import Enum
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Tuple, Type
+import urllib.parse
 
 import requests
 from devicebay import Action, Device, ReactComponent, action, observation
-from google.cloud import storage
 from PIL import Image
 from pydantic import BaseModel
 
 from .key import SSHKeyPair
 from .server.models import V1ProviderData
-from .vm.base import DesktopInstance
-from .vm.load import load_provider
+from .runtime.base import DesktopInstance
+from .runtime.load import load_provider
 
 try:
-    from .vm.gce import GCEProvider
+    from .runtime.gce import GCEProvider
 except ImportError:
     print(
         "GCE provider unavailable, install with `pip install agentdesk[gce] if desired"
     )
 try:
-    from .vm.ec2 import EC2Provider
+    from .runtime.ec2 import EC2Provider
 except ImportError:
     print(
         "AWS provider unavailable, install with `pip install agentdesk[aws] if desired"
     )
+
+from .runtime.docker import DockerProvider
+from .runtime.kube import KubernetesProvider, KubeConnectConfig
 
 from .proxy import cleanup_proxy, ensure_ssh_proxy
 from .util import (
@@ -38,7 +39,7 @@ from .util import (
     generate_random_string,
     b64_to_image,
 )
-from .vm.qemu import QemuProvider
+from .runtime.qemu import QemuProvider
 
 
 class StorageStrategy(Enum):
@@ -48,7 +49,7 @@ class StorageStrategy(Enum):
 
 class ConnectConfig(BaseModel):
     agentd_url: Optional[str] = None
-    vm: Optional[str] = None
+    instance: Optional[str] = None
     storage_uri: str = "file://.media"
     type_min_interval: float = 0.05
     type_max_interval: float = 0.25
@@ -63,7 +64,7 @@ class ConnectConfig(BaseModel):
 
 
 class ProvisionConfig(BaseModel):
-    provider: V1ProviderData = V1ProviderData(type="qemu")
+    provider: V1ProviderData = V1ProviderData(type="docker")
     image: Optional[str] = None
     memory: int = 4
     cpus: int = 2
@@ -79,7 +80,7 @@ class Desktop(Device):
     def __init__(
         self,
         agentd_url: Optional[str] = None,
-        vm: Optional[DesktopInstance] = None,
+        instance: Optional[DesktopInstance] = None,
         storage_uri: str = "file://.media",
         type_min_interval: float = 0.05,
         type_max_interval: float = 0.25,
@@ -97,8 +98,8 @@ class Desktop(Device):
 
         Args:
             agentd_url (str, optional): URL of a running agentd server. Defaults to None.
-            vm (str, optional): Optional desktop VM to use. Defaults to None.
-            storage_uri (str): The directory where to store images or videos taken of the VM, supports gs:// or file://. Defaults to file://.media.
+            instance (str, optional): Optional desktop VM to use. Defaults to None.
+            storage_uri (str): The directory where to store images or videos taken of the Instance, supports gs:// or file://. Defaults to file://.media.
             type_min_interval (float, optional): Min interval between pressing next key. Defaults to 0.05.
             type_max_interval (float, optional): Max interval between pressing next key. Defaults to 0.25.
             move_mouse_duration (float, optional): How long should it take to move. Defaults to 1.0.
@@ -112,21 +113,21 @@ class Desktop(Device):
             check_health (bool, optional): Whether to check the health of the server. Defaults to True.
         """
         super().__init__()
-        self._vm = vm
+        self._vm = instance
         self._agentd_url = agentd_url
 
         self._key_pair_name = None
-        if vm:
-            if vm.requires_proxy:
-                self._agentd_url = vm.addr
+        if instance:
+            if instance.requires_proxy:
+                self._agentd_url = instance.addr
                 self.base_url = f"localhost:{proxy_port}"
             else:
-                self.base_url = vm.addr
-                if vm.provider and vm.provider.type == "qemu":
-                    self.base_url = f"{vm.addr}:8000"
+                self.base_url = instance.addr
+                if instance.provider and instance.provider.type == "qemu":
+                    self.base_url = f"{instance.addr}:8000"
                 self._agentd_url = self.base_url
 
-            self._key_pair_name = vm.key_pair_name
+            self._key_pair_name = instance.key_pair_name
             keys = SSHKeyPair.find(name=self._key_pair_name)
             if not keys:
                 raise ValueError(f"No key found with name {self._key_pair_name}")
@@ -147,20 +148,22 @@ class Desktop(Device):
         self._mouse_tween = mouse_tween
         self._store_img = store_img
         self._proxy_port = proxy_port
-        self._requires_proxy = requires_proxy if vm is None else vm.requires_proxy
+        self._requires_proxy = (
+            requires_proxy if instance is None else instance.requires_proxy
+        )
         self._private_ssh_key = private_ssh_key
         self._ssh_port = ssh_port
         self._proxy_type = proxy_type
 
         if self._requires_proxy:
             if proxy_type == "process":
-                print("starting proxy to vm...")
+                print("starting proxy to instance...")
                 proxy_pid = ensure_ssh_proxy(
                     local_port=proxy_port,
                     remote_port=8000,
-                    ssh_port=vm.ssh_port if vm else ssh_port,
+                    ssh_port=instance.ssh_port if instance else ssh_port,
                     ssh_user="agentsea",
-                    ssh_host=vm.addr if vm else agentd_url,  # type: ignore
+                    ssh_host=instance.addr if instance else agentd_url,  # type: ignore
                     ssh_key=private_ssh_key,
                 )
                 atexit.register(cleanup_proxy, proxy_pid)
@@ -171,7 +174,7 @@ class Desktop(Device):
             if proxy_type == "mock":
                 pass
         else:
-            print("vm doesn't require proxy")
+            print("instance doesn't require proxy")
 
         try:
             if check_health:
@@ -189,9 +192,9 @@ class Desktop(Device):
         config: ProvisionConfig,
     ) -> "Desktop":
         """Find or create a desktop"""
-        vm = DesktopInstance.get(name)
-        if vm:
-            return cls.from_vm(vm)
+        instance = DesktopInstance.get(name)
+        if instance:
+            return cls.from_instance(instance)
 
         return cls.create(
             name=name,
@@ -207,7 +210,7 @@ class Desktop(Device):
         """Create a desktop VM"""
 
         provider = load_provider(config.provider)
-        vm = provider.create(
+        instance = provider.create(
             name=name,
             image=config.image,
             memory=config.memory,
@@ -216,7 +219,7 @@ class Desktop(Device):
             reserve_ip=config.reserve_ip,
             ssh_key_pair=config.ssh_key_pair,
         )
-        return cls.from_vm(vm, proxy_port=config.proxy_port)
+        return cls.from_instance(instance, proxy_port=config.proxy_port)
 
     @classmethod
     def ec2(
@@ -236,6 +239,55 @@ class Desktop(Device):
 
         config = ProvisionConfig(
             provider=EC2Provider(region=region).to_data(),  # type: ignore
+            image=image,
+            memory=memory,
+            cpus=cpus,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            ssh_key_pair=ssh_key_pair,
+        )
+        return cls.create(name=name, config=config)
+
+    @classmethod
+    def docker(
+        cls,
+        name: Optional[str] = None,
+        image: Optional[str] = None,
+        memory: int = 2,
+        cpus: int = 1,
+        disk: str = "30gb",
+        reserve_ip: bool = False,
+        ssh_key_pair: Optional[str] = None,
+    ) -> "Desktop":
+        """Create a desktop container on docker"""
+
+        config = ProvisionConfig(
+            provider=DockerProvider().to_data(),  # type: ignore
+            image=image,
+            memory=memory,
+            cpus=cpus,
+            disk=disk,
+            reserve_ip=reserve_ip,
+            ssh_key_pair=ssh_key_pair,
+        )
+        return cls.create(name=name, config=config)
+
+    @classmethod
+    def kube(
+        cls,
+        name: Optional[str] = None,
+        image: Optional[str] = None,
+        memory: int = 2,
+        cpus: int = 1,
+        disk: str = "30gb",
+        reserve_ip: bool = False,
+        ssh_key_pair: Optional[str] = None,
+    ) -> "Desktop":
+        """Create a desktop container on kubernetes"""
+        cfg = KubeConnectConfig()
+
+        config = ProvisionConfig(
+            provider=KubernetesProvider(cfg=cfg).to_data(),  # type: ignore
             image=image,
             memory=memory,
             cpus=cpus,
@@ -283,7 +335,7 @@ class Desktop(Device):
         """Create a local VM
 
         Args:
-            name (str, optional): Name of the vm. Defaults to None.
+            name (str, optional): Name of the instance. Defaults to None.
             memory (int, optional): Memory the VM has. Defaults to 4.
             cpus (int, optional): CPUs the VM has. Defaults to 2.
 
@@ -297,16 +349,16 @@ class Desktop(Device):
 
     @classmethod
     def connect(cls, config: ConnectConfig) -> "Desktop":
-        vm = None
-        if config.vm:
-            vms = DesktopInstance.find(name=config.vm)
+        instance = None
+        if config.instance:
+            vms = DesktopInstance.find(name=config.instance)
             if not vms:
-                raise ValueError(f"VM {config.vm} was not found")
-            vm = vms[0]
+                raise ValueError(f"VM {config.instance} was not found")
+            instance = vms[0]
         return cls(
             agentd_url=config.agentd_url,
             private_ssh_key=config.private_ssh_key,
-            vm=vm,
+            instance=instance,
             storage_uri=config.storage_uri,
             type_min_interval=config.type_min_interval,
             type_max_interval=config.type_max_interval,
@@ -361,9 +413,9 @@ class Desktop(Device):
         return ReactComponent()
 
     @classmethod
-    def from_vm(
+    def from_instance(
         cls,
-        vm: DesktopInstance,
+        instance: DesktopInstance,
         proxy_type: str = "process",
         proxy_port: int = 8000,
         check_health: bool = True,
@@ -371,7 +423,7 @@ class Desktop(Device):
         """Create a desktop from a VM
 
         Args:
-            vm (DesktopInstance): VM to use
+            instance (DesktopInstance): Instance to use
             proxy_type (str, optional): The type of proxy to use. Defaults to process.
             proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.
             check_health (bool, optional): Check the health of the VM. Defaults to True.
@@ -380,11 +432,11 @@ class Desktop(Device):
             Desktop: A desktop
         """
         return Desktop(
-            vm=vm,
+            instance=instance,
             proxy_type=proxy_type,
             proxy_port=proxy_port,
             check_health=check_health,
-            ssh_port=vm.ssh_port,
+            ssh_port=instance.ssh_port,
         )
 
     @classmethod
@@ -414,7 +466,7 @@ class Desktop(Device):
         Returns:
             dict: A dictionary of info
         """
-        response = requests.get(f"{self.base_url}/info")
+        response = requests.get(f"{self.base_url}/v1/info")
         return response.json()
 
     def view(self, background: bool = False) -> None:
@@ -445,7 +497,7 @@ class Desktop(Device):
         Args:
             url (str): URL to open
         """
-        requests.post(f"{self.base_url}/open_url", json={"url": url})
+        requests.post(f"{self.base_url}/v1/open_url", json={"url": url})
         return
 
     @action
@@ -457,7 +509,7 @@ class Desktop(Device):
             y (int): y coordinate
         """
         requests.post(
-            f"{self.base_url}/move_mouse",
+            f"{self.base_url}/v1/move_mouse",
             json={
                 "x": x,
                 "y": y,
@@ -482,7 +534,7 @@ class Desktop(Device):
         if x and y:
             body["location"] = {"x": x, "y": y}  # type: ignore
 
-        requests.post(f"{self.base_url}/click", json=body)
+        requests.post(f"{self.base_url}/v1/click", json=body)
         return
 
     @action
@@ -512,7 +564,7 @@ class Desktop(Device):
                 "volumeup", "win", "winleft", "winright", "yen", "command", "option",
                 "optionleft", "optionright" ]
         """
-        requests.post(f"{self.base_url}/press_key", json={"key": key})
+        requests.post(f"{self.base_url}/v1/press_key", json={"key": key})
         return
 
     @action
@@ -542,7 +594,7 @@ class Desktop(Device):
                 "volumeup", "win", "winleft", "winright", "yen", "command", "option",
                 "optionleft", "optionright" ]
         """
-        requests.post(f"{self.base_url}/hot_key", json={"keys": keys})
+        requests.post(f"{self.base_url}/v1/hot_key", json={"keys": keys})
         return
 
     @action
@@ -552,7 +604,7 @@ class Desktop(Device):
         Args:
             clicks (int, optional): Number of clicks, negative scrolls down, positive scrolls up. Defaults to -3.
         """
-        requests.post(f"{self.base_url}/scroll", json={"clicks": clicks})
+        requests.post(f"{self.base_url}/v1/scroll", json={"clicks": clicks})
         return
 
     @action
@@ -563,13 +615,13 @@ class Desktop(Device):
             x (int): x coordinate
             y (int): y coordinate
         """
-        requests.post(f"{self.base_url}/drag_mouse", json={"x": x, "y": y})
+        requests.post(f"{self.base_url}/v1/drag_mouse", json={"x": x, "y": y})
         return
 
     @action
     def double_click(self) -> None:
         """Double click the mouse"""
-        requests.post(f"{self.base_url}/double_click")
+        requests.post(f"{self.base_url}/v1/double_click")
         return
 
     @action
@@ -580,7 +632,7 @@ class Desktop(Device):
             text (str): Text to type
         """
         requests.post(
-            f"{self.base_url}/type_text",
+            f"{self.base_url}/v1/type_text",
             json={
                 "text": text,
                 "min_interval": self._type_min_interval,
@@ -589,44 +641,42 @@ class Desktop(Device):
         )
         return
 
+    @action
+    def exec(self, cmd: str) -> None:
+        """Execute a command
+
+        Args:
+            cmd (str): Command to execute
+        """
+        encoded_cmd = urllib.parse.quote(cmd)
+        response = requests.post(f"{self.base_url}/v1/exec?command={encoded_cmd}")
+        response.raise_for_status()
+
+        return
+
     @observation
-    def take_screenshot(self) -> Image.Image:
-        """Take screenshot
+    def take_screenshots(self, count: int = 1, delay: float = 0.0) -> List[Image.Image]:
+        """Take screenshots
 
         Returns:
-            str: b64 encoded image or URI of the image depending on instance settings
+            List[Image.Image]: List of PIL Image objects
         """
-        response = requests.post(f"{self.base_url}/v1/screenshots")
+        params = {"count": count, "delay": delay}
+        encoded_params = urllib.parse.urlencode(params)
+        response = requests.post(f"{self.base_url}/v1/screenshot?{encoded_params}")
+        response.raise_for_status()
         jdict = response.json()
 
-        if not self._store_img:
-            return jdict["image"]
+        images = jdict["images"]
 
-        image_data = base64.b64decode(jdict["image"])
-        image_stream = io.BytesIO(image_data)
-        image = Image.open(image_stream)
+        out = []
+        for image in images:
+            image_data = base64.b64decode(image)
+            image_stream = io.BytesIO(image_data)
+            img = Image.open(image_stream)
+            out.append(img)
 
-        filename = f"screen-{int(time.time())}-{generate_random_string()}.png"
-
-        if self.storage_uri.startswith("file://"):
-            filepath = extract_file_path(self.storage_uri)
-            save_path = os.path.join(filepath, filename)
-            image.save(save_path)
-            return save_path
-
-        elif self.storage_uri.startswith("gs://"):
-            bucket_name, object_path = extract_gcs_info(self.storage_uri)
-            object_path = os.path.join(object_path, filename)
-
-            client = storage.Client()
-            bucket = client.bucket(bucket_name)
-            blob = bucket.blob(object_path)
-            blob.upload_from_string(image_data, content_type="image/png")
-
-            blob.make_public()
-            return blob.public_url
-        else:
-            raise ValueError("Invalid store_type. Choose 'file' or 'gcs'.")
+        return out
 
     @observation
     def mouse_coordinates(self) -> Tuple[int, int]:
@@ -635,7 +685,7 @@ class Desktop(Device):
         Returns:
             Tuple[int, int]: x, y coordinates
         """
-        response = requests.get(f"{self.base_url}/mouse_coordinates")
+        response = requests.get(f"{self.base_url}/v1/mouse_coordinates")
         jdict = response.json()
 
         return jdict["x"], jdict["y"]

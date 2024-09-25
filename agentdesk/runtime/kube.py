@@ -214,7 +214,6 @@ class KubernetesProvider(DesktopProvider):
 
         instance = DesktopInstance(
             name=name,
-            addr="127.0.0.1",
             cpu=cpu,
             memory=f"{memory}Gi",
             disk=disk,
@@ -224,6 +223,10 @@ class KubernetesProvider(DesktopProvider):
                 type="kube",
                 args={"cfg": self.cfg.model_dump_json()},
             ),
+            ws_vnc_port=3001,
+            display_port=3000,
+            agentd_port=8000,
+            requires_proxy=True,
         )
 
         return instance

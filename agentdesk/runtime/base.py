@@ -14,7 +14,7 @@ from docker.models.containers import Container
 
 from agentdesk.db.conn import WithDB
 from agentdesk.db.models import V1DesktopRecord
-from agentdesk.server.models import V1Desktop, V1ProviderData
+from agentdesk.server.models import V1DesktopInstance, V1ProviderData
 from agentdesk.util import (
     get_docker_host,
     check_command_availability,
@@ -33,7 +33,7 @@ class DesktopInstance(WithDB):
     def __init__(
         self,
         name: str,
-        addr: str,
+        addr: Optional[str] = None,
         id: Optional[str] = None,
         cpu: Optional[int] = None,
         memory: Optional[str] = None,
@@ -48,6 +48,9 @@ class DesktopInstance(WithDB):
         ssh_port: int = 22,
         owner_id: Optional[str] = None,
         key_pair_name: Optional[str] = None,
+        agentd_port: int = 8000,
+        ws_vnc_port: Optional[int] = None,
+        display_port: Optional[int] = None,
     ) -> None:
         if not id:
             id = str(uuid.uuid4())
@@ -68,6 +71,9 @@ class DesktopInstance(WithDB):
         self.ssh_port = ssh_port
         self.owner_id = owner_id
         self.key_pair_name = key_pair_name
+        self.agentd_port = agentd_port
+        self.ws_vnc_port = ws_vnc_port
+        self.display_port = display_port
 
         self.save()
 
@@ -98,6 +104,9 @@ class DesktopInstance(WithDB):
             meta=metadata,
             owner_id=self.owner_id,
             key_pair_name=self.key_pair_name,
+            agentd_port=self.agentd_port,
+            ws_vnc_port=self.ws_vnc_port,
+            display_port=self.display_port,
         )
 
     def save(self) -> None:
@@ -129,6 +138,9 @@ class DesktopInstance(WithDB):
         out.ssh_port = record.ssh_port
         out.owner_id = record.owner_id
         out.key_pair_name = record.key_pair_name
+        out.agentd_port = record.agentd_port
+        out.ws_vnc_port = record.ws_vnc_port
+        out.display_port = record.display_port
         if record.provider:  # type: ignore
             dct = json.loads(str(record.provider))
             out.provider = V1ProviderData(**dct)
@@ -172,7 +184,7 @@ class DesktopInstance(WithDB):
         return out
 
     @classmethod
-    def find_v1(cls, **kwargs) -> List[V1Desktop]:
+    def find_v1(cls, **kwargs) -> List[V1DesktopInstance]:
         """Find desktops by given keyword arguments."""
         out = []
         for db in cls.get_db():
@@ -241,8 +253,8 @@ class DesktopInstance(WithDB):
             db.delete(record)
             db.commit()
 
-    def to_v1_schema(self) -> V1Desktop:
-        return V1Desktop(
+    def to_v1_schema(self) -> V1DesktopInstance:
+        return V1DesktopInstance(
             id=self.id,
             name=self.name,
             addr=self.addr,
@@ -257,6 +269,9 @@ class DesktopInstance(WithDB):
             meta=self.metadata,
             owner_id=self.owner_id,
             key_pair_name=self.key_pair_name,
+            agentd_port=self.agentd_port,
+            ws_vnc_port=self.ws_vnc_port,
+            display_port=self.display_port,
         )
 
     def view(
@@ -266,6 +281,9 @@ class DesktopInstance(WithDB):
         browser: bool = True,
     ) -> None:
         """Opens the desktop in a browser window"""
+
+        if self.provider and self.provider.type in ["kube", "docker"]:
+            webbrowser.open(f"http://localhost:{self.display_port}")
 
         if self.requires_proxy:
             keys = SSHKeyPair.find(name=self.key_pair_name)
@@ -284,7 +302,7 @@ class DesktopInstance(WithDB):
                 6080,
                 self.ssh_port,
                 "agentsea",
-                self.addr,
+                self.addr,  # type: ignore  # TODO: replace with proxy()
                 key_pair.decrypt_private_key(key_pair.private_key),
                 bind_addr=bind_addr,
             )

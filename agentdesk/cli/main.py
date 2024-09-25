@@ -12,8 +12,8 @@ from agentdesk.config import AGENTSEA_HOME
 from agentdesk.key import SSHKeyPair
 from agentdesk.server.models import V1ProviderData
 from agentdesk.util import convert_unix_to_datetime
-from agentdesk.vm import DesktopInstance
-from agentdesk.vm.load import load_provider
+from agentdesk.runtime import DesktopInstance
+from agentdesk.runtime.load import load_provider
 
 app = typer.Typer(no_args_is_help=True)
 
