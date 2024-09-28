@@ -282,8 +282,12 @@ class DesktopInstance(WithDB):
     ) -> None:
         """Opens the desktop in a browser window"""
 
-        if self.provider and self.provider.type in ["kube", "docker"]:
+        if self.provider and self.provider.type in ["docker"]:
             webbrowser.open(f"http://localhost:{self.display_port}")
+            return
+
+        elif self.provider and self.provider.type in ["kube"]:
+            raise NotImplementedError("Not implemented for kube provider")
 
         if self.requires_proxy:
             keys = SSHKeyPair.find(name=self.key_pair_name)

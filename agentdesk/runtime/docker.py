@@ -98,7 +98,7 @@ class DockerProvider(DesktopProvider):
         if not image:
             image = "us-docker.pkg.dev/agentsea-dev/agentd/desktop-webtop:latest"
 
-        agentd_port = find_open_port(9090, 10090)
+        agentd_port = find_open_port(8000, 9000)
         if not agentd_port:
             raise ValueError("Could not find open port")
 
@@ -125,9 +125,9 @@ class DockerProvider(DesktopProvider):
             "image": image,
             "network": "agentsea",
             "ports": {
-                agentd_port: agentd_port,
-                display_port: display_port,
-                ws_vnc_port: ws_vnc_port,
+                8000: agentd_port,
+                3000: display_port,
+                3001: ws_vnc_port,
             },
             "environment": env_vars,
             "detach": True,
@@ -160,7 +160,9 @@ class DockerProvider(DesktopProvider):
         for _ in range(60):
             try:
                 print("waiting for agent to be ready...")
+                print(f"checking health at {health_url}")
                 response = requests.get(health_url)
+                print(f"response: {response}")
                 if response.status_code == 200:
                     print(f"Health check passed for '{name}'")
                     break
@@ -183,6 +185,7 @@ class DockerProvider(DesktopProvider):
             display_port=display_port,
             ws_vnc_port=ws_vnc_port,
             requires_proxy=False,
+            provider=self.to_data(),
         )
 
     def delete(self, name: str, owner_id: Optional[str] = None) -> None:

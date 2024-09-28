@@ -219,10 +219,7 @@ class KubernetesProvider(DesktopProvider):
             disk=disk,
             metadata=metadata,
             owner_id=owner_id,
-            provider=V1ProviderData(
-                type="kube",
-                args={"cfg": self.cfg.model_dump_json()},
-            ),
+            provider=self.to_data(),
             ws_vnc_port=3001,
             display_port=3000,
             agentd_port=8000,

@@ -49,8 +49,8 @@ def create(
         None, help="The name of the desktop to create. Defaults to a generated name."
     ),
     provider: str = typer.Option(
-        "qemu",
-        help="The provider type for the desktop. Options are 'ec2', 'gce', and 'qemu'",
+        "docker",
+        help="The provider type for the desktop. Options are 'docker', 'kubernetes', 'ec2', 'gce', and 'qemu'",
     ),
     image: Optional[str] = typer.Option(
         None, help="The image to use for the desktop. Defaults to Ubuntu Jammy."
@@ -122,12 +122,12 @@ def get(
         return
 
     provider_is_refreshed = {}
-    vms = DesktopInstance.find()
-    if not vms:
+    instances = DesktopInstance.find()
+    if not instances:
         print("No desktops found")
     else:
         table = []
-        for desktop in vms:
+        for desktop in instances:
             if not desktop.provider:
                 continue
             if provider:
@@ -152,6 +152,7 @@ def get(
                     convert_unix_to_datetime(int(desktop.created)),
                     desktop.provider.type,  # type: ignore
                     desktop.reserved_ip,
+                    desktop.agentd_port,
                 ]
             )
 
@@ -166,6 +167,7 @@ def get(
                     "Created",
                     "Provider",
                     "Reserved IP",
+                    "Agentd Port",
                 ],
             )
         )
