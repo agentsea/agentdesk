@@ -50,7 +50,7 @@ def create(
     ),
     provider: str = typer.Option(
         "docker",
-        help="The provider type for the desktop. Options are 'docker', 'kubernetes', 'ec2', 'gce', and 'qemu'",
+        help="The provider type for the desktop. Options are 'docker', 'kube', 'ec2', 'gce', and 'qemu'",
     ),
     image: Optional[str] = typer.Option(
         None, help="The image to use for the desktop. Defaults to Ubuntu Jammy."
@@ -196,7 +196,7 @@ def delete(
         return
 
     print(f"Deleting '{name}' desktop...")
-    _provider.delete(name)
+    desktop.delete()
     print(f"\nDesktop '{name}' successfully deleted")
 
 

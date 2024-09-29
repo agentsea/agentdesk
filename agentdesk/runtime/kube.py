@@ -93,15 +93,15 @@ class KubernetesProvider(DesktopProvider):
         """Create a Desktop
 
         Args:
-            name (str, optional): Name of the VM. Defaults to random generation.
-            image (str, optional): Image of the VM. Defaults to Ubuntu Jammy.
+            name (str, optional): Name of the desktop. Defaults to random generation.
+            image (str, optional): Image of the desktop. Defaults to Ubuntu Jammy.
             memory (int): Memory allotment. Defaults to 4gb.
             cpu (int): CPU allotment. Defaults to 2.
             disk (str): Disk allotment. Defaults to 30gb.
-            tags (List[str], optional): Tags to apply to the VM. Defaults to None.
+            tags (List[str], optional): Tags to apply to the desktop. Defaults to None.
             reserve_ip (bool, optional): Reserve an IP address. Defaults to False.
             ssh_key_pair (str, optional): SSH key pair name to use. Defaults to None.
-            owner_id (str, optional): Owner of the VM. Defaults to None.
+            owner_id (str, optional): Owner of the desktop. Defaults to None.
             metadata (Dict[str, Any], optional): Metadata to apply to the VM. Defaults to None.
 
         Returns:
@@ -141,6 +141,8 @@ class KubernetesProvider(DesktopProvider):
 
         logger.debug("using resources: ", resources.__dict__)
 
+        pod_name = self._get_pod_name(name)
+
         # Container configuration
         container = client.V1Container(
             name=name,
@@ -168,7 +170,7 @@ class KubernetesProvider(DesktopProvider):
             api_version="v1",
             kind="Pod",
             metadata=client.V1ObjectMeta(
-                name=name,
+                name=pod_name,
                 labels={"provisioner": "agentdesk"},
                 annotations={
                     "owner": owner_id,
@@ -182,7 +184,7 @@ class KubernetesProvider(DesktopProvider):
             created_pod: client.V1Pod = self.core_api.create_namespaced_pod(  # type: ignore
                 namespace=self.namespace, body=pod
             )
-            print(f"Pod created with name '{name}'")
+            print(f"Pod created with name '{pod_name}'")
             # print("created pod: ", created_pod.__dict__)
             # Update secret's owner reference UID to newly created pod's UID
             if secret:
@@ -195,7 +197,7 @@ class KubernetesProvider(DesktopProvider):
                     client.V1OwnerReference(
                         api_version="v1",
                         kind="Pod",
-                        name=name,
+                        name=pod_name,
                         uid=created_pod.metadata.uid,  # This should be set dynamically after pod creation
                     )
                 ]
@@ -215,7 +217,7 @@ class KubernetesProvider(DesktopProvider):
         instance = DesktopInstance(
             name=name,
             cpu=cpu,
-            memory=f"{memory}Gi",
+            memory=memory,
             disk=disk,
             metadata=metadata,
             owner_id=owner_id,
@@ -229,23 +231,26 @@ class KubernetesProvider(DesktopProvider):
         return instance
 
     def delete(self, name: str, owner_id: Optional[str] = None) -> None:
-        """Delete a VM
+        """Delete a desktop
 
         Args:
-            name (str): Name of the VM
-            owner_id (str, optional): Owner of the VM. Defaults to None
+            name (str): Name of the desktop
+            owner_id (str, optional): Owner of the desktop. Defaults to None
         """
         try:
+            pod_name = self._get_pod_name(name)
             # Delete the pod
             self.core_api.delete_namespaced_pod(
-                name=name,
+                name=pod_name,
                 namespace="default",
                 body=client.V1DeleteOptions(grace_period_seconds=5),
             )
-            self.core_api.delete_namespaced_secret(name=name, namespace=self.namespace)
-            print(f"Successfully deleted pod: {name}")
+            self.core_api.delete_namespaced_secret(
+                name=pod_name, namespace=self.namespace
+            )
+            print(f"Successfully deleted pod: {pod_name}")
         except ApiException as e:
-            print(f"Failed to delete pod '{name}': {e}")
+            print(f"Failed to delete pod '{pod_name}': {e}")
             raise
 
     def start(
@@ -254,28 +259,28 @@ class KubernetesProvider(DesktopProvider):
         private_ssh_key: Optional[str] = None,
         owner_id: Optional[str] = None,
     ) -> None:
-        """Start a VM
+        """Start a desktop
 
         Args:
-            name (str): Name of the VM
+            name (str): Name of the desktop
             private_ssh_key (str, optional): SSH key to use. Defaults to use ~/.ssh/id_rsa.
         """
         raise NotImplementedError("start not implemented")
 
     def stop(self, name: str, owner_id: Optional[str] = None) -> None:
-        """Stop a VM
+        """Stop a desktop
 
         Args:
-            name (str): Name of the VM
-            owner_id (str, optional): Owner of the VM. Defaults to None
+            name (str): Name of the desktop
+            owner_id (str, optional): Owner of the desktop. Defaults to None
         """
         raise NotImplementedError("stop not implemented")
 
     def list(self) -> List[DesktopInstance]:
-        """List VMs
+        """List desktops
 
         Returns:
-            List[VM]: A list of VMs
+            List[DesktopInstance]: A list of desktops
         """
         desktops = DesktopInstance.find()
 
@@ -291,11 +296,11 @@ class KubernetesProvider(DesktopProvider):
     def get(
         self, name: str, owner_id: Optional[str] = None
     ) -> Optional[DesktopInstance]:
-        """Get a VM
+        """Get a desktop
 
         Args:
-            name (str): Name of the VM
-            owner_id (str, optional): Owner of the VM. Defaults to None
+            name (str): Name of the desktop
+            owner_id (str, optional): Owner of the desktop. Defaults to None
         """
         desktops = DesktopInstance.find(name=name, owner_id=owner_id)
 
@@ -350,11 +355,11 @@ class KubernetesProvider(DesktopProvider):
 
         # Check for instances in the database that are not running as pods
         for instance_name, instance in db_instances_map.items():
-            if instance_name not in running_pods_map:
+            if self._get_pod_name(instance_name) not in running_pods_map:
                 print(
                     f"Instance '{instance_name}' is in the database but not running. Removing from database."
                 )
-                instance.delete(instance.id, force=True)
+                instance.delete(force=True)
 
         logger.debug(
             "Refresh complete. State synchronized between Kubernetes and the database."
@@ -454,33 +459,34 @@ class KubernetesProvider(DesktopProvider):
         return v1_client, project_id, cluster_name
 
     @retry(stop=stop_after_attempt(200), wait=wait_fixed(2))
-    def wait_for_http_200(self, name: str, path: str = "/", port: int = 9090):
+    def wait_for_http_200(self, name: str, path: str = "/", port: int = 8000):
         """
         Waits for an HTTP 200 response from the specified path on the given pod.
 
         Parameters:
             name (str): The name of the pod.
             path (str): The path to query. Defaults to root '/'.
-            port (int): The port on which the pod service is exposed. Defaults to 9090.
+            port (int): The port on which the pod service is exposed. Defaults to 8000.
 
         Raises:
             RuntimeError: If the response is not 200 after the specified retries.
         """
+        pod_name = self._get_pod_name(name)
         logger.debug(
-            f"Checking HTTP 200 readiness for pod {name} on path {path} and port: {port}"
+            f"Checking HTTP 200 readiness for pod {pod_name} on path {path} and port: {port}"
         )
-        print("Waiting for agent to be ready...")
+        print(f"Waiting for desktop {name} to be ready...")
         status_code, response_text = self.call(
             name=name, path=path, method="GET", port=port
         )
         if status_code != 200:
             logger.debug(f"Received status code {status_code}, retrying...")
             raise Exception(
-                f"Pod {name} at path {path} is not ready. Status code: {status_code}"
+                f"Pod {pod_name} at path {path} is not ready. Status code: {status_code}"
             )
-        logger.debug(f"Pod {name} at path {path} responded with: {response_text}")
-        logger.debug(f"Pod {name} at path {path} is ready with status 200.")
-        print(f"Health check passed for agent '{name}'")
+        logger.debug(f"Pod {pod_name} at path {path} responded with: {response_text}")
+        logger.debug(f"Pod {pod_name} at path {path} is ready with status 200.")
+        print(f"Health check passed for agent '{pod_name}'")
 
     @retry(stop=stop_after_attempt(200), wait=wait_fixed(2))
     def wait_pod_ready(self, name: str) -> bool:
@@ -494,16 +500,19 @@ class KubernetesProvider(DesktopProvider):
             bool: True if the pod is ready, False otherwise.
         """
         try:
-            pod = self.core_api.read_namespaced_pod(name=name, namespace=self.namespace)
+            pod_name = self._get_pod_name(name)
+            pod = self.core_api.read_namespaced_pod(
+                name=pod_name, namespace=self.namespace
+            )
             conditions = pod.status.conditions  # type: ignore
             if conditions:
                 for condition in conditions:
                     if condition.type == "Ready" and condition.status == "True":
                         return True
             print("Waiting for pod to be ready...")
-            raise Exception(f"Pod {name} is not ready")
+            raise Exception(f"Pod {pod_name} is not ready")
         except ApiException as e:
-            print(f"Failed to read pod status for '{name}': {e}")
+            print(f"Failed to read pod status for '{pod_name}': {e}")
             raise
 
     @retry(stop=stop_after_attempt(15))
@@ -512,7 +521,7 @@ class KubernetesProvider(DesktopProvider):
         name: str,
         path: str,
         method: str,
-        port: int = 9090,
+        port: int = 8000,
         data: Optional[dict] = None,
         headers: Optional[dict] = None,
     ) -> Tuple[int, str]:
@@ -616,7 +625,7 @@ class KubernetesProvider(DesktopProvider):
         # Access the nginx http server using the
         # "<pod-name>.pod.<namespace>.kubernetes" dns name.
         # Construct the URL with the custom path
-        url = f"http://{name.lower()}.pod.{namespace}.kubernetes:{port}{path}"
+        url = f"http://{self._get_pod_name(name).lower()}.pod.{namespace}.kubernetes:{port}{path}"
 
         # Create a request object based on the HTTP method
         if method.upper() == "GET":
@@ -688,20 +697,24 @@ class KubernetesProvider(DesktopProvider):
         """Whether this runtime requires a proxy to be used"""
         return True
 
+    def _get_pod_name(self, name: str) -> str:
+        """Get the pod name for the given name"""
+        return f"desk-{name}"
+
     def proxy(
         self,
         name: str,
         local_port: Optional[int] = None,
-        agent_port: int = 9090,
+        container_port: int = 3000,
         background: bool = True,
         owner_id: Optional[str] = None,
-    ) -> Optional[int]:
-        """Proxy the agent port to localhost.
+    ) -> Tuple[int, Optional[int]]:
+        """Proxy the desktop port to localhost.
 
         Args:
             name (str): Name of the agent
             local_port (Optional[int], optional): Local port to proxy to. Defaults to None.
-            agent_port (int, optional): Agent port. Defaults to 9090.
+            container_port (int, optional): Container port. Defaults to 3000.
             background (bool, optional): Whether to run in the background. Defaults to True.
             owner_id (Optional[str], optional): Owner ID. Defaults to None.
 
@@ -709,21 +722,26 @@ class KubernetesProvider(DesktopProvider):
             Optional[int]: An optional PID of the proxy
         """
         if local_port is None:
-            local_port = find_open_port(9090, 10090)
+            local_port = find_open_port(container_port, container_port + 1000)
+            if not local_port:
+                raise RuntimeError("Failed to find an open port")
 
-        cmd = f"kubectl port-forward pod/{name} {local_port}:{agent_port} -n {self.namespace}"
+        cmd = f"kubectl port-forward pod/{self._get_pod_name(name)} {local_port}:{container_port} -n {self.namespace}"
 
         if background:
             proc = subprocess.Popen(
                 cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
             self._register_cleanup(proc)
-            return proc.pid  # Return the PID of the subprocess
+            return (local_port, proc.pid)  # Return the PID of the subprocess
 
         else:
             try:
                 subprocess.run(cmd, shell=True, check=True)
-                return None  # No PID to return when not in background mode
+                return (
+                    local_port,
+                    None,
+                )  # No PID to return when not in background mode
             except subprocess.CalledProcessError as e:
                 raise RuntimeError(f"Port forwarding failed: {e}")
 
@@ -747,7 +765,7 @@ class KubernetesProvider(DesktopProvider):
         """
         try:
             return self.core_api.read_namespaced_pod_log(
-                name=name,
+                name=self._get_pod_name(name),
                 namespace=self.namespace,
                 follow=follow,
                 pretty="true",
@@ -773,7 +791,7 @@ class KubernetesProvider(DesktopProvider):
             api_version="v1",
             kind="Secret",
             metadata=client.V1ObjectMeta(
-                name=name,
+                name=self._get_pod_name(name),
                 namespace=self.namespace,
                 # This ensures that the secret is deleted when the pod is deleted.
                 labels={"provisioner": "agentdesk"},
@@ -785,7 +803,7 @@ class KubernetesProvider(DesktopProvider):
             self.core_api.create_namespaced_secret(
                 namespace=self.namespace, body=secret
             )
-            print(f"Secret created '{name}'")
+            print(f"Secret created '{self._get_pod_name(name)}'")
             return secret
         except ApiException as e:
             print(f"Failed to create secret: {e}")

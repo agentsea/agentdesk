@@ -36,7 +36,7 @@ class DesktopInstance(WithDB):
         addr: Optional[str] = None,
         id: Optional[str] = None,
         cpu: Optional[int] = None,
-        memory: Optional[str] = None,
+        memory: Optional[int] = None,
         disk: Optional[str] = None,
         pid: Optional[int] = None,
         status: str = "running",
@@ -193,37 +193,82 @@ class DesktopInstance(WithDB):
                 out.append(cls.from_record(record).to_v1_schema())
         return out
 
-    @classmethod
-    def delete(cls, id: str, force: bool = False) -> None:
+    def delete(self, force: bool = False) -> None:
         try:
-            instances = DesktopInstance.find(id=id)
-            if instances is None:
-                raise ValueError(f"Desktop with id {id} not found")
+            if not self.provider:
+                raise ValueError(f"Desktop with id {self.id} not found")
 
-            instance = instances[0]
-            if not instance.provider:
-                raise ValueError(f"Desktop with id {id} not found")
-
-            if instance.provider.type == "kube":
+            if self.provider.type == "kube":
                 from .kube import KubernetesProvider, KubeConnectConfig
 
-                if not instance.provider.args:
-                    raise ValueError(f"No args for kube provider while deleting {id}")
+                if not self.provider.args:
+                    raise ValueError(
+                        f"No args for kube provider while deleting {self.id}"
+                    )
 
-                cfg = KubeConnectConfig.model_validate_json(
-                    instance.provider.args["cfg"]
-                )
+                cfg = KubeConnectConfig.model_validate_json(self.provider.args["cfg"])
                 provider = KubernetesProvider(cfg=cfg)
 
-                provider.delete(instance.name)
+                provider.delete(self.name)
+
+            elif self.provider.type == "docker":
+                from .docker import DockerProvider, DockerConnectConfig
+
+                if not self.provider.args:
+                    raise ValueError(
+                        f"No args for kube provider while deleting {self.id}"
+                    )
+
+                cfg = DockerConnectConfig.model_validate_json(self.provider.args["cfg"])
+                provider = DockerProvider(cfg=cfg)
+
+                provider.delete(self.name)
+
+            elif self.provider.type == "ec2":
+                from .ec2 import EC2Provider
+
+                if not self.provider.args:
+                    raise ValueError(
+                        f"No args for kube provider while deleting {self.id}"
+                    )
+
+                provider = EC2Provider.from_data(self.provider)
+                provider.delete(self.name)
+
+            elif self.provider.type == "gce":
+                from .gce import GCEProvider
+
+                if not self.provider.args:
+                    raise ValueError(
+                        f"No args for kube provider while deleting {self.id}"
+                    )
+
+                provider = GCEProvider.from_data(self.provider)
+                provider.delete(self.name)
+
+            elif self.provider.type == "qemu":
+                from .qemu import QemuProvider
+
+                if not self.provider.args:
+                    raise ValueError(
+                        f"No args for kube provider while deleting {self.id}"
+                    )
+                provider = QemuProvider.from_data(self.provider)
+                provider.delete(self.name)
+
+            else:
+                raise ValueError(f"Unknown provider type: {self.provider.type}")
+
         except Exception as e:
             if not force:
                 raise e
 
-        for db in cls.get_db():
-            record = db.query(V1DesktopRecord).filter(V1DesktopRecord.id == id).first()
+        for db in self.get_db():
+            record = (
+                db.query(V1DesktopRecord).filter(V1DesktopRecord.id == self.id).first()
+            )
             if record is None:
-                raise ValueError(f"Desktop with id {id} not found")
+                raise ValueError(f"Desktop with id {self.id} not found")
 
             db.delete(record)
             db.commit()
@@ -287,7 +332,22 @@ class DesktopInstance(WithDB):
             return
 
         elif self.provider and self.provider.type in ["kube"]:
-            raise NotImplementedError("Not implemented for kube provider")
+            # TODO: add support for kube
+            from .kube import KubernetesProvider, KubeConnectConfig
+
+            if not self.provider.args:
+                raise ValueError(f"No args for kube provider while deleting {self.id}")
+
+            cfg = KubeConnectConfig.model_validate_json(self.provider.args["cfg"])
+            provider = KubernetesProvider(cfg=cfg)
+
+            local_port, _ = provider.proxy(self.name)
+            print(f"Proxy created on port {local_port}")
+
+            time.sleep(2)
+            webbrowser.open(f"http://localhost:{local_port}")
+            input("Press any key to exit...")
+            return
 
         if self.requires_proxy:
             keys = SSHKeyPair.find(name=self.key_pair_name)

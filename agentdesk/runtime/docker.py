@@ -177,7 +177,7 @@ class DockerProvider(DesktopProvider):
             name=name,
             addr=f"http://localhost:{agentd_port}",
             cpu=cpu,
-            memory=f"{memory}Gi",
+            memory=memory,
             disk=disk,
             owner_id=owner_id,
             metadata=metadata,
@@ -317,7 +317,7 @@ class DockerProvider(DesktopProvider):
                 print(
                     f"Instance '{instance_name}' is in the database but not running. Removing from database."
                 )
-                instance.delete(instance.id, force=True)
+                instance.delete(force=True)
 
         logger.debug(
             "Refresh complete. State synchronized between Docker and the database."
