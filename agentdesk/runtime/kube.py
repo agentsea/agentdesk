@@ -242,16 +242,26 @@ class KubernetesProvider(DesktopProvider):
             # Delete the pod
             self.core_api.delete_namespaced_pod(
                 name=pod_name,
-                namespace="default",
+                namespace=self.namespace,
                 body=client.V1DeleteOptions(grace_period_seconds=5),
-            )
-            self.core_api.delete_namespaced_secret(
-                name=pod_name, namespace=self.namespace
             )
             print(f"Successfully deleted pod: {pod_name}")
         except ApiException as e:
             print(f"Failed to delete pod '{pod_name}': {e}")
             raise
+
+        # Attempt to delete the secret
+        try:
+            self.core_api.delete_namespaced_secret(
+                name=pod_name, namespace=self.namespace
+            )
+            print(f"Successfully deleted secret: {pod_name}")
+        except ApiException as e:
+            if e.status == 404:
+                print(f"Secret '{pod_name}' not found, skipping deletion.")
+            else:
+                print(f"Failed to delete secret '{pod_name}': {e}")
+                raise
 
     def start(
         self,
@@ -486,7 +496,7 @@ class KubernetesProvider(DesktopProvider):
             )
         logger.debug(f"Pod {pod_name} at path {path} responded with: {response_text}")
         logger.debug(f"Pod {pod_name} at path {path} is ready with status 200.")
-        print(f"Health check passed for agent '{pod_name}'")
+        print(f"Health check passed for desktop '{name}'")
 
     @retry(stop=stop_after_attempt(200), wait=wait_fixed(2))
     def wait_pod_ready(self, name: str) -> bool:
