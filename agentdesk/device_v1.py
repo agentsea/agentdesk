@@ -10,6 +10,7 @@ import requests
 from devicebay import Action, Device, ReactComponent, action, observation
 from PIL import Image
 from pydantic import BaseModel
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from .key import SSHKeyPair
 from .server.models import V1ProviderData
@@ -113,7 +114,7 @@ class Desktop(Device):
             check_health (bool, optional): Whether to check the health of the server. Defaults to True.
         """
         super().__init__()
-        self._vm = instance
+        self._instance = instance
         self._agentd_url = agentd_url
 
         self._key_pair_name = None
@@ -127,13 +128,14 @@ class Desktop(Device):
                     self.base_url = f"{instance.addr}:8000"
                 self._agentd_url = self.base_url
 
-            self._key_pair_name = instance.key_pair_name
-            keys = SSHKeyPair.find(name=self._key_pair_name)
-            if not keys:
-                raise ValueError(f"No key found with name {self._key_pair_name}")
-            key_pair = keys[0]
+            if instance.key_pair_name:
+                self._key_pair_name = instance.key_pair_name
+                keys = SSHKeyPair.find(name=self._key_pair_name)
+                if not keys:
+                    raise ValueError(f"No key found with name {self._key_pair_name}")
+                key_pair = keys[0]
 
-            private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
+                private_ssh_key = key_pair.decrypt_private_key(key_pair.private_key)
 
         else:
             self.base_url = agentd_url
@@ -156,7 +158,24 @@ class Desktop(Device):
         self._proxy_type = proxy_type
 
         if self._requires_proxy:
-            if proxy_type == "process":
+            if (
+                instance and instance.provider and instance.provider.type == "kube"
+            ):  # TODO: use `provider.proxy` for everything
+                if not instance.provider.args:
+                    raise ValueError(f"No args for intance {instance.id}")
+
+                cfg = KubeConnectConfig.model_validate_json(
+                    instance.provider.args["cfg"]
+                )
+                provider = KubernetesProvider(cfg=cfg)
+
+                local_port, _ = provider.proxy(
+                    instance.name, container_port=instance.agentd_port
+                )
+                self._agentd_url = f"http://localhost:{local_port}"
+                self.base_url = f"http://localhost:{local_port}"
+
+            elif proxy_type == "process":
                 print("starting proxy to instance...")
                 proxy_pid = ensure_ssh_proxy(
                     local_port=proxy_port,
@@ -171,17 +190,24 @@ class Desktop(Device):
                     f"proxy from local port {proxy_port} to remote port 8000 started..."
                 )
                 self.base_url = f"http://localhost:{proxy_port}"
-            if proxy_type == "mock":
+            elif proxy_type == "mock":
                 pass
         else:
             print("instance doesn't require proxy")
 
         try:
             if check_health:
-                resp = self.health()
-                if resp["status"] != "ok":
-                    raise ValueError("agentd status is not ok")
-                print("connected to desktop via agentd")
+
+                @retry(stop=stop_after_attempt(5), wait=wait_fixed(1))
+                def connect():
+                    if check_health:
+                        resp = self.health()
+                        if resp["status"] != "ok":
+                            raise ValueError("agentd status is not ok")
+                        print("connected to desktop via agentd")
+
+                connect()
+
         except Exception as e:
             raise SystemError(f"could not connect to desktop, is agentd running? {e}")
 
@@ -220,6 +246,12 @@ class Desktop(Device):
             ssh_key_pair=config.ssh_key_pair,
         )
         return cls.from_instance(instance, proxy_port=config.proxy_port)
+
+    def delete(self) -> None:
+        """Delete the desktop VM"""
+        if not self._instance:
+            raise ValueError("Desktop instance not found")
+        self._instance.delete()
 
     @classmethod
     def ec2(
@@ -467,6 +499,7 @@ class Desktop(Device):
             dict: A dictionary of info
         """
         response = requests.get(f"{self.base_url}/v1/info")
+        response.raise_for_status()
         return response.json()
 
     def view(self, background: bool = False) -> None:
@@ -476,10 +509,10 @@ class Desktop(Device):
             background (bool, optional): Whether to run in the background and not block. Defaults to False.
         """
 
-        if not self._vm:
+        if not self._instance:
             raise ValueError("Desktop not created with a VM, don't know how to proxy")
 
-        self._vm.view(background)
+        self._instance.view(background)
 
     def health(self) -> dict:
         """Health of agentd
@@ -487,7 +520,9 @@ class Desktop(Device):
         Returns:
             dict: Agentd health
         """
-        response = requests.get(f"{self.base_url}/health")
+        url = f"{self.base_url}/health"
+        response = requests.get(url)
+        response.raise_for_status()
         return response.json()
 
     @action
@@ -497,7 +532,8 @@ class Desktop(Device):
         Args:
             url (str): URL to open
         """
-        requests.post(f"{self.base_url}/v1/open_url", json={"url": url})
+        response = requests.post(f"{self.base_url}/v1/open_url", json={"url": url})
+        response.raise_for_status()
         return
 
     @action
@@ -508,7 +544,7 @@ class Desktop(Device):
             x (int): x coordinate
             y (int): y coordinate
         """
-        requests.post(
+        response = requests.post(
             f"{self.base_url}/v1/move_mouse",
             json={
                 "x": x,
@@ -517,6 +553,7 @@ class Desktop(Device):
                 "tween": self._mouse_tween,
             },
         )
+        response.raise_for_status()
         return
 
     @action
@@ -534,7 +571,8 @@ class Desktop(Device):
         if x and y:
             body["location"] = {"x": x, "y": y}  # type: ignore
 
-        requests.post(f"{self.base_url}/v1/click", json=body)
+        response = requests.post(f"{self.base_url}/v1/click", json=body)
+        response.raise_for_status()
         return
 
     @action
@@ -564,7 +602,8 @@ class Desktop(Device):
                 "volumeup", "win", "winleft", "winright", "yen", "command", "option",
                 "optionleft", "optionright" ]
         """
-        requests.post(f"{self.base_url}/v1/press_key", json={"key": key})
+        response = requests.post(f"{self.base_url}/v1/press_key", json={"key": key})
+        response.raise_for_status()
         return
 
     @action
@@ -594,7 +633,8 @@ class Desktop(Device):
                 "volumeup", "win", "winleft", "winright", "yen", "command", "option",
                 "optionleft", "optionright" ]
         """
-        requests.post(f"{self.base_url}/v1/hot_key", json={"keys": keys})
+        response = requests.post(f"{self.base_url}/v1/hot_key", json={"keys": keys})
+        response.raise_for_status()
         return
 
     @action
@@ -604,7 +644,8 @@ class Desktop(Device):
         Args:
             clicks (int, optional): Number of clicks, negative scrolls down, positive scrolls up. Defaults to -3.
         """
-        requests.post(f"{self.base_url}/v1/scroll", json={"clicks": clicks})
+        response = requests.post(f"{self.base_url}/v1/scroll", json={"clicks": clicks})
+        response.raise_for_status()
         return
 
     @action
@@ -615,13 +656,17 @@ class Desktop(Device):
             x (int): x coordinate
             y (int): y coordinate
         """
-        requests.post(f"{self.base_url}/v1/drag_mouse", json={"x": x, "y": y})
+        response = requests.post(
+            f"{self.base_url}/v1/drag_mouse", json={"x": x, "y": y}
+        )
+        response.raise_for_status()
         return
 
     @action
     def double_click(self) -> None:
         """Double click the mouse"""
-        requests.post(f"{self.base_url}/v1/double_click")
+        response = requests.post(f"{self.base_url}/v1/double_click")
+        response.raise_for_status()
         return
 
     @action
@@ -631,7 +676,7 @@ class Desktop(Device):
         Args:
             text (str): Text to type
         """
-        requests.post(
+        response = requests.post(
             f"{self.base_url}/v1/type_text",
             json={
                 "text": text,
@@ -639,6 +684,7 @@ class Desktop(Device):
                 "max_interval": self._type_max_interval,
             },
         )
+        response.raise_for_status()
         return
 
     @action
@@ -686,6 +732,7 @@ class Desktop(Device):
             Tuple[int, int]: x, y coordinates
         """
         response = requests.get(f"{self.base_url}/v1/mouse_coordinates")
+        response.raise_for_status()
         jdict = response.json()
 
         return jdict["x"], jdict["y"]

@@ -738,10 +738,13 @@ class KubernetesProvider(DesktopProvider):
 
         cmd = f"kubectl port-forward pod/{self._get_pod_name(name)} {local_port}:{container_port} -n {self.namespace}"
 
+        print("executing command: ", cmd)
         if background:
+            print("running in background")
             proc = subprocess.Popen(
                 cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
+            print("proc.pid: ", proc.pid)
             self._register_cleanup(proc)
             return (local_port, proc.pid)  # Return the PID of the subprocess
 
