@@ -102,12 +102,12 @@ class DockerProvider(DesktopProvider):
         if not agentd_port:
             raise ValueError("Could not find open port")
 
-        display_port = find_open_port(3000, 4000)
-        if not display_port:
+        vnc_port = find_open_port(3000, 4000)
+        if not vnc_port:
             raise ValueError("Could not find open port")
 
-        ws_vnc_port = find_open_port(3100, 4100)
-        if not ws_vnc_port:
+        vnc_port_https = find_open_port(3100, 4100)
+        if not vnc_port_https:
             raise ValueError("Could not find open port")
 
         env_vars = {}
@@ -126,8 +126,8 @@ class DockerProvider(DesktopProvider):
             "network": "agentsea",
             "ports": {
                 8000: agentd_port,
-                3000: display_port,
-                3001: ws_vnc_port,
+                3000: vnc_port,
+                3001: vnc_port_https,
             },
             "environment": env_vars,
             "detach": True,
@@ -182,8 +182,8 @@ class DockerProvider(DesktopProvider):
             owner_id=owner_id,
             metadata=metadata,
             agentd_port=agentd_port,
-            display_port=display_port,
-            ws_vnc_port=ws_vnc_port,
+            vnc_port=vnc_port,
+            vnc_port_https=vnc_port_https,
             requires_proxy=False,
             provider=self.to_data(),
         )

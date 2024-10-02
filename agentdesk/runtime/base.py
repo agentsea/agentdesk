@@ -49,8 +49,10 @@ class DesktopInstance(WithDB):
         owner_id: Optional[str] = None,
         key_pair_name: Optional[str] = None,
         agentd_port: int = 8000,
-        ws_vnc_port: Optional[int] = None,
-        display_port: Optional[int] = None,
+        vnc_port: Optional[int] = None,
+        vnc_port_https: Optional[int] = None,
+        resource_name: Optional[str] = None,
+        namespace: Optional[str] = None,
     ) -> None:
         if not id:
             id = str(uuid.uuid4())
@@ -72,8 +74,10 @@ class DesktopInstance(WithDB):
         self.owner_id = owner_id
         self.key_pair_name = key_pair_name
         self.agentd_port = agentd_port
-        self.ws_vnc_port = ws_vnc_port
-        self.display_port = display_port
+        self.vnc_port = vnc_port
+        self.vnc_port_https = vnc_port_https
+        self.resource_name = resource_name
+        self.namespace = namespace
 
         self.save()
 
@@ -105,8 +109,10 @@ class DesktopInstance(WithDB):
             owner_id=self.owner_id,
             key_pair_name=self.key_pair_name,
             agentd_port=self.agentd_port,
-            ws_vnc_port=self.ws_vnc_port,
-            display_port=self.display_port,
+            vnc_port=self.vnc_port,
+            vnc_port_https=self.vnc_port_https,
+            resource_name=self.resource_name,
+            namespace=self.namespace,
         )
 
     def save(self) -> None:
@@ -139,8 +145,10 @@ class DesktopInstance(WithDB):
         out.owner_id = record.owner_id
         out.key_pair_name = record.key_pair_name
         out.agentd_port = record.agentd_port
-        out.ws_vnc_port = record.ws_vnc_port
-        out.display_port = record.display_port
+        out.vnc_port = record.vnc_port
+        out.vnc_port_https = record.vnc_port_https
+        out.resource_name = record.resource_name
+        out.namespace = record.namespace
         if record.provider:  # type: ignore
             dct = json.loads(str(record.provider))
             out.provider = V1ProviderData(**dct)
@@ -264,14 +272,19 @@ class DesktopInstance(WithDB):
                 raise e
 
         for db in self.get_db():
-            record = (
-                db.query(V1DesktopRecord).filter(V1DesktopRecord.id == self.id).first()
-            )
-            if record is None:
-                raise ValueError(f"Desktop with id {self.id} not found")
+            try:
+                record = (
+                    db.query(V1DesktopRecord)
+                    .filter(V1DesktopRecord.id == self.id)
+                    .first()
+                )
+                if record is None:
+                    raise ValueError(f"Desktop with id {self.id} not found")
 
-            db.delete(record)
-            db.commit()
+                db.delete(record)
+                db.commit()
+            except Exception as e:
+                pass
 
     @classmethod
     def name_exists(cls, name: str, owner_id: Optional[str] = None) -> bool:
@@ -315,8 +328,10 @@ class DesktopInstance(WithDB):
             owner_id=self.owner_id,
             key_pair_name=self.key_pair_name,
             agentd_port=self.agentd_port,
-            ws_vnc_port=self.ws_vnc_port,
-            display_port=self.display_port,
+            vnc_port=self.vnc_port,
+            vnc_port_https=self.vnc_port_https,
+            resource_name=self.resource_name,
+            namespace=self.namespace,
         )
 
     def view(
@@ -328,7 +343,7 @@ class DesktopInstance(WithDB):
         """Opens the desktop in a browser window"""
 
         if self.provider and self.provider.type in ["docker"]:
-            webbrowser.open(f"http://localhost:{self.display_port}")
+            webbrowser.open(f"http://localhost:{self.vnc_port}")
             return
 
         elif self.provider and self.provider.type in ["kube"]:

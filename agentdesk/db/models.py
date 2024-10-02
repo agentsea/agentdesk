@@ -32,8 +32,10 @@ class V1DesktopRecord(Base):
     owner_id = Column(String, nullable=True)
     key_pair_name = Column(String, nullable=True)
     agentd_port = Column(Integer, nullable=True)
-    ws_vnc_port = Column(Integer, nullable=True)
-    display_port = Column(Integer, nullable=True)
+    vnc_port = Column(Integer, nullable=True)
+    vnc_port_https = Column(Integer, nullable=True)
+    resource_name = Column(String, nullable=True)
+    namespace = Column(String, nullable=True)
 
 
 class SSHKeyRecord(Base):

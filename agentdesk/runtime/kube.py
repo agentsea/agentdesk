@@ -222,10 +222,12 @@ class KubernetesProvider(DesktopProvider):
             metadata=metadata,
             owner_id=owner_id,
             provider=self.to_data(),
-            ws_vnc_port=3001,
-            display_port=3000,
+            vnc_port=3000,
+            vnc_port_https=3001,
             agentd_port=8000,
             requires_proxy=True,
+            resource_name=pod_name,
+            namespace=self.namespace,
         )
 
         return instance

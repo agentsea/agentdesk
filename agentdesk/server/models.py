@@ -47,8 +47,10 @@ class V1DesktopInstance(BaseModel):
     owner_id: Optional[str] = None
     key_pair_name: Optional[str] = None
     agentd_port: Optional[int] = None
-    ws_vnc_port: Optional[int] = None
-    display_port: Optional[int] = None
+    vnc_port: Optional[int] = None
+    vnc_port_https: Optional[int] = None
+    resource_name: Optional[str] = None
+    namespace: Optional[str] = None
 
 
 class V1Desktops(BaseModel):

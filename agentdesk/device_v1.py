@@ -740,6 +740,54 @@ class Desktop(Device):
     def close(self):
         pass
 
+    def demostrate(
+        self,
+        task: str,
+        owner_id: str,
+        token: str,
+        tracker_url: str = "https://api.hub.agentlabs.xyz",
+    ) -> None:
+        """Demostrate a task on the desktop
+
+        Args:
+            task (str): Task to demostrate.
+            token (str): Token to use for the tracker.
+            tracker_url (str): URL of the tracker
+        """
+
+        data = {
+            "description": task,
+            "token": token,
+            "server_address": tracker_url,
+            "owner_id": owner_id,
+        }
+
+        response = requests.post(f"{self.base_url}/v1/start_recording", json=data)
+        response.raise_for_status()
+
+        jdict = response.json()
+        print("start recording response: ", jdict)
+
+        task_id = jdict["task_id"]
+        print("task_id: ", task_id)
+
+        print("viewing desktop...")
+        self.view(background=True)
+
+        input("Press enter to stop recording...")
+        print("stopping recording...")
+        response = requests.post(f"{self.base_url}/v1/stop_recording")
+        response.raise_for_status()
+
+        print("recording stopped")
+
+        # Adding Bearer token to the request
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.get(f"{tracker_url}/v1/tasks/{task_id}", headers=headers)
+        response.raise_for_status()
+        jdict = response.json()
+        print("task status: ", jdict)
+
 
 class SimpleDesktop(Desktop):
     """A more simple desktop"""

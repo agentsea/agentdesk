@@ -237,6 +237,20 @@ def refresh(
     print(f"\nProvider '{provider}' successfully refreshed")
 
 
+@app.command(help="Demostrate a task.")
+def demostrate(
+    name: str = typer.Argument(
+        ..., help="The name of the desktop to use for demostration."
+    ),
+):
+    desktop = DesktopInstance.get(name)
+    if not desktop:
+        print(f"Desktop '{name}' not found")
+        return
+
+    pass
+
+
 @app.command(help="Stop a desktop.")
 def stop(
     name: str = typer.Argument(..., help="The name of the desktop to stop."),
