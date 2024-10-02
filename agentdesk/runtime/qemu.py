@@ -18,7 +18,7 @@ from tqdm import tqdm
 from agentdesk.key import SSHKeyPair
 from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
 
-from .base import DesktopVM, DesktopProvider
+from .base import DesktopInstance, DesktopProvider
 from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
 from agentdesk.config import AGENTSEA_HOME
@@ -53,7 +53,7 @@ class QemuProvider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> DesktopVM:
+    ) -> DesktopInstance:
         """Create a local QEMU VM locally"""
 
         if not check_command_availability("qemu-system-x86_64"):
@@ -66,7 +66,7 @@ class QemuProvider(DesktopProvider):
             if not name:
                 raise ValueError("could not generate name")
 
-        if DesktopVM.name_exists(name):  # type: ignore
+        if DesktopInstance.name_exists(name):  # type: ignore
             raise ValueError(f"VM name '{name}' already exists")
 
         # Directory to store VM images
@@ -165,7 +165,7 @@ local-hostname: {name}
                 pid = process.pid
             else:
                 subprocess.run(command, shell=True, env=env, check=True)
-                self._wait_till_ready(ssh_port, private_ssh_key)
+                self._wait_till_ready(ssh_port, private_ssh_key)  # type: ignore
 
                 # Read the PID from the file
                 with open(pid_file, "r") as file:
@@ -173,7 +173,7 @@ local-hostname: {name}
 
                 os.remove(pid_file)
 
-            self._wait_till_ready(ssh_port, private_ssh_key)
+            self._wait_till_ready(ssh_port, private_ssh_key)  # type: ignore
 
         except subprocess.CalledProcessError as e:
             print(f"Command '{command}' returned non-zero exit status {e.returncode}.")
@@ -190,7 +190,7 @@ local-hostname: {name}
         print("connected to desktop")
 
         # Create and return a Desktop object
-        desktop = DesktopVM(
+        desktop = DesktopInstance(
             name=name,  # type: ignore
             addr="localhost",
             cpu=cpu,
@@ -200,7 +200,7 @@ local-hostname: {name}
             image=image,
             provider=self.to_data(),
             requires_proxy=True,
-            ssh_port=ssh_port,
+            ssh_port=ssh_port,  # type: ignore
             owner_id=owner_id,
             metadata=metadata,
             key_pair_name=key_pair.name,
@@ -208,7 +208,9 @@ local-hostname: {name}
         print(f"\nsuccessfully created desktop '{name}'")
         return desktop
 
-    def _wait_till_ready(self, ssh_port: int, private_ssh_key: Optional[str] = None) -> None:
+    def _wait_till_ready(
+        self, ssh_port: int, private_ssh_key: Optional[str] = None
+    ) -> None:
         local_agentd_port = find_open_port(8000, 9000)
         if not local_agentd_port:
             raise ValueError("could not find open port")
@@ -283,7 +285,7 @@ local-hostname: {name}
 
     def delete(self, name: str, owner_id: Optional[str] = None) -> None:
         """Delete a local QEMU VM."""
-        desktop = DesktopVM.get(name, owner_id=owner_id)
+        desktop = DesktopInstance.get(name, owner_id=owner_id)
         if not desktop:
             raise ValueError(f"Desktop '{name}' does not exist.")
 
@@ -344,9 +346,9 @@ local-hostname: {name}
         """Stop a local QEMU VM."""
         self.delete(name, owner_id=owner_id)
 
-    def list(self) -> List[DesktopVM]:
+    def list(self) -> List[DesktopInstance]:
         """List local QEMU VMs."""
-        desktops = DesktopVM.find()
+        desktops = DesktopInstance.find()
         return [
             desktop
             for desktop in desktops
@@ -354,10 +356,12 @@ local-hostname: {name}
             and desktop.provider.type == "qemu"
         ]
 
-    def get(self, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
+    def get(
+        self, name: str, owner_id: Optional[str] = None
+    ) -> Optional[DesktopInstance]:
         """Get a local QEMU VM."""
         try:
-            desktop = DesktopVM.get(name, owner_id=owner_id)
+            desktop = DesktopInstance.get(name, owner_id=owner_id)
             if not desktop:
                 return None
             if (
@@ -382,7 +386,7 @@ local-hostname: {name}
 
     def refresh(self, log: bool = True) -> None:
         """Refresh the state of all local QEMU VMs."""
-        desktops = DesktopVM.find()
+        desktops = DesktopInstance.find()
 
         for desktop in desktops:
             if (

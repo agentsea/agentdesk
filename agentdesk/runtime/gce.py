@@ -17,7 +17,7 @@ from agentdesk.proxy import cleanup_proxy, ensure_ssh_proxy
 from agentdesk.server.models import V1ProviderData
 from agentdesk.util import find_open_port, generate_random_string, generate_short_hash
 
-from .base import DesktopProvider, DesktopVM
+from .base import DesktopProvider, DesktopInstance
 from .img import JAMMY
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ class GCEProvider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> DesktopVM:
+    ) -> DesktopInstance:
         """Create a VM in GCP."""
 
         if not name:
@@ -64,7 +64,7 @@ class GCEProvider(DesktopProvider):
             if not name:
                 raise ValueError("could not generate name")
 
-        if DesktopVM.name_exists(name):
+        if DesktopInstance.name_exists(name):
             raise ValueError(f"VM name '{name}' already exists")
 
         if not image:
@@ -169,7 +169,7 @@ class GCEProvider(DesktopProvider):
         # Wait for the VM to be ready
         self._wait_till_ready(ip_address, private_ssh_key=private_ssh_key)
 
-        new_desktop = DesktopVM(
+        new_desktop = DesktopInstance(
             name=name,
             id=str(created_instance.id),
             addr=ip_address,
@@ -288,7 +288,7 @@ class GCEProvider(DesktopProvider):
         return 0, "unknown"
 
     def delete(self, name: str, owner_id: Optional[str] = None) -> None:
-        desktop = DesktopVM.get(name, owner_id=owner_id)
+        desktop = DesktopInstance.get(name, owner_id=owner_id)
         if not desktop:
             raise ValueError(f"Desktop {name} not found")
 
@@ -319,7 +319,7 @@ class GCEProvider(DesktopProvider):
         private_ssh_key: Optional[str] = None,
         owner_id: Optional[str] = None,
     ) -> None:
-        desk = DesktopVM.get(name, owner_id=owner_id)
+        desk = DesktopInstance.get(name, owner_id=owner_id)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance_client = compute_v1.InstancesClient(credentials=self.credentials)
@@ -340,7 +340,7 @@ class GCEProvider(DesktopProvider):
         desk.save()
 
     def stop(self, name: str, owner_id: Optional[str] = None) -> None:
-        desk = DesktopVM.get(name, owner_id=owner_id)
+        desk = DesktopInstance.get(name, owner_id=owner_id)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance_client = compute_v1.InstancesClient(credentials=self.credentials)
@@ -353,8 +353,8 @@ class GCEProvider(DesktopProvider):
         desk.status = "stopped"
         desk.save()
 
-    def list(self) -> List[DesktopVM]:
-        desktops = DesktopVM.find()
+    def list(self) -> List[DesktopInstance]:
+        desktops = DesktopInstance.find()
         out = []
         for desktop in desktops:
             if not desktop.provider:
@@ -364,9 +364,11 @@ class GCEProvider(DesktopProvider):
 
         return out
 
-    def get(self, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
+    def get(
+        self, name: str, owner_id: Optional[str] = None
+    ) -> Optional[DesktopInstance]:
         try:
-            return DesktopVM.get(name, owner_id=owner_id)
+            return DesktopInstance.get(name, owner_id=owner_id)
         except ValueError:
             return None
 
@@ -411,8 +413,8 @@ class GCEProvider(DesktopProvider):
         # Build a list of all GCE instance names for comparison
         gce_instance_names = [instance.name for instance in response]
 
-        # Iterate over all DesktopVM instances managed by this provider
-        for vm in DesktopVM.find():
+        # Iterate over all DesktopInstance instances managed by this provider
+        for vm in DesktopInstance.find():
             if not vm.provider:
                 continue
             if vm.provider.type != "gce":

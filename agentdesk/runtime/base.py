@@ -14,7 +14,7 @@ from docker.models.containers import Container
 
 from agentdesk.db.conn import WithDB
 from agentdesk.db.models import V1DesktopRecord
-from agentdesk.server.models import V1Desktop, V1ProviderData
+from agentdesk.server.models import V1DesktopInstance, V1ProviderData
 from agentdesk.util import (
     get_docker_host,
     check_command_availability,
@@ -27,16 +27,16 @@ from agentdesk.key import SSHKeyPair
 UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:634820941cbbba4b3cd51149b25d0a4c8d1a35f4"
 
 
-class DesktopVM(WithDB):
+class DesktopInstance(WithDB):
     """A remote desktop VM which is accesible for AI agents"""
 
     def __init__(
         self,
         name: str,
-        addr: str,
+        addr: Optional[str] = None,
         id: Optional[str] = None,
         cpu: Optional[int] = None,
-        memory: Optional[str] = None,
+        memory: Optional[int] = None,
         disk: Optional[str] = None,
         pid: Optional[int] = None,
         status: str = "running",
@@ -48,6 +48,11 @@ class DesktopVM(WithDB):
         ssh_port: int = 22,
         owner_id: Optional[str] = None,
         key_pair_name: Optional[str] = None,
+        agentd_port: int = 8000,
+        vnc_port: Optional[int] = None,
+        vnc_port_https: Optional[int] = None,
+        resource_name: Optional[str] = None,
+        namespace: Optional[str] = None,
     ) -> None:
         if not id:
             id = str(uuid.uuid4())
@@ -68,6 +73,11 @@ class DesktopVM(WithDB):
         self.ssh_port = ssh_port
         self.owner_id = owner_id
         self.key_pair_name = key_pair_name
+        self.agentd_port = agentd_port
+        self.vnc_port = vnc_port
+        self.vnc_port_https = vnc_port_https
+        self.resource_name = resource_name
+        self.namespace = namespace
 
         self.save()
 
@@ -98,6 +108,11 @@ class DesktopVM(WithDB):
             meta=metadata,
             owner_id=self.owner_id,
             key_pair_name=self.key_pair_name,
+            agentd_port=self.agentd_port,
+            vnc_port=self.vnc_port,
+            vnc_port_https=self.vnc_port_https,
+            resource_name=self.resource_name,
+            namespace=self.namespace,
         )
 
     def save(self) -> None:
@@ -108,12 +123,12 @@ class DesktopVM(WithDB):
                 db.commit()
             except Exception as e:
                 db.rollback()
-                print(f"Error saving DesktopVM: {e}")
+                print(f"Error saving DesktopInstance: {e}")
                 raise
 
     @classmethod
-    def from_record(cls, record: V1DesktopRecord) -> DesktopVM:
-        out = cls.__new__(DesktopVM)  # type: ignore
+    def from_record(cls, record: V1DesktopRecord) -> DesktopInstance:
+        out = cls.__new__(DesktopInstance)  # type: ignore
         out.id = record.id
         out.name = record.name
         out.addr = record.addr
@@ -129,6 +144,11 @@ class DesktopVM(WithDB):
         out.ssh_port = record.ssh_port
         out.owner_id = record.owner_id
         out.key_pair_name = record.key_pair_name
+        out.agentd_port = record.agentd_port
+        out.vnc_port = record.vnc_port
+        out.vnc_port_https = record.vnc_port_https
+        out.resource_name = record.resource_name
+        out.namespace = record.namespace
         if record.provider:  # type: ignore
             dct = json.loads(str(record.provider))
             out.provider = V1ProviderData(**dct)
@@ -139,7 +159,7 @@ class DesktopVM(WithDB):
         return out
 
     @classmethod
-    def load(cls, id: str) -> DesktopVM:
+    def load(cls, id: str) -> DesktopInstance:
         for db in cls.get_db():
             record = db.query(V1DesktopRecord).filter(V1DesktopRecord.id == id).first()
             if record is None:
@@ -148,7 +168,9 @@ class DesktopVM(WithDB):
         raise ValueError("no session")
 
     @classmethod
-    def get(cls, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
+    def get(
+        cls, name: str, owner_id: Optional[str] = None
+    ) -> Optional[DesktopInstance]:
         for db in cls.get_db():
             record = (
                 db.query(V1DesktopRecord)
@@ -160,7 +182,7 @@ class DesktopVM(WithDB):
             return cls.from_record(record)
 
     @classmethod
-    def find(cls, **kwargs) -> List[DesktopVM]:
+    def find(cls, **kwargs) -> List[DesktopInstance]:
         """Find desktops by given keyword arguments."""
         out = []
         for db in cls.get_db():
@@ -170,7 +192,7 @@ class DesktopVM(WithDB):
         return out
 
     @classmethod
-    def find_v1(cls, **kwargs) -> List[V1Desktop]:
+    def find_v1(cls, **kwargs) -> List[V1DesktopInstance]:
         """Find desktops by given keyword arguments."""
         out = []
         for db in cls.get_db():
@@ -179,14 +201,90 @@ class DesktopVM(WithDB):
                 out.append(cls.from_record(record).to_v1_schema())
         return out
 
-    @classmethod
-    def delete(cls, id: str) -> None:
-        for db in cls.get_db():
-            record = db.query(V1DesktopRecord).filter(V1DesktopRecord.id == id).first()
-            if record is None:
-                raise ValueError(f"Desktop with id {id} not found")
-            db.delete(record)
-            db.commit()
+    def delete(self, force: bool = False) -> None:
+        try:
+            if not self.provider:
+                raise ValueError(f"Desktop with id {self.id} not found")
+
+            if self.provider.type == "kube":
+                from .kube import KubernetesProvider, KubeConnectConfig
+
+                if not self.provider.args:
+                    raise ValueError(
+                        f"No args for kube provider while deleting {self.id}"
+                    )
+
+                cfg = KubeConnectConfig.model_validate_json(self.provider.args["cfg"])
+                provider = KubernetesProvider(cfg=cfg)
+
+                provider.delete(self.name)
+
+            elif self.provider.type == "docker":
+                from .docker import DockerProvider, DockerConnectConfig
+
+                if not self.provider.args:
+                    raise ValueError(
+                        f"No args for kube provider while deleting {self.id}"
+                    )
+
+                cfg = DockerConnectConfig.model_validate_json(self.provider.args["cfg"])
+                provider = DockerProvider(cfg=cfg)
+
+                provider.delete(self.name)
+
+            elif self.provider.type == "ec2":
+                from .ec2 import EC2Provider
+
+                if not self.provider.args:
+                    raise ValueError(
+                        f"No args for kube provider while deleting {self.id}"
+                    )
+
+                provider = EC2Provider.from_data(self.provider)
+                provider.delete(self.name)
+
+            elif self.provider.type == "gce":
+                from .gce import GCEProvider
+
+                if not self.provider.args:
+                    raise ValueError(
+                        f"No args for kube provider while deleting {self.id}"
+                    )
+
+                provider = GCEProvider.from_data(self.provider)
+                provider.delete(self.name)
+
+            elif self.provider.type == "qemu":
+                from .qemu import QemuProvider
+
+                if not self.provider.args:
+                    raise ValueError(
+                        f"No args for kube provider while deleting {self.id}"
+                    )
+                provider = QemuProvider.from_data(self.provider)
+                provider.delete(self.name)
+
+            else:
+                raise ValueError(f"Unknown provider type: {self.provider.type}")
+
+        except Exception as e:
+            if not force:
+                raise e
+
+        for db in self.get_db():
+            try:
+                record = (
+                    db.query(V1DesktopRecord)
+                    .filter(V1DesktopRecord.id == self.id)
+                    .first()
+                )
+                if record is None:
+                    raise ValueError(f"Desktop with id {self.id} not found")
+
+                db.delete(record)
+                db.commit()
+            except Exception as e:
+                pass
 
     @classmethod
     def name_exists(cls, name: str, owner_id: Optional[str] = None) -> bool:
@@ -213,8 +311,8 @@ class DesktopVM(WithDB):
             db.delete(record)
             db.commit()
 
-    def to_v1_schema(self) -> V1Desktop:
-        return V1Desktop(
+    def to_v1_schema(self) -> V1DesktopInstance:
+        return V1DesktopInstance(
             id=self.id,
             name=self.name,
             addr=self.addr,
@@ -229,10 +327,42 @@ class DesktopVM(WithDB):
             meta=self.metadata,
             owner_id=self.owner_id,
             key_pair_name=self.key_pair_name,
+            agentd_port=self.agentd_port,
+            vnc_port=self.vnc_port,
+            vnc_port_https=self.vnc_port_https,
+            resource_name=self.resource_name,
+            namespace=self.namespace,
         )
 
-    def view(self, background: bool = False, bind_addr: str = "127.0.0.1", browser: bool = True) -> None:
+    def view(
+        self,
+        background: bool = False,
+        bind_addr: str = "127.0.0.1",
+        browser: bool = True,
+    ) -> None:
         """Opens the desktop in a browser window"""
+
+        if self.provider and self.provider.type in ["docker"]:
+            webbrowser.open(f"http://localhost:{self.vnc_port}")
+            return
+
+        elif self.provider and self.provider.type in ["kube"]:
+            # TODO: add support for kube
+            from .kube import KubernetesProvider, KubeConnectConfig
+
+            if not self.provider.args:
+                raise ValueError(f"No args for kube provider while deleting {self.id}")
+
+            cfg = KubeConnectConfig.model_validate_json(self.provider.args["cfg"])
+            provider = KubernetesProvider(cfg=cfg)
+
+            local_port, _ = provider.proxy(self.name)
+            print(f"Proxy created on port {local_port}")
+
+            time.sleep(2)
+            webbrowser.open(f"http://localhost:{local_port}")
+            input("Press any key to exit...")
+            return
 
         if self.requires_proxy:
             keys = SSHKeyPair.find(name=self.key_pair_name)
@@ -251,7 +381,7 @@ class DesktopVM(WithDB):
                 6080,
                 self.ssh_port,
                 "agentsea",
-                self.addr,
+                self.addr,  # type: ignore  # TODO: replace with proxy()
                 key_pair.decrypt_private_key(key_pair.private_key),
                 bind_addr=bind_addr,
             )
@@ -348,7 +478,7 @@ class DesktopProvider(ABC, Generic[DP]):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> DesktopVM:
+    ) -> DesktopInstance:
         """Create a Desktop
 
         Args:
@@ -404,7 +534,7 @@ class DesktopProvider(ABC, Generic[DP]):
         pass
 
     @abstractmethod
-    def list(self) -> List[DesktopVM]:
+    def list(self) -> List[DesktopInstance]:
         """List VMs
 
         Returns:
@@ -413,7 +543,9 @@ class DesktopProvider(ABC, Generic[DP]):
         pass
 
     @abstractmethod
-    def get(self, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
+    def get(
+        self, name: str, owner_id: Optional[str] = None
+    ) -> Optional[DesktopInstance]:
         """Get a VM
 
         Args:

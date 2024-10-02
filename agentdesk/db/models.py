@@ -16,7 +16,7 @@ class V1DesktopRecord(Base):
 
     id = Column(String, primary_key=True)
     name = Column(String)
-    addr = Column(String)
+    addr = Column(String, nullable=True)
     status = Column(String)
     created = Column(Float)
     cpu = Column(Integer, nullable=True)
@@ -31,6 +31,11 @@ class V1DesktopRecord(Base):
     meta = Column(String, nullable=True)
     owner_id = Column(String, nullable=True)
     key_pair_name = Column(String, nullable=True)
+    agentd_port = Column(Integer, nullable=True)
+    vnc_port = Column(Integer, nullable=True)
+    vnc_port_https = Column(Integer, nullable=True)
+    resource_name = Column(String, nullable=True)
+    namespace = Column(String, nullable=True)
 
 
 class SSHKeyRecord(Base):

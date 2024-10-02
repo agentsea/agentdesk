@@ -28,7 +28,7 @@ class V1ProviderData(BaseModel):
     args: Optional[dict] = None
 
 
-class V1Desktop(BaseModel):
+class V1DesktopInstance(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
     addr: Optional[str] = None
@@ -46,10 +46,15 @@ class V1Desktop(BaseModel):
     meta: Optional[dict] = None
     owner_id: Optional[str] = None
     key_pair_name: Optional[str] = None
+    agentd_port: Optional[int] = None
+    vnc_port: Optional[int] = None
+    vnc_port_https: Optional[int] = None
+    resource_name: Optional[str] = None
+    namespace: Optional[str] = None
 
 
 class V1Desktops(BaseModel):
-    desktops: List[V1Desktop]
+    desktops: List[V1DesktopInstance]
 
 
 class V1SSHKey(BaseModel):

@@ -12,8 +12,8 @@ from agentdesk.config import AGENTSEA_HOME
 from agentdesk.key import SSHKeyPair
 from agentdesk.server.models import V1ProviderData
 from agentdesk.util import convert_unix_to_datetime
-from agentdesk.vm import DesktopVM
-from agentdesk.vm.load import load_provider
+from agentdesk.runtime import DesktopInstance
+from agentdesk.runtime.load import load_provider
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -49,8 +49,8 @@ def create(
         None, help="The name of the desktop to create. Defaults to a generated name."
     ),
     provider: str = typer.Option(
-        "qemu",
-        help="The provider type for the desktop. Options are 'ec2', 'gce', and 'qemu'",
+        "docker",
+        help="The provider type for the desktop. Options are 'docker', 'kube', 'ec2', 'gce', and 'qemu'",
     ),
     image: Optional[str] = typer.Option(
         None, help="The image to use for the desktop. Defaults to Ubuntu Jammy."
@@ -98,7 +98,7 @@ def get(
     ),
 ):
     if name:
-        desktop = DesktopVM.get(name)
+        desktop = DesktopInstance.get(name)
         if not desktop:
             raise ValueError("desktop not found")
         if not desktop.provider:
@@ -110,7 +110,7 @@ def get(
         _provider = load_provider(desktop.provider)
         if not desktop.reserved_ip:
             _provider.refresh(log=False)
-            desktop = DesktopVM.get(name)
+            desktop = DesktopInstance.get(name)
             if not desktop:
                 print(f"Desktop '{name}' not found")
                 return
@@ -122,12 +122,12 @@ def get(
         return
 
     provider_is_refreshed = {}
-    vms = DesktopVM.find()
-    if not vms:
+    instances = DesktopInstance.find()
+    if not instances:
         print("No desktops found")
     else:
         table = []
-        for desktop in vms:
+        for desktop in instances:
             if not desktop.provider:
                 continue
             if provider:
@@ -139,7 +139,7 @@ def get(
                 if not desktop.reserved_ip:
                     _provider.refresh(log=False)
                     provider_is_refreshed[desktop.provider.type] = True
-                    desktop = DesktopVM.get(desktop.name)
+                    desktop = DesktopInstance.get(desktop.name)
                     if not desktop:
                         continue
 
@@ -152,6 +152,7 @@ def get(
                     convert_unix_to_datetime(int(desktop.created)),
                     desktop.provider.type,  # type: ignore
                     desktop.reserved_ip,
+                    desktop.agentd_port,
                 ]
             )
 
@@ -166,6 +167,7 @@ def get(
                     "Created",
                     "Provider",
                     "Reserved IP",
+                    "Agentd Port",
                 ],
             )
         )
@@ -176,7 +178,7 @@ def get(
 def delete(
     name: str = typer.Argument(..., help="The name of the desktop to delete."),
 ):
-    desktop = DesktopVM.get(name)
+    desktop = DesktopInstance.get(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
@@ -188,27 +190,25 @@ def delete(
 
     print("refreshing provider...")
     _provider.refresh()
-    desktop = DesktopVM.get(name)
+    desktop = DesktopInstance.get(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
 
     print(f"Deleting '{name}' desktop...")
-    _provider.delete(name)
+    desktop.delete()
     print(f"\nDesktop '{name}' successfully deleted")
 
 
 @app.command(help="View a desktop in a browser.")
 def view(
     name: str = typer.Argument(..., help="The name of the desktop to view."),
-    bind: str = typer.Option(
-        "127.0.0.1", help="The address to bind the vnc to."
-    ),
+    bind: str = typer.Option("127.0.0.1", help="The address to bind the vnc to."),
     browser: bool = typer.Option(
         True, help="Whether to not open the browser automatically."
-    )
+    ),
 ):
-    desktop = DesktopVM.get(name)
+    desktop = DesktopInstance.get(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
@@ -219,7 +219,7 @@ def view(
             raise ValueError("no desktop provider")
         _provider = load_provider(desktop.provider)
         _provider.refresh()
-        desktop = DesktopVM.get(name)
+        desktop = DesktopInstance.get(name)
         if not desktop:
             print(f"Desktop '{name}' not found")
             return
@@ -229,7 +229,7 @@ def view(
 
 @app.command(help="Refresh a provider.")
 def refresh(
-    provider: str = typer.Argument(..., help="The provider type for the desktop.")
+    provider: str = typer.Argument(..., help="The provider type for the desktop."),
 ):
     data = V1ProviderData(type=provider)
     _provider = load_provider(data)
@@ -237,11 +237,25 @@ def refresh(
     print(f"\nProvider '{provider}' successfully refreshed")
 
 
+@app.command(help="Demostrate a task.")
+def demostrate(
+    name: str = typer.Argument(
+        ..., help="The name of the desktop to use for demostration."
+    ),
+):
+    desktop = DesktopInstance.get(name)
+    if not desktop:
+        print(f"Desktop '{name}' not found")
+        return
+
+    pass
+
+
 @app.command(help="Stop a desktop.")
 def stop(
     name: str = typer.Argument(..., help="The name of the desktop to stop."),
 ):
-    desktop = DesktopVM.get(name)
+    desktop = DesktopInstance.get(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
@@ -254,7 +268,7 @@ def stop(
     if not desktop.reserved_ip:
         print("refreshing provider...")
         _provider.refresh()
-        desktop = DesktopVM.get(name)
+        desktop = DesktopInstance.get(name)
         if not desktop:
             print(f"Desktop '{name}' not found")
             return
@@ -268,7 +282,7 @@ def stop(
 def start(
     name: str = typer.Argument(..., help="The name of the desktop to start."),
 ):
-    desktop = DesktopVM.get(name)
+    desktop = DesktopInstance.get(name)
     if not desktop:
         print(f"Desktop '{name}' not found")
         return
@@ -281,7 +295,7 @@ def start(
     if not desktop.reserved_ip:
         print("refreshing provider...")
         _provider.refresh()
-        desktop = DesktopVM.get(name)
+        desktop = DesktopInstance.get(name)
         if not desktop:
             print(f"Desktop '{name}' not found")
             return

@@ -1,6 +1,8 @@
 from .ec2 import EC2Provider
 from .gce import GCEProvider
 from .qemu import QemuProvider
+from .docker import DockerProvider
+from .kube import KubernetesProvider
 from .base import DesktopProvider
 from agentdesk.server.models import V1ProviderData
 
@@ -13,5 +15,9 @@ def load_provider(data: V1ProviderData) -> DesktopProvider:
         return GCEProvider.from_data(data)
     elif data.type == "qemu":
         return QemuProvider.from_data(data)
+    elif data.type == "docker":
+        return DockerProvider.from_data(data)
+    elif data.type == "kube":
+        return KubernetesProvider.from_data(data)
     else:
         raise ValueError(f"Unknown provider type: {data.type}")

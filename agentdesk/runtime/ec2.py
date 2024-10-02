@@ -11,7 +11,7 @@ from namesgenerator import get_random_name
 from botocore.exceptions import ClientError
 import requests
 
-from .base import DesktopVM, DesktopProvider
+from .base import DesktopInstance, DesktopProvider
 from .img import JAMMY
 from agentdesk.server.models import V1ProviderData
 from agentdesk.util import find_open_port, generate_short_hash, generate_random_string
@@ -25,7 +25,15 @@ logger = logging.getLogger(__name__)
 class EC2Provider(DesktopProvider):
     """VM provider using AWS EC2"""
 
-    AVAILABLE_REGIONS = {"us-east-1", "us-west-1", "us-west-2", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"}
+    AVAILABLE_REGIONS = {
+        "us-east-1",
+        "us-west-1",
+        "us-west-2",
+        "eu-west-1",
+        "eu-central-1",
+        "ap-southeast-1",
+        "ap-northeast-1",
+    }
 
     def __init__(
         self,
@@ -44,7 +52,9 @@ class EC2Provider(DesktopProvider):
         else:
             self.session = boto3.Session(region_name=self.region)
 
-        self.ec2: EC2ServiceResource = self.session.resource("ec2", region_name=self.region)  # type: ignore
+        self.ec2: EC2ServiceResource = self.session.resource(
+            "ec2", region_name=self.region
+        )  # type: ignore
         self.ec2_client: EC2Client = self.session.client("ec2", region_name=self.region)  # type: ignore
 
     def create(
@@ -59,17 +69,17 @@ class EC2Provider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> DesktopVM:
+    ) -> DesktopInstance:
         if not name:
             name = get_random_name(sep="-")
             if not name:
                 raise ValueError("could not generate name")
 
-        if DesktopVM.name_exists(name):
+        if DesktopInstance.name_exists(name):
             raise ValueError(f"VM name '{name}' already exists")
 
         if not image:
-            image = self._get_ami_id_by_name(JAMMY.ec2)
+            image = self._get_ami_id_by_name(JAMMY.ec2)  # type: ignore
 
         if not ssh_key_pair:
             key_pair = SSHKeyPair.generate_key(
@@ -153,7 +163,7 @@ users:
         # wait till agentd is ready
         self._wait_till_ready(public_ip, private_ssh_key=private_ssh_key)
 
-        desktop = DesktopVM(
+        desktop = DesktopInstance(
             name=name,
             id=instance_id,
             addr=public_ip,
@@ -328,16 +338,13 @@ users:
             The AMI ID of the latest custom AMI if found, otherwise None.
         """
         images = self.ec2_client.describe_images(
-            Filters=[
-                {
-                    'Name': 'name',
-                    'Values': [ami_name]
-                }
-            ]
+            Filters=[{"Name": "name", "Values": [ami_name]}]
         ).get("Images", [])
         if not images:
-            raise ValueError(f"No images found with name: {ami_name} in region {self.region}")
-        return images[0]["ImageId"]
+            raise ValueError(
+                f"No images found with name: {ami_name} in region {self.region}"
+            )
+        return images[0]["ImageId"]  # type: ignore
 
     def _release_eip(self, instance: EC2Instance) -> None:
         # Assuming you have tagged your EIPs or have a way to associate them with instances
@@ -348,7 +355,6 @@ users:
             print(f"Released EIP: {address['PublicIp']}")  # type: ignore
 
     def _delete_ssh_key(self, name: str) -> None:
-
         try:
             self.ec2_client.delete_key_pair(KeyName=name)
             print(f"Deleted SSH key: {name}")
@@ -370,7 +376,7 @@ users:
             self._delete_ssh_key(name)
 
             # Remove the desktop VM from local state
-            desk = DesktopVM.get(name)
+            desk = DesktopInstance.get(name)
             if not desk:
                 raise ValueError(
                     f"Desktop '{name}' not found in state, but deleted from provider"
@@ -393,7 +399,7 @@ users:
         private_ssh_key: Optional[str] = None,
         owner_id: Optional[str] = None,
     ) -> None:
-        desk = DesktopVM.get(name, owner_id=owner_id)
+        desk = DesktopInstance.get(name, owner_id=owner_id)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance = self._get_instance_by_name(name)
@@ -411,7 +417,7 @@ users:
         desk.save()
 
     def stop(self, name: str, owner_id: Optional[str] = None) -> None:
-        desk = DesktopVM.get(name, owner_id)
+        desk = DesktopInstance.get(name, owner_id)
         if not desk:
             raise ValueError(f"Desktop {name} not found")
         instance = self._get_instance_by_name(name)
@@ -421,26 +427,28 @@ users:
         desk.status = "stopped"
         desk.save()
 
-    def list_remote(self) -> List[DesktopVM]:
+    def list_remote(self) -> List[DesktopInstance]:
         instances = self.ec2.instances.filter(
             Filters=[{"Name": "instance-state-name", "Values": ["running", "stopped"]}]
         )
         desktops = []
         for instance in instances:
-            desktops.append(DesktopVM.load(instance.id))
+            desktops.append(DesktopInstance.load(instance.id))
         return desktops
 
-    def list(self) -> List[DesktopVM]:
-        return DesktopVM.find()
+    def list(self) -> List[DesktopInstance]:
+        return DesktopInstance.find()
 
-    def get_remote(self, name: str) -> Optional[DesktopVM]:
+    def get_remote(self, name: str) -> Optional[DesktopInstance]:
         instance = self._get_instance_by_name(name)
         if not instance:
             return None
-        return DesktopVM.load(instance.id)
+        return DesktopInstance.load(instance.id)
 
-    def get(self, name: str, owner_id: Optional[str] = None) -> Optional[DesktopVM]:
-        return DesktopVM.get(name, owner_id=owner_id)
+    def get(
+        self, name: str, owner_id: Optional[str] = None
+    ) -> Optional[DesktopInstance]:
+        return DesktopInstance.get(name, owner_id=owner_id)
 
     def to_data(self) -> V1ProviderData:
         provider = V1ProviderData(type="ec2")
@@ -483,7 +491,7 @@ users:
 
     def refresh(self, log: bool = True) -> None:
         """Refresh state"""
-        for vm in DesktopVM.find():
+        for vm in DesktopInstance.find():
             if not vm.provider:
                 continue
             if vm.provider.type != "ec2":
