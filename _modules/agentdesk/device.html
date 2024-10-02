@@ -81,7 +81,7 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
 
 <span class="kn">import</span> <span class="nn">requests</span>
 <span class="kn">from</span> <span class="nn">devicebay</span> <span class="kn">import</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">ReactComponent</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">observation</span>
@@ -91,25 +91,29 @@
 
 <span class="kn">from</span> <span class="nn">.key</span> <span class="kn">import</span> <span class="n">SSHKeyPair</span>
 <span class="kn">from</span> <span class="nn">.server.models</span> <span class="kn">import</span> <span class="n">V1ProviderData</span>
-<span class="kn">from</span> <span class="nn">.vm.base</span> <span class="kn">import</span> <span class="n">DesktopVM</span>
-<span class="kn">from</span> <span class="nn">.vm.load</span> <span class="kn">import</span> <span class="n">load_provider</span>
+<span class="kn">from</span> <span class="nn">.runtime.base</span> <span class="kn">import</span> <span class="n">DesktopInstance</span>
+<span class="kn">from</span> <span class="nn">.runtime.load</span> <span class="kn">import</span> <span class="n">load_provider</span>
 
 <span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">.vm.gce</span> <span class="kn">import</span> <span class="n">GCEProvider</span>
+    <span class="kn">from</span> <span class="nn">.runtime.gce</span> <span class="kn">import</span> <span class="n">GCEProvider</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="nb">print</span><span class="p">(</span>
         <span class="s2">&quot;GCE provider unavailable, install with `pip install agentdesk[gce] if desired&quot;</span>
     <span class="p">)</span>
 <span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">.vm.ec2</span> <span class="kn">import</span> <span class="n">EC2Provider</span>
+    <span class="kn">from</span> <span class="nn">.runtime.ec2</span> <span class="kn">import</span> <span class="n">EC2Provider</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="nb">print</span><span class="p">(</span>
         <span class="s2">&quot;AWS provider unavailable, install with `pip install agentdesk[aws] if desired&quot;</span>
     <span class="p">)</span>
 
 <span class="kn">from</span> <span class="nn">.proxy</span> <span class="kn">import</span> <span class="n">cleanup_proxy</span><span class="p">,</span> <span class="n">ensure_ssh_proxy</span>
-<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="n">extract_file_path</span><span class="p">,</span> <span class="n">extract_gcs_info</span><span class="p">,</span> <span class="n">generate_random_string</span><span class="p">,</span> <span class="n">b64_to_image</span>
-<span class="kn">from</span> <span class="nn">.vm.qemu</span> <span class="kn">import</span> <span class="n">QemuProvider</span>
+<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">extract_file_path</span><span class="p">,</span>
+    <span class="n">extract_gcs_info</span><span class="p">,</span>
+    <span class="n">generate_random_string</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.runtime.qemu</span> <span class="kn">import</span> <span class="n">QemuProvider</span>
 
 
 <span class="k">class</span> <span class="nc">StorageStrategy</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
@@ -139,7 +143,7 @@
 <div class="viewcode-block" id="ProvisionConfig">
 <a class="viewcode-back" href="../../api.html#agentdesk.ProvisionConfig">[docs]</a>
 <span class="k">class</span> <span class="nc">ProvisionConfig</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-    <span class="n">provider</span><span class="p">:</span> <span class="n">V1ProviderData</span> <span class="o">=</span> <span class="n">V1ProviderData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;qemu&quot;</span><span class="p">)</span>
+    <span class="n">provider</span><span class="p">:</span> <span class="n">V1ProviderData</span> <span class="o">=</span> <span class="n">V1ProviderData</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;docker&quot;</span><span class="p">)</span>
     <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
     <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
@@ -158,7 +162,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">agentd_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">vm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DesktopVM</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">vm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DesktopInstance</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">storage_uri</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;file://.media&quot;</span><span class="p">,</span>
         <span class="n">type_min_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
         <span class="n">type_max_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
@@ -270,7 +274,7 @@
         <span class="n">config</span><span class="p">:</span> <span class="n">ProvisionConfig</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Find or create a desktop&quot;&quot;&quot;</span>
-        <span class="n">vm</span> <span class="o">=</span> <span class="n">DesktopVM</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">vm</span> <span class="o">=</span> <span class="n">DesktopInstance</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">vm</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
 
@@ -351,7 +355,9 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop VM on GCE&quot;&quot;&quot;</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">ProvisionConfig</span><span class="p">(</span>
-            <span class="n">provider</span><span class="o">=</span><span class="n">GCEProvider</span><span class="p">(</span><span class="n">project_id</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="n">zone</span><span class="p">,</span> <span class="n">region</span><span class="o">=</span><span class="n">region</span><span class="p">)</span><span class="o">.</span><span class="n">to_data</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
+            <span class="n">provider</span><span class="o">=</span><span class="n">GCEProvider</span><span class="p">(</span>
+                <span class="n">project_id</span><span class="o">=</span><span class="n">project</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="n">zone</span><span class="p">,</span> <span class="n">region</span><span class="o">=</span><span class="n">region</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">to_data</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
             <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
             <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
             <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
@@ -393,7 +399,7 @@
     <span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConnectConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
         <span class="n">vm</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="p">:</span>
-            <span class="n">vms</span> <span class="o">=</span> <span class="n">DesktopVM</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
+            <span class="n">vms</span> <span class="o">=</span> <span class="n">DesktopInstance</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">vms</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;VM </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="si">}</span><span class="s2"> was not found&quot;</span><span class="p">)</span>
             <span class="n">vm</span> <span class="o">=</span> <span class="n">vms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -475,7 +481,7 @@
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">from_vm</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
-        <span class="n">vm</span><span class="p">:</span> <span class="n">DesktopVM</span><span class="p">,</span>
+        <span class="n">vm</span><span class="p">:</span> <span class="n">DesktopInstance</span><span class="p">,</span>
         <span class="n">proxy_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span><span class="p">,</span>
         <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span><span class="p">,</span>
         <span class="n">check_health</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -483,7 +489,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop from a VM</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            vm (DesktopVM): VM to use</span>
+<span class="sd">            vm (DesktopInstance): VM to use</span>
 <span class="sd">            proxy_type (str, optional): The type of proxy to use. Defaults to process.</span>
 <span class="sd">            proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.</span>
 <span class="sd">            check_health (bool, optional): Check the health of the VM. Defaults to True.</span>
@@ -503,7 +509,7 @@
 <div class="viewcode-block" id="Desktop.get">
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop.get">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DesktopVM</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DesktopInstance</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a desktop by name</span>
 
 <span class="sd">        Args:</span>
@@ -512,19 +518,19 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            Desktop: A desktop</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">DesktopVM</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">DesktopInstance</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Desktop.find">
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop.find">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">find</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">DesktopVM</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">find</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">DesktopInstance</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;List all desktops</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            list[DesktopVM]: A list of desktop vms</span>
+<span class="sd">            list[DesktopInstance]: A list of desktop vms</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">DesktopVM</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">DesktopInstance</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Desktop.info">

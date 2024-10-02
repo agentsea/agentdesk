@@ -107,9 +107,9 @@
 
 
 
-<div class="viewcode-block" id="V1Desktop">
-<a class="viewcode-back" href="../../../api.html#agentdesk.V1Desktop">[docs]</a>
-<span class="k">class</span> <span class="nc">V1Desktop</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<div class="viewcode-block" id="V1DesktopInstance">
+<a class="viewcode-back" href="../../../api.html#agentdesk.V1DesktopInstance">[docs]</a>
+<span class="k">class</span> <span class="nc">V1DesktopInstance</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
     <span class="nb">id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">addr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -126,12 +126,17 @@
     <span class="n">provider</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">V1ProviderData</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">meta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">owner_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">key_pair_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+    <span class="n">key_pair_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">agentd_port</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">vnc_port</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">vnc_port_https</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">resource_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">namespace</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
 
 <span class="k">class</span> <span class="nc">V1Desktops</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-    <span class="n">desktops</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">V1Desktop</span><span class="p">]</span>
+    <span class="n">desktops</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">V1DesktopInstance</span><span class="p">]</span>
 
 
 <span class="k">class</span> <span class="nc">V1SSHKey</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
