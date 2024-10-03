@@ -53,12 +53,18 @@ class QemuProvider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        generate_password: bool = False,
     ) -> DesktopInstance:
         """Create a local QEMU VM locally"""
 
         if not check_command_availability("qemu-system-x86_64"):
             raise EnvironmentError(
                 "qemu-system-x86_64 is not installed. Please install QEMU."
+            )
+
+        if generate_password:
+            raise NotImplementedError(
+                "generating password is not supported yet for QEMU provider"
             )
 
         if not name:
@@ -140,7 +146,6 @@ users:
 local-hostname: {name}
 """
 
-        agentd_port: int = 8000
         ssh_port = find_open_port(2222, 3333)
 
         self._create_iso("cidata.iso", user_data, meta_data)

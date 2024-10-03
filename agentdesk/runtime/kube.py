@@ -11,6 +11,8 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import random
+import string
 
 from agentdesk.util import find_open_port
 from google.auth.transport.requests import Request
@@ -89,6 +91,7 @@ class KubernetesProvider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        generate_password: bool = False,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -102,23 +105,41 @@ class KubernetesProvider(DesktopProvider):
             reserve_ip (bool, optional): Reserve an IP address. Defaults to False.
             ssh_key_pair (str, optional): SSH key pair name to use. Defaults to None.
             owner_id (str, optional): Owner of the desktop. Defaults to None.
-            metadata (Dict[str, Any], optional): Metadata to apply to the VM. Defaults to None.
+            metadata (Dict[str, Any], optional): Metadata to apply to the instance. Defaults to None.
+            generate_password (bool, optional): Generate a random password. Defaults to False.
 
         Returns:
             DesktopInstance: An instance
         """
+        if reserve_ip:
+            raise NotImplementedError("Reserving IP addresses is not supported yet")
+        if ssh_key_pair:
+            raise NotImplementedError("SSH key pairs are not supported yet")
+
         if not name:
             name = get_random_name("-")
             if not name:
                 raise ValueError("Could not generate a random name")
+
+        env_vars = {}
+
+        basic_auth_password = None
+        basic_auth_user = None
+        if generate_password:
+            # generate a random 24 character password
+            basic_auth_password = "".join(
+                random.choice(string.ascii_letters + string.digits) for _ in range(24)
+            )
+
+            basic_auth_user = "agentd"
+            env_vars["CUSTOM_USER"] = basic_auth_user
+            env_vars["PASSWORD"] = basic_auth_password
 
         # if not auth_enabled:
         #     env_vars["DEKSTOP_NO_AUTH"] = "true"
 
         if not image:
             image = "us-docker.pkg.dev/agentsea-dev/agentd/desktop-webtop:latest"
-
-        env_vars = {}
 
         secret = None
         if env_vars:
@@ -228,6 +249,8 @@ class KubernetesProvider(DesktopProvider):
             requires_proxy=True,
             resource_name=pod_name,
             namespace=self.namespace,
+            basic_auth_user=basic_auth_user,
+            basic_auth_password=basic_auth_password,
         )
 
         return instance

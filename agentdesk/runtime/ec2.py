@@ -69,7 +69,12 @@ class EC2Provider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        generate_password: bool = False,
     ) -> DesktopInstance:
+        if generate_password:
+            raise NotImplementedError(
+                "generate_password not implemented for ec2 provider"
+            )
         if not name:
             name = get_random_name(sep="-")
             if not name:

@@ -56,6 +56,7 @@ class GCEProvider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        generate_password: bool = False,
     ) -> DesktopInstance:
         """Create a VM in GCP."""
 
@@ -66,6 +67,11 @@ class GCEProvider(DesktopProvider):
 
         if DesktopInstance.name_exists(name):
             raise ValueError(f"VM name '{name}' already exists")
+
+        if generate_password:
+            raise NotImplementedError(
+                "generate_password not implemented for gce provider"
+            )
 
         if not image:
             image = JAMMY.gce

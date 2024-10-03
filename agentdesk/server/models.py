@@ -49,6 +49,8 @@ class V1DesktopInstance(BaseModel):
     agentd_port: Optional[int] = None
     vnc_port: Optional[int] = None
     vnc_port_https: Optional[int] = None
+    basic_auth_user: Optional[str] = None
+    basic_auth_password: Optional[str] = None
     resource_name: Optional[str] = None
     namespace: Optional[str] = None
 

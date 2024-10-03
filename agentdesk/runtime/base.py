@@ -8,9 +8,12 @@ import webbrowser
 import random
 import os
 import atexit
+from pathlib import Path
+import base64
 
 import docker
 from docker.models.containers import Container
+from cryptography.fernet import Fernet
 
 from agentdesk.db.conn import WithDB
 from agentdesk.db.models import V1DesktopRecord
@@ -51,6 +54,8 @@ class DesktopInstance(WithDB):
         agentd_port: int = 8000,
         vnc_port: Optional[int] = None,
         vnc_port_https: Optional[int] = None,
+        basic_auth_user: Optional[str] = None,
+        basic_auth_password: Optional[str] = None,
         resource_name: Optional[str] = None,
         namespace: Optional[str] = None,
     ) -> None:
@@ -76,10 +81,61 @@ class DesktopInstance(WithDB):
         self.agentd_port = agentd_port
         self.vnc_port = vnc_port
         self.vnc_port_https = vnc_port_https
+        self.basic_auth_user = basic_auth_user
+        self.basic_auth_password = basic_auth_password
         self.resource_name = resource_name
         self.namespace = namespace
 
         self.save()
+
+    @classmethod
+    def get_encryption_key(cls) -> bytes:
+        # Step 1: Try to get the key from an environment variable
+        key = os.getenv("ENCRYPTION_KEY")
+        if key:
+            return key.encode()
+
+        # Define the path for the local encryption key file
+        key_path = Path.home() / ".agentsea/keys/agentdesk_encryption_key"
+
+        # Step 2: Try to get the key from a local file
+        try:
+            if key_path.exists():
+                with key_path.open("rb") as file:
+                    return file.read()
+        except IOError as e:
+            print(f"Failed to read the encryption key from {key_path}: {e}")
+
+        print(
+            "No encryption key found. Generating a new one. "
+            "This key will be stored in ~/.agentsea/keys/agentdesk_encryption_key"
+        )
+        # Step 3: Generate a new key and store it if neither of the above worked
+        key = Fernet.generate_key()
+        try:
+            key_path.parent.mkdir(
+                parents=True, exist_ok=True
+            )  # Ensure the directory exists
+            with key_path.open("wb") as file:
+                file.write(key)
+        except IOError as e:
+            print(f"Failed to write the new encryption key to {key_path}: {e}")
+            raise Exception("Failed to secure an encryption key.")
+
+        return key
+
+    def encrypt_password(self, password: str) -> str:
+        key = self.get_encryption_key()
+        fernet = Fernet(key)
+        encrypted_password = fernet.encrypt(password.encode())
+        return base64.b64encode(encrypted_password).decode()
+
+    @classmethod
+    def decrypt_password(cls, encrypted_password: str) -> str:
+        key = cls.get_encryption_key()
+        fernet = Fernet(key)
+        decrypted_password = fernet.decrypt(base64.b64decode(encrypted_password))
+        return decrypted_password.decode()
 
     def to_record(self) -> V1DesktopRecord:
         provider = None
@@ -89,6 +145,10 @@ class DesktopInstance(WithDB):
         metadata = None
         if self.metadata:
             metadata = json.dumps(self.metadata)
+
+        basic_auth_password = None
+        if self.basic_auth_password:
+            basic_auth_password = self.encrypt_password(self.basic_auth_password)
 
         return V1DesktopRecord(
             id=self.id,
@@ -111,6 +171,8 @@ class DesktopInstance(WithDB):
             agentd_port=self.agentd_port,
             vnc_port=self.vnc_port,
             vnc_port_https=self.vnc_port_https,
+            basic_auth_user=self.basic_auth_user,
+            basic_auth_password=basic_auth_password,
             resource_name=self.resource_name,
             namespace=self.namespace,
         )
@@ -156,6 +218,13 @@ class DesktopInstance(WithDB):
         if record.meta:  # type: ignore
             dct = json.loads(str(record.meta))
             out.metadata = dct
+
+        out.basic_auth_password = None
+        if record.basic_auth_password:  # type: ignore
+            out.basic_auth_password = cls.decrypt_password(
+                str(record.basic_auth_password)
+            )
+        out.basic_auth_user = record.basic_auth_user
         return out
 
     @classmethod
@@ -330,6 +399,8 @@ class DesktopInstance(WithDB):
             agentd_port=self.agentd_port,
             vnc_port=self.vnc_port,
             vnc_port_https=self.vnc_port_https,
+            basic_auth_user=self.basic_auth_user,
+            basic_auth_password=self.basic_auth_password,
             resource_name=self.resource_name,
             namespace=self.namespace,
         )
@@ -478,6 +549,7 @@ class DesktopProvider(ABC, Generic[DP]):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        generate_password: bool = False,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -492,6 +564,7 @@ class DesktopProvider(ABC, Generic[DP]):
             ssh_key_pair (str, optional): SSH key pair name to use. Defaults to None.
             owner_id (str, optional): Owner of the VM. Defaults to None.
             metadata (Dict[str, Any], optional): Metadata to apply to the VM. Defaults to None.
+            generate_password (bool, optional): Generate a password for the VM. Defaults to False.
 
         Returns:
             VM: A VM
