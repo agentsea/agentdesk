@@ -34,6 +34,8 @@ class V1DesktopRecord(Base):
     agentd_port = Column(Integer, nullable=True)
     vnc_port = Column(Integer, nullable=True)
     vnc_port_https = Column(Integer, nullable=True)
+    basic_auth_user = Column(String, nullable=True)
+    basic_auth_password = Column(String, nullable=True)
     resource_name = Column(String, nullable=True)
     namespace = Column(String, nullable=True)
 

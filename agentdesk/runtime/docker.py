@@ -66,24 +66,37 @@ class DockerProvider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        generate_password: bool = False,
     ) -> DesktopInstance:
         """Create a Desktop
 
         Args:
-            name (str, optional): Name of the VM. Defaults to random generation.
-            image (str, optional): Image of the VM. Defaults to Ubuntu Jammy.
+            name (str, optional): Name of the instance. Defaults to random generation.
+            image (str, optional): Image of the instance. Defaults to Ubuntu Jammy.
             memory (int): Memory allotment. Defaults to 4gb.
             cpu (int): CPU allotment. Defaults to 2.
             disk (str): Disk allotment. Defaults to 30gb.
-            tags (List[str], optional): Tags to apply to the VM. Defaults to None.
+            tags (List[str], optional): Tags to apply to the instance. Defaults to None.
             reserve_ip (bool, optional): Reserve an IP address. Defaults to False.
             ssh_key_pair (str, optional): SSH key pair name to use. Defaults to None.
-            owner_id (str, optional): Owner of the VM. Defaults to None.
-            metadata (Dict[str, Any], optional): Metadata to apply to the VM. Defaults to None.
+            owner_id (str, optional): Owner of the instance. Defaults to None.
+            metadata (Dict[str, Any], optional): Metadata to apply to the intance. Defaults to None.
+            generate_password (bool, optional): Generate a password for the instance. Defaults to False.
 
         Returns:
             DesktopInstance: A desktop instance
         """
+
+        if reserve_ip:
+            raise NotImplementedError(
+                "Reserving IP addresses is not supported for Docker"
+            )
+        if ssh_key_pair:
+            raise NotImplementedError("SSH key pairs are not supported for Docker")
+        if generate_password:
+            raise NotImplementedError(
+                "Generating passwords is not supported for Docker"
+            )
 
         if not name:
             name = get_random_name("-")
