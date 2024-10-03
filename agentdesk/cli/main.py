@@ -65,6 +65,10 @@ def create(
         False,
         help="Whether to reserve an IP address for the desktop.",
     ),
+    generate_password: bool = typer.Option(
+        False,
+        help="Whether to generate a password for the desktop.",
+    ),
 ):
     if not name:
         name = get_random_name(sep="-")
@@ -81,6 +85,7 @@ def create(
             cpu=cpu,
             disk=disk,
             reserve_ip=reserve_ip,
+            generate_password=generate_password,
         )
     except KeyboardInterrupt:
         print("Keyboard interrupt received, exiting...")

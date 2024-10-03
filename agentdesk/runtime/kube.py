@@ -123,13 +123,16 @@ class KubernetesProvider(DesktopProvider):
 
         env_vars = {}
 
+        basic_auth_password = None
+        basic_auth_user = None
         if generate_password:
             # generate a random 24 character password
             basic_auth_password = "".join(
                 random.choice(string.ascii_letters + string.digits) for _ in range(24)
             )
 
-            env_vars["CUSTOM_USER"] = "agentd"
+            basic_auth_user = "agentd"
+            env_vars["CUSTOM_USER"] = basic_auth_user
             env_vars["PASSWORD"] = basic_auth_password
 
         # if not auth_enabled:
@@ -246,6 +249,8 @@ class KubernetesProvider(DesktopProvider):
             requires_proxy=True,
             resource_name=pod_name,
             namespace=self.namespace,
+            basic_auth_user=basic_auth_user,
+            basic_auth_password=basic_auth_password,
         )
 
         return instance
