@@ -54,6 +54,7 @@ class QemuProvider(DesktopProvider):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         generate_password: bool = False,
+        sub_folder: Optional[str] = None,
     ) -> DesktopInstance:
         """Create a local QEMU VM locally"""
 
@@ -66,6 +67,8 @@ class QemuProvider(DesktopProvider):
             raise NotImplementedError(
                 "generating password is not supported yet for QEMU provider"
             )
+        if sub_folder:
+            raise NotImplementedError("sub_folder not implemented for qemu provider")
 
         if not name:
             name = get_random_name(sep="-")

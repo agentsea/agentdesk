@@ -70,11 +70,14 @@ class EC2Provider(DesktopProvider):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         generate_password: bool = False,
+        sub_folder: Optional[str] = None,
     ) -> DesktopInstance:
         if generate_password:
             raise NotImplementedError(
                 "generate_password not implemented for ec2 provider"
             )
+        if sub_folder:
+            raise NotImplementedError("sub_folder not implemented for ec2 provider")
         if not name:
             name = get_random_name(sep="-")
             if not name:
