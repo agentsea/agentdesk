@@ -3272,6 +3272,17 @@ botocore = ">=1.33.2,<2.0a.0"
 crt = ["botocore[crt] (>=1.33.2,<2.0a.0)"]
 
 [[package]]
+name = "shortuuid"
+version = "1.0.13"
+description = "A generator library for concise, unambiguous and URL-safe UUIDs."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "shortuuid-1.0.13-py3-none-any.whl", hash = "sha256:a482a497300b49b4953e15108a7913244e1bb0d41f9d332f5e9925dba33a3c5a"},
+    {file = "shortuuid-1.0.13.tar.gz", hash = "sha256:3bb9cf07f606260584b1df46399c0b87dd84773e7b25912b7e391e30797c5e72"},
+]
+
+[[package]]
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -4128,4 +4139,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "9648c6f8348918361ce0fc65bc1a86f4fd16ba971e4c785cfc73a980f4e7fed0"
+content-hash = "5239706b0e7f2c0e63aa95d64a87c1ae06658310d157c4a381bfbb4ebf74bdfb"

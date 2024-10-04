@@ -57,9 +57,11 @@ class GCEProvider(DesktopProvider):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         generate_password: bool = False,
+        sub_folder: Optional[str] = None,
     ) -> DesktopInstance:
         """Create a VM in GCP."""
-
+        if sub_folder:
+            raise NotImplementedError("sub_folder not implemented for gce provider")
         if not name:
             name = get_random_name(sep="-")
             if not name:

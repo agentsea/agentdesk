@@ -67,6 +67,7 @@ class DockerProvider(DesktopProvider):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         generate_password: bool = False,
+        sub_folder: Optional[str] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -82,6 +83,7 @@ class DockerProvider(DesktopProvider):
             owner_id (str, optional): Owner of the instance. Defaults to None.
             metadata (Dict[str, Any], optional): Metadata to apply to the intance. Defaults to None.
             generate_password (bool, optional): Generate a password for the instance. Defaults to False.
+            sub_folder (str, optional): Subfolder to use. Defaults to None.
 
         Returns:
             DesktopInstance: A desktop instance
@@ -124,6 +126,8 @@ class DockerProvider(DesktopProvider):
             raise ValueError("Could not find open port")
 
         env_vars = {}
+        if sub_folder:
+            env_vars["SUBFOLDER"] = sub_folder
 
         # Initialize tqdm progress bar
         api_client = APIClient()

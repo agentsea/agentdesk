@@ -14,6 +14,7 @@ import base64
 import docker
 from docker.models.containers import Container
 from cryptography.fernet import Fernet
+import shortuuid
 
 from agentdesk.db.conn import WithDB
 from agentdesk.db.models import V1DesktopRecord
@@ -60,7 +61,7 @@ class DesktopInstance(WithDB):
         namespace: Optional[str] = None,
     ) -> None:
         if not id:
-            id = str(uuid.uuid4())
+            id = shortuuid.uuid()
         self.name = name
         self.addr = addr
         self.cpu = cpu
@@ -550,6 +551,7 @@ class DesktopProvider(ABC, Generic[DP]):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         generate_password: bool = False,
+        sub_folder: Optional[str] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -565,9 +567,10 @@ class DesktopProvider(ABC, Generic[DP]):
             owner_id (str, optional): Owner of the VM. Defaults to None.
             metadata (Dict[str, Any], optional): Metadata to apply to the VM. Defaults to None.
             generate_password (bool, optional): Generate a password for the VM. Defaults to False.
+            sub_folder (str, optional): Sub folder to use. Defaults to None.
 
         Returns:
-            VM: A VM
+            DesktopInstance: A desktop instance
         """
         pass
 

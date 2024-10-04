@@ -26,6 +26,7 @@ from kubernetes.stream import portforward
 from namesgenerator import get_random_name
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_fixed
+import shortuuid
 
 from .base import DesktopInstance, DesktopProvider, V1ProviderData
 
@@ -92,6 +93,7 @@ class KubernetesProvider(DesktopProvider):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         generate_password: bool = False,
+        sub_folder: Optional[str] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -107,6 +109,7 @@ class KubernetesProvider(DesktopProvider):
             owner_id (str, optional): Owner of the desktop. Defaults to None.
             metadata (Dict[str, Any], optional): Metadata to apply to the instance. Defaults to None.
             generate_password (bool, optional): Generate a random password. Defaults to False.
+            sub_folder (str, optional): Subfolder to use. Defaults to None.
 
         Returns:
             DesktopInstance: An instance
@@ -122,6 +125,7 @@ class KubernetesProvider(DesktopProvider):
                 raise ValueError("Could not generate a random name")
 
         env_vars = {}
+        id = shortuuid.uuid()
 
         basic_auth_password = None
         basic_auth_user = None
@@ -131,12 +135,11 @@ class KubernetesProvider(DesktopProvider):
                 random.choice(string.ascii_letters + string.digits) for _ in range(24)
             )
 
-            basic_auth_user = "agentd"
-            env_vars["CUSTOM_USER"] = basic_auth_user
+            env_vars["CUSTOM_USER"] = id
             env_vars["PASSWORD"] = basic_auth_password
 
-        # if not auth_enabled:
-        #     env_vars["DEKSTOP_NO_AUTH"] = "true"
+        if sub_folder:
+            env_vars["SUBFOLDER"] = sub_folder
 
         if not image:
             image = "us-docker.pkg.dev/agentsea-dev/agentd/desktop-webtop:latest"
@@ -177,8 +180,6 @@ class KubernetesProvider(DesktopProvider):
             env_from=env_from,  # Using envFrom to source env vars from the secret
             image_pull_policy="Always",
         )
-
-        # print("\ncreating container: ", container.__dict__)
 
         # Pod specification
         pod_spec = client.V1PodSpec(
@@ -236,6 +237,7 @@ class KubernetesProvider(DesktopProvider):
         self.wait_for_http_200(name)
 
         instance = DesktopInstance(
+            id=id,
             name=name,
             cpu=cpu,
             memory=memory,
