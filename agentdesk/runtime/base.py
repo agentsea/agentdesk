@@ -552,6 +552,7 @@ class DesktopProvider(ABC, Generic[DP]):
         metadata: Optional[Dict[str, Any]] = None,
         generate_password: bool = False,
         sub_folder: Optional[str] = None,
+        id: Optional[str] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -568,6 +569,7 @@ class DesktopProvider(ABC, Generic[DP]):
             metadata (Dict[str, Any], optional): Metadata to apply to the VM. Defaults to None.
             generate_password (bool, optional): Generate a password for the VM. Defaults to False.
             sub_folder (str, optional): Sub folder to use. Defaults to None.
+            id (str, optional): ID of the instance. Defaults to None.
 
         Returns:
             DesktopInstance: A desktop instance
