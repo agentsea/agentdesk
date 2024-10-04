@@ -68,6 +68,7 @@ class DockerProvider(DesktopProvider):
         metadata: Optional[Dict[str, Any]] = None,
         generate_password: bool = False,
         sub_folder: Optional[str] = None,
+        id: Optional[str] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -84,6 +85,7 @@ class DockerProvider(DesktopProvider):
             metadata (Dict[str, Any], optional): Metadata to apply to the intance. Defaults to None.
             generate_password (bool, optional): Generate a password for the instance. Defaults to False.
             sub_folder (str, optional): Subfolder to use. Defaults to None.
+            id (str, optional): ID of the instance. Defaults to None.
 
         Returns:
             DesktopInstance: A desktop instance
@@ -191,6 +193,7 @@ class DockerProvider(DesktopProvider):
             raise RuntimeError(f"Container '{name}' did not pass health check")
 
         return DesktopInstance(
+            id=id,
             name=name,
             addr=f"http://localhost:{agentd_port}",
             cpu=cpu,

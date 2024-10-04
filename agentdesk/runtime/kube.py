@@ -94,6 +94,7 @@ class KubernetesProvider(DesktopProvider):
         metadata: Optional[Dict[str, Any]] = None,
         generate_password: bool = False,
         sub_folder: Optional[str] = None,
+        id: Optional[str] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -110,6 +111,7 @@ class KubernetesProvider(DesktopProvider):
             metadata (Dict[str, Any], optional): Metadata to apply to the instance. Defaults to None.
             generate_password (bool, optional): Generate a random password. Defaults to False.
             sub_folder (str, optional): Subfolder to use. Defaults to None.
+            id (str, optional): ID of the desktop. Defaults to None.
 
         Returns:
             DesktopInstance: An instance
@@ -125,7 +127,9 @@ class KubernetesProvider(DesktopProvider):
                 raise ValueError("Could not generate a random name")
 
         env_vars = {}
-        id = shortuuid.uuid()
+
+        if not id:
+            id = shortuuid.uuid()
 
         basic_auth_password = None
         basic_auth_user = None

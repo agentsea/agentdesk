@@ -55,6 +55,7 @@ class QemuProvider(DesktopProvider):
         metadata: Optional[Dict[str, Any]] = None,
         generate_password: bool = False,
         sub_folder: Optional[str] = None,
+        id: Optional[str] = None,
     ) -> DesktopInstance:
         """Create a local QEMU VM locally"""
 
@@ -199,6 +200,7 @@ local-hostname: {name}
 
         # Create and return a Desktop object
         desktop = DesktopInstance(
+            id=id,
             name=name,  # type: ignore
             addr="localhost",
             cpu=cpu,
