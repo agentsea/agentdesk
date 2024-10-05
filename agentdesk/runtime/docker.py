@@ -69,6 +69,7 @@ class DockerProvider(DesktopProvider):
         generate_password: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
+        ttl: Optional[int] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -86,6 +87,7 @@ class DockerProvider(DesktopProvider):
             generate_password (bool, optional): Generate a password for the instance. Defaults to False.
             sub_folder (str, optional): Subfolder to use. Defaults to None.
             id (str, optional): ID of the instance. Defaults to None.
+            ttl (int, optional): Time to live for the instance. Defaults to None.
 
         Returns:
             DesktopInstance: A desktop instance
@@ -206,6 +208,7 @@ class DockerProvider(DesktopProvider):
             vnc_port_https=vnc_port_https,
             requires_proxy=False,
             provider=self.to_data(),
+            ttl=ttl,
         )
 
     def delete(self, name: str, owner_id: Optional[str] = None) -> None:

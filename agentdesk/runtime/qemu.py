@@ -56,6 +56,7 @@ class QemuProvider(DesktopProvider):
         generate_password: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
+        ttl: Optional[int] = None,
     ) -> DesktopInstance:
         """Create a local QEMU VM locally"""
 
@@ -214,6 +215,7 @@ local-hostname: {name}
             owner_id=owner_id,
             metadata=metadata,
             key_pair_name=key_pair.name,
+            ttl=ttl,
         )
         print(f"\nsuccessfully created desktop '{name}'")
         return desktop
