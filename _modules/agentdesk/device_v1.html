@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>agentdesk.device &mdash; AgentDesk 0.1.0 documentation</title>
+  <title>agentdesk.device_v1 &mdash; AgentDesk 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
@@ -64,7 +64,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">agentdesk.device</li>
+      <li class="breadcrumb-item active">agentdesk.device_v1</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -73,21 +73,20 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for agentdesk.device</h1><div class="highlight"><pre>
+  <h1>Source code for agentdesk.device_v1</h1><div class="highlight"><pre>
 <span></span><span class="c1"># from __future__ import annotations</span>
 <span class="kn">import</span> <span class="nn">atexit</span>
 <span class="kn">import</span> <span class="nn">base64</span>
 <span class="kn">import</span> <span class="nn">io</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
+<span class="kn">import</span> <span class="nn">urllib.parse</span>
 
 <span class="kn">import</span> <span class="nn">requests</span>
 <span class="kn">from</span> <span class="nn">devicebay</span> <span class="kn">import</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">ReactComponent</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">observation</span>
-<span class="kn">from</span> <span class="nn">google.cloud</span> <span class="kn">import</span> <span class="n">storage</span>
 <span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
 <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">BaseModel</span>
+<span class="kn">from</span> <span class="nn">tenacity</span> <span class="kn">import</span> <span class="n">retry</span><span class="p">,</span> <span class="n">stop_after_attempt</span><span class="p">,</span> <span class="n">wait_fixed</span>
 
 <span class="kn">from</span> <span class="nn">.key</span> <span class="kn">import</span> <span class="n">SSHKeyPair</span>
 <span class="kn">from</span> <span class="nn">.server.models</span> <span class="kn">import</span> <span class="n">V1ProviderData</span>
@@ -107,11 +106,15 @@
         <span class="s2">&quot;AWS provider unavailable, install with `pip install agentdesk[aws] if desired&quot;</span>
     <span class="p">)</span>
 
+<span class="kn">from</span> <span class="nn">.runtime.docker</span> <span class="kn">import</span> <span class="n">DockerProvider</span>
+<span class="kn">from</span> <span class="nn">.runtime.kube</span> <span class="kn">import</span> <span class="n">KubernetesProvider</span><span class="p">,</span> <span class="n">KubeConnectConfig</span>
+
 <span class="kn">from</span> <span class="nn">.proxy</span> <span class="kn">import</span> <span class="n">cleanup_proxy</span><span class="p">,</span> <span class="n">ensure_ssh_proxy</span>
 <span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">extract_file_path</span><span class="p">,</span>
     <span class="n">extract_gcs_info</span><span class="p">,</span>
     <span class="n">generate_random_string</span><span class="p">,</span>
+    <span class="n">b64_to_image</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">.runtime.qemu</span> <span class="kn">import</span> <span class="n">QemuProvider</span>
 
@@ -125,7 +128,7 @@
 <a class="viewcode-back" href="../../api.html#agentdesk.ConnectConfig">[docs]</a>
 <span class="k">class</span> <span class="nc">ConnectConfig</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
     <span class="n">agentd_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">vm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">instance</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">storage_uri</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;file://.media&quot;</span>
     <span class="n">type_min_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span>
     <span class="n">type_max_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span>
@@ -162,7 +165,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">agentd_url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">vm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DesktopInstance</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">instance</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DesktopInstance</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">storage_uri</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;file://.media&quot;</span><span class="p">,</span>
         <span class="n">type_min_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
         <span class="n">type_max_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">,</span>
@@ -180,8 +183,8 @@
 
 <span class="sd">        Args:</span>
 <span class="sd">            agentd_url (str, optional): URL of a running agentd server. Defaults to None.</span>
-<span class="sd">            vm (str, optional): Optional desktop VM to use. Defaults to None.</span>
-<span class="sd">            storage_uri (str): The directory where to store images or videos taken of the VM, supports gs:// or file://. Defaults to file://.media.</span>
+<span class="sd">            instance (str, optional): Optional desktop VM to use. Defaults to None.</span>
+<span class="sd">            storage_uri (str): The directory where to store images or videos taken of the Instance, supports gs:// or file://. Defaults to file://.media.</span>
 <span class="sd">            type_min_interval (float, optional): Min interval between pressing next key. Defaults to 0.05.</span>
 <span class="sd">            type_max_interval (float, optional): Max interval between pressing next key. Defaults to 0.25.</span>
 <span class="sd">            move_mouse_duration (float, optional): How long should it take to move. Defaults to 1.0.</span>
@@ -195,27 +198,28 @@
 <span class="sd">            check_health (bool, optional): Whether to check the health of the server. Defaults to True.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_vm</span> <span class="o">=</span> <span class="n">vm</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance</span> <span class="o">=</span> <span class="n">instance</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_agentd_url</span> <span class="o">=</span> <span class="n">agentd_url</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">vm</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_agentd_url</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">addr</span>
+        <span class="k">if</span> <span class="n">instance</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">instance</span><span class="o">.</span><span class="n">requires_proxy</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_agentd_url</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">addr</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;localhost:</span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">addr</span>
-                <span class="k">if</span> <span class="n">vm</span><span class="o">.</span><span class="n">provider</span> <span class="ow">and</span> <span class="n">vm</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;qemu&quot;</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">vm</span><span class="o">.</span><span class="n">addr</span><span class="si">}</span><span class="s2">:8000&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">addr</span>
+                <span class="k">if</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span> <span class="ow">and</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;qemu&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">instance</span><span class="o">.</span><span class="n">addr</span><span class="si">}</span><span class="s2">:8000&quot;</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_agentd_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span> <span class="o">=</span> <span class="n">vm</span><span class="o">.</span><span class="n">key_pair_name</span>
-            <span class="n">keys</span> <span class="o">=</span> <span class="n">SSHKeyPair</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">keys</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No key found with name </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">key_pair</span> <span class="o">=</span> <span class="n">keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">instance</span><span class="o">.</span><span class="n">key_pair_name</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">key_pair_name</span>
+                <span class="n">keys</span> <span class="o">=</span> <span class="n">SSHKeyPair</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">keys</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No key found with name </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_key_pair_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">key_pair</span> <span class="o">=</span> <span class="n">keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
-            <span class="n">private_ssh_key</span> <span class="o">=</span> <span class="n">key_pair</span><span class="o">.</span><span class="n">decrypt_private_key</span><span class="p">(</span><span class="n">key_pair</span><span class="o">.</span><span class="n">private_key</span><span class="p">)</span>
+                <span class="n">private_ssh_key</span> <span class="o">=</span> <span class="n">key_pair</span><span class="o">.</span><span class="n">decrypt_private_key</span><span class="p">(</span><span class="n">key_pair</span><span class="o">.</span><span class="n">private_key</span><span class="p">)</span>
 
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">agentd_url</span>
@@ -230,20 +234,39 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_mouse_tween</span> <span class="o">=</span> <span class="n">mouse_tween</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_store_img</span> <span class="o">=</span> <span class="n">store_img</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_proxy_port</span> <span class="o">=</span> <span class="n">proxy_port</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span> <span class="o">=</span> <span class="n">requires_proxy</span> <span class="k">if</span> <span class="n">vm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vm</span><span class="o">.</span><span class="n">requires_proxy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">requires_proxy</span> <span class="k">if</span> <span class="n">instance</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">instance</span><span class="o">.</span><span class="n">requires_proxy</span>
+        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_private_ssh_key</span> <span class="o">=</span> <span class="n">private_ssh_key</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ssh_port</span> <span class="o">=</span> <span class="n">ssh_port</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_proxy_type</span> <span class="o">=</span> <span class="n">proxy_type</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">proxy_type</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;starting proxy to vm...&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">instance</span> <span class="ow">and</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span> <span class="ow">and</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;kube&quot;</span>
+            <span class="p">):</span>  <span class="c1"># TODO: use `provider.proxy` for everything</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No args for intance </span><span class="si">{</span><span class="n">instance</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="n">cfg</span> <span class="o">=</span> <span class="n">KubeConnectConfig</span><span class="o">.</span><span class="n">model_validate_json</span><span class="p">(</span>
+                    <span class="n">instance</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;cfg&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">provider</span> <span class="o">=</span> <span class="n">KubernetesProvider</span><span class="p">(</span><span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span>
+
+                <span class="n">local_port</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">proxy</span><span class="p">(</span>
+                    <span class="n">instance</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">container_port</span><span class="o">=</span><span class="n">instance</span><span class="o">.</span><span class="n">agentd_port</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_agentd_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">local_port</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">local_port</span><span class="si">}</span><span class="s2">&quot;</span>
+
+            <span class="k">elif</span> <span class="n">proxy_type</span> <span class="o">==</span> <span class="s2">&quot;process&quot;</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;starting proxy to instance...&quot;</span><span class="p">)</span>
                 <span class="n">proxy_pid</span> <span class="o">=</span> <span class="n">ensure_ssh_proxy</span><span class="p">(</span>
                     <span class="n">local_port</span><span class="o">=</span><span class="n">proxy_port</span><span class="p">,</span>
                     <span class="n">remote_port</span><span class="o">=</span><span class="mi">8000</span><span class="p">,</span>
-                    <span class="n">ssh_port</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">ssh_port</span> <span class="k">if</span> <span class="n">vm</span> <span class="k">else</span> <span class="n">ssh_port</span><span class="p">,</span>
+                    <span class="n">ssh_port</span><span class="o">=</span><span class="n">instance</span><span class="o">.</span><span class="n">ssh_port</span> <span class="k">if</span> <span class="n">instance</span> <span class="k">else</span> <span class="n">ssh_port</span><span class="p">,</span>
                     <span class="n">ssh_user</span><span class="o">=</span><span class="s2">&quot;agentsea&quot;</span><span class="p">,</span>
-                    <span class="n">ssh_host</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">addr</span> <span class="k">if</span> <span class="n">vm</span> <span class="k">else</span> <span class="n">agentd_url</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">ssh_host</span><span class="o">=</span><span class="n">instance</span><span class="o">.</span><span class="n">addr</span> <span class="k">if</span> <span class="n">instance</span> <span class="k">else</span> <span class="n">agentd_url</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
                     <span class="n">ssh_key</span><span class="o">=</span><span class="n">private_ssh_key</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">cleanup_proxy</span><span class="p">,</span> <span class="n">proxy_pid</span><span class="p">)</span>
@@ -251,17 +274,24 @@
                     <span class="sa">f</span><span class="s2">&quot;proxy from local port </span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2"> to remote port 8000 started...&quot;</span>
                 <span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">proxy_port</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="k">if</span> <span class="n">proxy_type</span> <span class="o">==</span> <span class="s2">&quot;mock&quot;</span><span class="p">:</span>
+            <span class="k">elif</span> <span class="n">proxy_type</span> <span class="o">==</span> <span class="s2">&quot;mock&quot;</span><span class="p">:</span>
                 <span class="k">pass</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;vm doesn&#39;t require proxy&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;instance doesn&#39;t require proxy&quot;</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">check_health</span><span class="p">:</span>
-                <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">health</span><span class="p">()</span>
-                <span class="k">if</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;ok&quot;</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;agentd status is not ok&quot;</span><span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;connected to desktop via agentd&quot;</span><span class="p">)</span>
+
+                <span class="nd">@retry</span><span class="p">(</span><span class="n">stop</span><span class="o">=</span><span class="n">stop_after_attempt</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span> <span class="n">wait</span><span class="o">=</span><span class="n">wait_fixed</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+                <span class="k">def</span> <span class="nf">connect</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">check_health</span><span class="p">:</span>
+                        <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">health</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="n">resp</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;ok&quot;</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;agentd status is not ok&quot;</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;connected to desktop via agentd&quot;</span><span class="p">)</span>
+
+                <span class="n">connect</span><span class="p">()</span>
+
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">SystemError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;could not connect to desktop, is agentd running? </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
@@ -274,9 +304,9 @@
         <span class="n">config</span><span class="p">:</span> <span class="n">ProvisionConfig</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Find or create a desktop&quot;&quot;&quot;</span>
-        <span class="n">vm</span> <span class="o">=</span> <span class="n">DesktopInstance</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">vm</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">)</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="n">DesktopInstance</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">instance</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_instance</span><span class="p">(</span><span class="n">instance</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
@@ -295,7 +325,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop VM&quot;&quot;&quot;</span>
 
         <span class="n">provider</span> <span class="o">=</span> <span class="n">load_provider</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">provider</span><span class="p">)</span>
-        <span class="n">vm</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
             <span class="n">image</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">image</span><span class="p">,</span>
             <span class="n">memory</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">memory</span><span class="p">,</span>
@@ -304,7 +334,16 @@
             <span class="n">reserve_ip</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">reserve_ip</span><span class="p">,</span>
             <span class="n">ssh_key_pair</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">ssh_key_pair</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_vm</span><span class="p">(</span><span class="n">vm</span><span class="p">,</span> <span class="n">proxy_port</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">proxy_port</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_instance</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="n">proxy_port</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">proxy_port</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.delete">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.delete">[docs]</a>
+    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete the desktop VM&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_instance</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Desktop instance not found&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="Desktop.ec2">
@@ -327,6 +366,61 @@
 
         <span class="n">config</span> <span class="o">=</span> <span class="n">ProvisionConfig</span><span class="p">(</span>
             <span class="n">provider</span><span class="o">=</span><span class="n">EC2Provider</span><span class="p">(</span><span class="n">region</span><span class="o">=</span><span class="n">region</span><span class="p">)</span><span class="o">.</span><span class="n">to_data</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
+            <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+            <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
+            <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
+            <span class="n">disk</span><span class="o">=</span><span class="n">disk</span><span class="p">,</span>
+            <span class="n">reserve_ip</span><span class="o">=</span><span class="n">reserve_ip</span><span class="p">,</span>
+            <span class="n">ssh_key_pair</span><span class="o">=</span><span class="n">ssh_key_pair</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.docker">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.docker">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">docker</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">disk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;30gb&quot;</span><span class="p">,</span>
+        <span class="n">reserve_ip</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">ssh_key_pair</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop container on docker&quot;&quot;&quot;</span>
+
+        <span class="n">config</span> <span class="o">=</span> <span class="n">ProvisionConfig</span><span class="p">(</span>
+            <span class="n">provider</span><span class="o">=</span><span class="n">DockerProvider</span><span class="p">()</span><span class="o">.</span><span class="n">to_data</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
+            <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+            <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
+            <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
+            <span class="n">disk</span><span class="o">=</span><span class="n">disk</span><span class="p">,</span>
+            <span class="n">reserve_ip</span><span class="o">=</span><span class="n">reserve_ip</span><span class="p">,</span>
+            <span class="n">ssh_key_pair</span><span class="o">=</span><span class="n">ssh_key_pair</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Desktop.kube">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.kube">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">kube</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">image</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">disk</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;30gb&quot;</span><span class="p">,</span>
+        <span class="n">reserve_ip</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">ssh_key_pair</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop container on kubernetes&quot;&quot;&quot;</span>
+        <span class="n">cfg</span> <span class="o">=</span> <span class="n">KubeConnectConfig</span><span class="p">()</span>
+
+        <span class="n">config</span> <span class="o">=</span> <span class="n">ProvisionConfig</span><span class="p">(</span>
+            <span class="n">provider</span><span class="o">=</span><span class="n">KubernetesProvider</span><span class="p">(</span><span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span><span class="o">.</span><span class="n">to_data</span><span class="p">(),</span>  <span class="c1"># type: ignore</span>
             <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
             <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span>
             <span class="n">cpus</span><span class="o">=</span><span class="n">cpus</span><span class="p">,</span>
@@ -380,7 +474,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a local VM</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            name (str, optional): Name of the vm. Defaults to None.</span>
+<span class="sd">            name (str, optional): Name of the instance. Defaults to None.</span>
 <span class="sd">            memory (int, optional): Memory the VM has. Defaults to 4.</span>
 <span class="sd">            cpus (int, optional): CPUs the VM has. Defaults to 2.</span>
 
@@ -397,16 +491,16 @@
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop.connect">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConnectConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Desktop&quot;</span><span class="p">:</span>
-        <span class="n">vm</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="p">:</span>
-            <span class="n">vms</span> <span class="o">=</span> <span class="n">DesktopInstance</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="p">)</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">instance</span><span class="p">:</span>
+            <span class="n">vms</span> <span class="o">=</span> <span class="n">DesktopInstance</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">instance</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">vms</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;VM </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="si">}</span><span class="s2"> was not found&quot;</span><span class="p">)</span>
-            <span class="n">vm</span> <span class="o">=</span> <span class="n">vms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;VM </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">instance</span><span class="si">}</span><span class="s2"> was not found&quot;</span><span class="p">)</span>
+            <span class="n">instance</span> <span class="o">=</span> <span class="n">vms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
             <span class="n">agentd_url</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">agentd_url</span><span class="p">,</span>
             <span class="n">private_ssh_key</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">private_ssh_key</span><span class="p">,</span>
-            <span class="n">vm</span><span class="o">=</span><span class="n">vm</span><span class="p">,</span>
+            <span class="n">instance</span><span class="o">=</span><span class="n">instance</span><span class="p">,</span>
             <span class="n">storage_uri</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">storage_uri</span><span class="p">,</span>
             <span class="n">type_min_interval</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">type_min_interval</span><span class="p">,</span>
             <span class="n">type_max_interval</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">type_max_interval</span><span class="p">,</span>
@@ -476,12 +570,12 @@
         <span class="k">return</span> <span class="n">ReactComponent</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="Desktop.from_vm">
-<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.from_vm">[docs]</a>
+<div class="viewcode-block" id="Desktop.from_instance">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.from_instance">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">from_vm</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">from_instance</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
-        <span class="n">vm</span><span class="p">:</span> <span class="n">DesktopInstance</span><span class="p">,</span>
+        <span class="n">instance</span><span class="p">:</span> <span class="n">DesktopInstance</span><span class="p">,</span>
         <span class="n">proxy_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span><span class="p">,</span>
         <span class="n">proxy_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8000</span><span class="p">,</span>
         <span class="n">check_health</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -489,7 +583,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a desktop from a VM</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            vm (DesktopInstance): VM to use</span>
+<span class="sd">            instance (DesktopInstance): Instance to use</span>
 <span class="sd">            proxy_type (str, optional): The type of proxy to use. Defaults to process.</span>
 <span class="sd">            proxy_port (int, optional): The port to use for the proxy. Defaults to 8000.</span>
 <span class="sd">            check_health (bool, optional): Check the health of the VM. Defaults to True.</span>
@@ -498,11 +592,11 @@
 <span class="sd">            Desktop: A desktop</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Desktop</span><span class="p">(</span>
-            <span class="n">vm</span><span class="o">=</span><span class="n">vm</span><span class="p">,</span>
+            <span class="n">instance</span><span class="o">=</span><span class="n">instance</span><span class="p">,</span>
             <span class="n">proxy_type</span><span class="o">=</span><span class="n">proxy_type</span><span class="p">,</span>
             <span class="n">proxy_port</span><span class="o">=</span><span class="n">proxy_port</span><span class="p">,</span>
             <span class="n">check_health</span><span class="o">=</span><span class="n">check_health</span><span class="p">,</span>
-            <span class="n">ssh_port</span><span class="o">=</span><span class="n">vm</span><span class="o">.</span><span class="n">ssh_port</span><span class="p">,</span>
+            <span class="n">ssh_port</span><span class="o">=</span><span class="n">instance</span><span class="o">.</span><span class="n">ssh_port</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -541,7 +635,8 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            dict: A dictionary of info</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/info&quot;</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/info&quot;</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span></div>
 
 
@@ -554,10 +649,10 @@
 <span class="sd">            background (bool, optional): Whether to run in the background and not block. Defaults to False.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vm</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_instance</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Desktop not created with a VM, don&#39;t know how to proxy&quot;</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_vm</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">background</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">background</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Desktop.health">
@@ -568,7 +663,9 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            dict: Agentd health</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/health&quot;</span><span class="p">)</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/health&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span></div>
 
 
@@ -581,7 +678,8 @@
 <span class="sd">        Args:</span>
 <span class="sd">            url (str): URL to open</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/open_url&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">url</span><span class="p">})</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/open_url&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">url</span><span class="p">})</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span></div>
 
 
@@ -595,8 +693,8 @@
 <span class="sd">            x (int): x coordinate</span>
 <span class="sd">            y (int): y coordinate</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/move_mouse&quot;</span><span class="p">,</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/move_mouse&quot;</span><span class="p">,</span>
             <span class="n">json</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span>
                 <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">,</span>
@@ -604,6 +702,7 @@
                 <span class="s2">&quot;tween&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mouse_tween</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span></div>
 
 
@@ -624,7 +723,8 @@
         <span class="k">if</span> <span class="n">x</span> <span class="ow">and</span> <span class="n">y</span><span class="p">:</span>
             <span class="n">body</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">}</span>  <span class="c1"># type: ignore</span>
 
-        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/click&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">body</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/click&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">body</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span></div>
 
 
@@ -657,7 +757,8 @@
 <span class="sd">                &quot;volumeup&quot;, &quot;win&quot;, &quot;winleft&quot;, &quot;winright&quot;, &quot;yen&quot;, &quot;command&quot;, &quot;option&quot;,</span>
 <span class="sd">                &quot;optionleft&quot;, &quot;optionright&quot; ]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/press_key&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">key</span><span class="p">})</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/press_key&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">key</span><span class="p">})</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span></div>
 
 
@@ -690,7 +791,8 @@
 <span class="sd">                &quot;volumeup&quot;, &quot;win&quot;, &quot;winleft&quot;, &quot;winright&quot;, &quot;yen&quot;, &quot;command&quot;, &quot;option&quot;,</span>
 <span class="sd">                &quot;optionleft&quot;, &quot;optionright&quot; ]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/hot_key&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;keys&quot;</span><span class="p">:</span> <span class="n">keys</span><span class="p">})</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/hot_key&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;keys&quot;</span><span class="p">:</span> <span class="n">keys</span><span class="p">})</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span></div>
 
 
@@ -703,7 +805,8 @@
 <span class="sd">        Args:</span>
 <span class="sd">            clicks (int, optional): Number of clicks, negative scrolls down, positive scrolls up. Defaults to -3.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/scroll&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;clicks&quot;</span><span class="p">:</span> <span class="n">clicks</span><span class="p">})</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/scroll&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;clicks&quot;</span><span class="p">:</span> <span class="n">clicks</span><span class="p">})</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span></div>
 
 
@@ -717,7 +820,10 @@
 <span class="sd">            x (int): x coordinate</span>
 <span class="sd">            y (int): y coordinate</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/drag_mouse&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">})</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/drag_mouse&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span></div>
 
 
@@ -726,7 +832,8 @@
     <span class="nd">@action</span>
     <span class="k">def</span> <span class="nf">double_click</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Double click the mouse&quot;&quot;&quot;</span>
-        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/double_click&quot;</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/double_click&quot;</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span></div>
 
 
@@ -739,57 +846,59 @@
 <span class="sd">        Args:</span>
 <span class="sd">            text (str): Text to type</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/type_text&quot;</span><span class="p">,</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/type_text&quot;</span><span class="p">,</span>
             <span class="n">json</span><span class="o">=</span><span class="p">{</span>
                 <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="n">text</span><span class="p">,</span>
                 <span class="s2">&quot;min_interval&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_type_min_interval</span><span class="p">,</span>
                 <span class="s2">&quot;max_interval&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_type_max_interval</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="k">return</span></div>
 
 
-<div class="viewcode-block" id="Desktop.take_screenshot">
-<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.take_screenshot">[docs]</a>
+<div class="viewcode-block" id="Desktop.exec">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.exec">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">exec</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Execute a command</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            cmd (str): Command to execute</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">encoded_cmd</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">quote</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/exec?command=</span><span class="si">{</span><span class="n">encoded_cmd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+
+        <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="Desktop.take_screenshots">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.take_screenshots">[docs]</a>
     <span class="nd">@observation</span>
-    <span class="k">def</span> <span class="nf">take_screenshot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Take screenshot</span>
+    <span class="k">def</span> <span class="nf">take_screenshots</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">delay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Take screenshots</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            str: b64 encoded image or URI of the image depending on instance settings</span>
+<span class="sd">            List[Image.Image]: List of PIL Image objects</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/screenshot&quot;</span><span class="p">)</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="n">count</span><span class="p">,</span> <span class="s2">&quot;delay&quot;</span><span class="p">:</span> <span class="n">delay</span><span class="p">}</span>
+        <span class="n">encoded_params</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlencode</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/screenshot?</span><span class="si">{</span><span class="n">encoded_params</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="n">jdict</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_store_img</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">jdict</span><span class="p">[</span><span class="s2">&quot;image&quot;</span><span class="p">]</span>
+        <span class="n">images</span> <span class="o">=</span> <span class="n">jdict</span><span class="p">[</span><span class="s2">&quot;images&quot;</span><span class="p">]</span>
 
-        <span class="n">image_data</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">jdict</span><span class="p">[</span><span class="s2">&quot;image&quot;</span><span class="p">])</span>
-        <span class="n">image_stream</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">image_data</span><span class="p">)</span>
-        <span class="n">image</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">image_stream</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">image</span> <span class="ow">in</span> <span class="n">images</span><span class="p">:</span>
+            <span class="n">image_data</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+            <span class="n">image_stream</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">image_data</span><span class="p">)</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">image_stream</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
 
-        <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;screen-</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">generate_random_string</span><span class="p">()</span><span class="si">}</span><span class="s2">.png&quot;</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage_uri</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;file://&quot;</span><span class="p">):</span>
-            <span class="n">filepath</span> <span class="o">=</span> <span class="n">extract_file_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage_uri</span><span class="p">)</span>
-            <span class="n">save_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
-            <span class="n">image</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">save_path</span>
-
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage_uri</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;gs://&quot;</span><span class="p">):</span>
-            <span class="n">bucket_name</span><span class="p">,</span> <span class="n">object_path</span> <span class="o">=</span> <span class="n">extract_gcs_info</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage_uri</span><span class="p">)</span>
-            <span class="n">object_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">object_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
-
-            <span class="n">client</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span>
-            <span class="n">bucket</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">bucket</span><span class="p">(</span><span class="n">bucket_name</span><span class="p">)</span>
-            <span class="n">blob</span> <span class="o">=</span> <span class="n">bucket</span><span class="o">.</span><span class="n">blob</span><span class="p">(</span><span class="n">object_path</span><span class="p">)</span>
-            <span class="n">blob</span><span class="o">.</span><span class="n">upload_from_string</span><span class="p">(</span><span class="n">image_data</span><span class="p">,</span> <span class="n">content_type</span><span class="o">=</span><span class="s2">&quot;image/png&quot;</span><span class="p">)</span>
-
-            <span class="n">blob</span><span class="o">.</span><span class="n">make_public</span><span class="p">()</span>
-            <span class="k">return</span> <span class="n">blob</span><span class="o">.</span><span class="n">public_url</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid store_type. Choose &#39;file&#39; or &#39;gcs&#39;.&quot;</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">out</span></div>
 
 
 <div class="viewcode-block" id="Desktop.mouse_coordinates">
@@ -801,7 +910,8 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            Tuple[int, int]: x, y coordinates</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/mouse_coordinates&quot;</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/mouse_coordinates&quot;</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
         <span class="n">jdict</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="n">jdict</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span> <span class="n">jdict</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span></div>
@@ -811,6 +921,57 @@
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop.close">[docs]</a>
     <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="Desktop.demostrate">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.demostrate">[docs]</a>
+    <span class="k">def</span> <span class="nf">demostrate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">owner_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">tracker_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;https://api.hub.agentlabs.xyz&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Demostrate a task on the desktop</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            task (str): Task to demostrate.</span>
+<span class="sd">            token (str): Token to use for the tracker.</span>
+<span class="sd">            tracker_url (str): URL of the tracker</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">task</span><span class="p">,</span>
+            <span class="s2">&quot;token&quot;</span><span class="p">:</span> <span class="n">token</span><span class="p">,</span>
+            <span class="s2">&quot;server_address&quot;</span><span class="p">:</span> <span class="n">tracker_url</span><span class="p">,</span>
+            <span class="s2">&quot;owner_id&quot;</span><span class="p">:</span> <span class="n">owner_id</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/start_recording&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+
+        <span class="n">jdict</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;start recording response: &quot;</span><span class="p">,</span> <span class="n">jdict</span><span class="p">)</span>
+
+        <span class="n">task_id</span> <span class="o">=</span> <span class="n">jdict</span><span class="p">[</span><span class="s2">&quot;task_id&quot;</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;task_id: &quot;</span><span class="p">,</span> <span class="n">task_id</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;viewing desktop...&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">background</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Press enter to stop recording...&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;stopping recording...&quot;</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/stop_recording&quot;</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;recording stopped&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Adding Bearer token to the request</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Authorization&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Bearer </span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">tracker_url</span><span class="si">}</span><span class="s2">/v1/tasks/</span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+        <span class="n">jdict</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;task status: &quot;</span><span class="p">,</span> <span class="n">jdict</span><span class="p">)</span></div>
 </div>
 
 
