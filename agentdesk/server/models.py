@@ -53,6 +53,7 @@ class V1DesktopInstance(BaseModel):
     basic_auth_password: Optional[str] = None
     resource_name: Optional[str] = None
     namespace: Optional[str] = None
+    ttl: Optional[int] = None
 
 
 class V1Desktops(BaseModel):

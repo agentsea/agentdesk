@@ -72,6 +72,7 @@ class EC2Provider(DesktopProvider):
         generate_password: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
+        ttl: Optional[int] = None,
     ) -> DesktopInstance:
         if id:
             raise ValueError("cannot set id for ec2 provider")
@@ -188,6 +189,7 @@ users:
             owner_id=owner_id,
             metadata=metadata,
             key_pair_name=key_pair.name,
+            ttl=ttl,
         )
 
         print(f"\nsuccessfully created desktop '{name}'")

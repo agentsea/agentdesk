@@ -40,8 +40,8 @@ pip install agentdesk
 ```python
 from agentdesk import Desktop
 
-# Create a local VM
-desktop = Desktop.local()
+# Create a desktop container
+desktop = Desktop.docker()
 
 # Launch the UI for it
 desktop.view(background=True)
@@ -62,14 +62,25 @@ img = desktop.take_screenshot()
 ```python
 from agentdesk import Desktop
 
-desktop = Desktop.local()
+desktop = Desktop.docker()
 ```
 
 ```bash
-$ agentdesk create --provider qemu
+$ agentdesk create --provider docker
 ```
 
-_\*requires [qemu](https://www.qemu.org/)_
+_\*requires [docker](https://www.docker.com/)_
+
+
+### Create a remote desktop on Kubernetes
+
+```python
+desktop = Desktop.kube()
+```
+
+```bash
+$ agentdesk create --provider kube
+```
 
 ### Create a remote desktop on GCE
 

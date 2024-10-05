@@ -1,4 +1,4 @@
-from .device import ConnectConfig, Desktop, ProvisionConfig, SimpleDesktop
+from .device_v1 import ConnectConfig, Desktop, ProvisionConfig, SimpleDesktop
 from .server.models import V1DesktopInstance, V1ProviderData
 
 __all__ = [

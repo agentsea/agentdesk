@@ -59,6 +59,7 @@ class GCEProvider(DesktopProvider):
         generate_password: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
+        ttl: Optional[int] = None,
     ) -> DesktopInstance:
         """Create a VM in GCP."""
 
@@ -195,6 +196,7 @@ class GCEProvider(DesktopProvider):
             owner_id=owner_id,
             metadata=metadata,
             key_pair_name=key_pair.name,
+            ttl=ttl,
         )
         print(f"\nsuccessfully created desktop '{name}'")
         return new_desktop

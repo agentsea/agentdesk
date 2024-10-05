@@ -38,6 +38,7 @@ class V1DesktopRecord(Base):
     basic_auth_password = Column(String, nullable=True)
     resource_name = Column(String, nullable=True)
     namespace = Column(String, nullable=True)
+    ttl = Column(Integer, nullable=True)
 
 
 class SSHKeyRecord(Base):

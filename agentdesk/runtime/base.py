@@ -59,6 +59,7 @@ class DesktopInstance(WithDB):
         basic_auth_password: Optional[str] = None,
         resource_name: Optional[str] = None,
         namespace: Optional[str] = None,
+        ttl: Optional[int] = None,
     ) -> None:
         if not id:
             id = shortuuid.uuid()
@@ -86,6 +87,7 @@ class DesktopInstance(WithDB):
         self.basic_auth_password = basic_auth_password
         self.resource_name = resource_name
         self.namespace = namespace
+        self.ttl = ttl
 
         self.save()
 
@@ -176,6 +178,7 @@ class DesktopInstance(WithDB):
             basic_auth_password=basic_auth_password,
             resource_name=self.resource_name,
             namespace=self.namespace,
+            ttl=self.ttl,
         )
 
     def save(self) -> None:
@@ -212,6 +215,7 @@ class DesktopInstance(WithDB):
         out.vnc_port_https = record.vnc_port_https
         out.resource_name = record.resource_name
         out.namespace = record.namespace
+        out.ttl = record.ttl
         if record.provider:  # type: ignore
             dct = json.loads(str(record.provider))
             out.provider = V1ProviderData(**dct)
@@ -404,6 +408,7 @@ class DesktopInstance(WithDB):
             basic_auth_password=self.basic_auth_password,
             resource_name=self.resource_name,
             namespace=self.namespace,
+            ttl=self.ttl,
         )
 
     def view(
@@ -553,6 +558,7 @@ class DesktopProvider(ABC, Generic[DP]):
         generate_password: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
+        ttl: Optional[int] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -570,6 +576,7 @@ class DesktopProvider(ABC, Generic[DP]):
             generate_password (bool, optional): Generate a password for the VM. Defaults to False.
             sub_folder (str, optional): Sub folder to use. Defaults to None.
             id (str, optional): ID of the instance. Defaults to None.
+            ttl (int, optional): Time to live seconds for instance. Defaults to None.
 
         Returns:
             DesktopInstance: A desktop instance

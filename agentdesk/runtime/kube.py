@@ -19,6 +19,15 @@ from google.auth.transport.requests import Request
 from google.cloud import container_v1
 from google.oauth2 import service_account
 from kubernetes import client, config
+from kubernetes.client import (
+    V1NetworkPolicy,
+    V1NetworkPolicySpec,
+    V1NetworkPolicyEgressRule,
+    V1NetworkPolicyPeer,
+    V1LabelSelector,
+    V1IPBlock,
+    NetworkingV1Api,
+)
 from kubernetes.client import Configuration
 from kubernetes.client.api import core_v1_api
 from kubernetes.client.rest import ApiException
@@ -50,6 +59,24 @@ class KubeConnectConfig(BaseModel):
     local_opts: Optional[LocalOpts] = None
 
 
+def gke_opts_from_env(
+    gke_sa_json=os.getenv("GKE_SA_JSON"),
+    cluster_name=os.getenv("CLUSTER_NAME"),
+    region=os.getenv("CLUSTER_REGION"),
+) -> GKEOpts:
+    if not gke_sa_json:
+        raise ValueError("GKE_SA_JSON not set")
+    if not cluster_name:
+        raise ValueError("CLUSTER_NAME not set")
+    if not region:
+        raise ValueError("CLUSTER_REGION not set")
+    return GKEOpts(
+        service_account_json=gke_sa_json,
+        cluster_name=cluster_name,
+        region=region,
+    )
+
+
 DP = TypeVar("DP", bound="KubernetesProvider")
 
 
@@ -76,6 +103,7 @@ class KubernetesProvider(DesktopProvider):
             raise ValueError("Unsupported provider: " + cfg.provider)
 
         self.core_api = core_v1_api.CoreV1Api()
+        self.networking_api = NetworkingV1Api()
         self.namespace = cfg.namespace
         self.subprocesses = []
         self.setup_signal_handlers()
@@ -95,6 +123,7 @@ class KubernetesProvider(DesktopProvider):
         generate_password: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
+        ttl: Optional[int] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -112,6 +141,7 @@ class KubernetesProvider(DesktopProvider):
             generate_password (bool, optional): Generate a random password. Defaults to False.
             sub_folder (str, optional): Subfolder to use. Defaults to None.
             id (str, optional): ID of the desktop. Defaults to None.
+            ttl (int, optional): Time to live seconds for the desktop. Defaults to None.
 
         Returns:
             DesktopInstance: An instance
@@ -139,6 +169,7 @@ class KubernetesProvider(DesktopProvider):
                 random.choice(string.ascii_letters + string.digits) for _ in range(24)
             )
 
+            basic_auth_user = id
             env_vars["CUSTOM_USER"] = id
             env_vars["PASSWORD"] = basic_auth_password
 
@@ -189,6 +220,7 @@ class KubernetesProvider(DesktopProvider):
         pod_spec = client.V1PodSpec(
             containers=[container],
             restart_policy="Never",
+            automount_service_account_token=False,
         )
 
         # Pod creation
@@ -237,6 +269,56 @@ class KubernetesProvider(DesktopProvider):
             print(f"Exception when creating pod: {e}")
             raise
 
+        self.create_network_policy(name)
+
+        # Now, create the Service
+        service_name = pod_name
+
+        service = client.V1Service(
+            api_version="v1",
+            kind="Service",
+            metadata=client.V1ObjectMeta(
+                name=service_name,
+                labels={"provisioner": "agentdesk"},
+            ),
+            spec=client.V1ServiceSpec(
+                selector={"app": pod_name},
+                ports=[
+                    client.V1ServicePort(
+                        name="agentd",
+                        port=8000,
+                        target_port=8000,
+                    ),
+                    client.V1ServicePort(
+                        name="vnc",
+                        port=3000,
+                        target_port=3000,
+                    ),
+                    client.V1ServicePort(
+                        name="vnc-https",
+                        port=3001,
+                        target_port=3001,
+                    ),
+                ],
+                type="ClusterIP",
+            ),
+        )
+
+        try:
+            created_service = self.core_api.create_namespaced_service(
+                namespace=self.namespace, body=service
+            )
+            print(f"Service created with name '{service_name}'")
+        except ApiException as e:
+            print(f"Exception when creating service: {e}")
+            # Optionally, delete the Pod if Service creation fails
+            self.core_api.delete_namespaced_pod(
+                name=pod_name,
+                namespace=self.namespace,
+                body=client.V1DeleteOptions(grace_period_seconds=5),
+            )
+            raise
+
         self.wait_pod_ready(name)
         self.wait_for_http_200(name)
 
@@ -257,9 +339,54 @@ class KubernetesProvider(DesktopProvider):
             namespace=self.namespace,
             basic_auth_user=basic_auth_user,
             basic_auth_password=basic_auth_password,
+            ttl=ttl,
         )
 
         return instance
+
+    def create_network_policy(self, name: str) -> None:
+        """
+        Creates a NetworkPolicy that restricts the pod's network access.
+        It allows egress to the internet while denying access to the cluster's internal network.
+        """
+        pod_name = self._get_pod_name(name)
+        policy = client.V1NetworkPolicy(
+            metadata=client.V1ObjectMeta(
+                name=pod_name,
+                namespace=self.namespace,
+                labels={"provisioner": "agentdesk"},
+            ),
+            spec=client.V1NetworkPolicySpec(
+                pod_selector=client.V1LabelSelector(match_labels={"app": pod_name}),
+                policy_types=["Egress"],
+                egress=[
+                    client.V1NetworkPolicyEgressRule(
+                        to=[
+                            client.V1NetworkPolicyPeer(
+                                ip_block=client.V1IPBlock(
+                                    cidr="0.0.0.0/0",
+                                    _except=[
+                                        # Exclude common private IP ranges
+                                        "10.0.0.0/8",
+                                        "172.16.0.0/12",
+                                        "192.168.0.0/16",
+                                        "100.64.0.0/10",
+                                    ],
+                                )
+                            )
+                        ]
+                    )
+                ],
+            ),
+        )
+        try:
+            self.networking_api.create_namespaced_network_policy(
+                namespace=self.namespace, body=policy
+            )
+            print(f"NetworkPolicy created for pod '{pod_name}'")
+        except ApiException as e:
+            print(f"Failed to create NetworkPolicy: {e}")
+            raise
 
     def delete(self, name: str, owner_id: Optional[str] = None) -> None:
         """Delete a desktop
@@ -292,6 +419,36 @@ class KubernetesProvider(DesktopProvider):
                 print(f"Secret '{pod_name}' not found, skipping deletion.")
             else:
                 print(f"Failed to delete secret '{pod_name}': {e}")
+                raise
+
+        try:
+            self.core_api.delete_namespaced_service(
+                name=self._get_pod_name(name),
+                namespace=self.namespace,
+                body=client.V1DeleteOptions(),
+            )
+            print(f"Successfully deleted service: {self._get_pod_name(name)}")
+        except ApiException as e:
+            if e.status == 404:
+                print(
+                    f"Service '{self._get_pod_name(name)}' not found, skipping deletion."
+                )
+            else:
+                print(f"Failed to delete service '{self._get_pod_name(name)}': {e}")
+                raise
+
+        try:
+            self.networking_api.delete_namespaced_network_policy(
+                name=pod_name,
+                namespace=self.namespace,
+                body=client.V1DeleteOptions(),
+            )
+            print(f"Successfully deleted NetworkPolicy: {pod_name}")
+        except ApiException as e:
+            if e.status == 404:
+                print(f"NetworkPolicy '{pod_name}' not found, skipping deletion.")
+            else:
+                print(f"Failed to delete NetworkPolicy '{pod_name}': {e}")
                 raise
 
     def start(
@@ -359,9 +516,12 @@ class KubernetesProvider(DesktopProvider):
         Returns:
             ProviderData: ProviderData object
         """
+        cfg = self.cfg
+        cfg.gke_opts = None
+
         return V1ProviderData(
             type="kube",
-            args={"cfg": self.cfg.model_dump_json()},
+            args={"cfg": cfg.model_dump_json()},
         )
 
     @classmethod
@@ -374,6 +534,9 @@ class KubernetesProvider(DesktopProvider):
         config = None
         if data.args:
             config = KubeConnectConfig.model_validate_json(data.args["cfg"])
+
+            if data.type == "gke":
+                config.gke_opts = gke_opts_from_env()
 
         return cls(cfg=config)
 
