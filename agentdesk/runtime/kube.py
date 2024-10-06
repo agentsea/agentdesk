@@ -41,6 +41,8 @@ from .base import DesktopInstance, DesktopProvider, V1ProviderData
 
 logger = logging.getLogger(__name__)
 
+ENABLE_NETWORK_POLICY = os.getenv("ENABLE_NETWORK_POLICY", "false").lower() == "true"
+
 
 class GKEOpts(BaseModel):
     cluster_name: str
@@ -229,7 +231,7 @@ class KubernetesProvider(DesktopProvider):
             kind="Pod",
             metadata=client.V1ObjectMeta(
                 name=pod_name,
-                labels={"provisioner": "agentdesk"},
+                labels={"provisioner": "agentdesk", "app": pod_name},
                 annotations={
                     "owner": owner_id,
                     "desktop_name": name,
@@ -269,7 +271,8 @@ class KubernetesProvider(DesktopProvider):
             print(f"Exception when creating pod: {e}")
             raise
 
-        self.create_network_policy(name)
+        if ENABLE_NETWORK_POLICY:
+            self.create_network_policy(name)
 
         # Now, create the Service
         service_name = pod_name
