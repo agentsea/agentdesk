@@ -57,6 +57,7 @@ class GCEProvider(DesktopProvider):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         enable_basic_auth: bool = False,
+        password: Optional[str] = None,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
@@ -80,6 +81,8 @@ class GCEProvider(DesktopProvider):
             raise NotImplementedError(
                 "enable_basic_auth not implemented for gce provider"
             )
+        if password:
+            raise NotImplementedError("password not implemented for gce provider")
 
         if not image:
             image = JAMMY.gce

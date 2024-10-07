@@ -70,6 +70,7 @@ class EC2Provider(DesktopProvider):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         enable_basic_auth: bool = False,
+        password: Optional[str] = None,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
@@ -81,6 +82,8 @@ class EC2Provider(DesktopProvider):
             raise NotImplementedError(
                 "enable_basic_auth not implemented for ec2 provider"
             )
+        if password:
+            raise NotImplementedError("password not implemented for ec2 provider")
         if sub_folder:
             raise NotImplementedError("sub_folder not implemented for ec2 provider")
         if not name:

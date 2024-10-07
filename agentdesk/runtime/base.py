@@ -555,6 +555,7 @@ class DesktopProvider(ABC, Generic[DP]):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         enable_basic_auth: bool = False,
+        password: Optional[str] = None,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
@@ -573,6 +574,7 @@ class DesktopProvider(ABC, Generic[DP]):
             owner_id (str, optional): Owner of the instance. Defaults to None.
             metadata (Dict[str, Any], optional): Metadata to apply to the instance. Defaults to None.
             enable_basic_auth (bool, optional): Enable basic auth for the instance. Defaults to False.
+            password (str, optional): Password to use for basic auth. Defaults to None.
             sub_folder (str, optional): Sub folder to use. Defaults to None.
             id (str, optional): ID of the instance. Defaults to None.
             ttl (int, optional): Time to live seconds for instance. Defaults to None.

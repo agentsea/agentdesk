@@ -54,6 +54,7 @@ class QemuProvider(DesktopProvider):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         enable_basic_auth: bool = False,
+        password: Optional[str] = None,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
@@ -69,6 +70,8 @@ class QemuProvider(DesktopProvider):
             raise NotImplementedError(
                 "basic auth is not supported yet for QEMU provider"
             )
+        if password:
+            raise NotImplementedError("password not implemented for qemu provider")
         if sub_folder:
             raise NotImplementedError("sub_folder not implemented for qemu provider")
 
