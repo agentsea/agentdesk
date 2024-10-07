@@ -123,6 +123,7 @@ class KubernetesProvider(DesktopProvider):
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         enable_basic_auth: bool = False,
+        password: Optional[str] = None,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
@@ -141,6 +142,7 @@ class KubernetesProvider(DesktopProvider):
             owner_id (str, optional): Owner of the desktop. Defaults to None.
             metadata (Dict[str, Any], optional): Metadata to apply to the instance. Defaults to None.
             enable_basic_auth (bool, optional): Enable basic auth. Defaults to False.
+            password (str, optional): Password to use. Defaults to None.
             sub_folder (str, optional): Subfolder to use. Defaults to None.
             id (str, optional): ID of the desktop. Defaults to None.
             ttl (int, optional): Time to live seconds for the desktop. Defaults to None.
@@ -163,9 +165,11 @@ class KubernetesProvider(DesktopProvider):
         if not id:
             id = shortuuid.uuid()
 
-        basic_auth_password = "".join(
-            random.choice(string.ascii_letters + string.digits) for _ in range(24)
-        )
+        basic_auth_password = password
+        if not password:
+            basic_auth_password = "".join(
+                random.choice(string.ascii_letters + string.digits) for _ in range(24)
+            )
         basic_auth_user = None
         if enable_basic_auth:
             basic_auth_user = id
