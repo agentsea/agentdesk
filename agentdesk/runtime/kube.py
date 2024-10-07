@@ -122,7 +122,7 @@ class KubernetesProvider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        generate_password: bool = False,
+        enable_basic_auth: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
@@ -140,7 +140,7 @@ class KubernetesProvider(DesktopProvider):
             ssh_key_pair (str, optional): SSH key pair name to use. Defaults to None.
             owner_id (str, optional): Owner of the desktop. Defaults to None.
             metadata (Dict[str, Any], optional): Metadata to apply to the instance. Defaults to None.
-            generate_password (bool, optional): Generate a random password. Defaults to False.
+            enable_basic_auth (bool, optional): Enable basic auth. Defaults to False.
             sub_folder (str, optional): Subfolder to use. Defaults to None.
             id (str, optional): ID of the desktop. Defaults to None.
             ttl (int, optional): Time to live seconds for the desktop. Defaults to None.
@@ -163,14 +163,11 @@ class KubernetesProvider(DesktopProvider):
         if not id:
             id = shortuuid.uuid()
 
-        basic_auth_password = None
+        basic_auth_password = "".join(
+            random.choice(string.ascii_letters + string.digits) for _ in range(24)
+        )
         basic_auth_user = None
-        if generate_password:
-            # generate a random 24 character password
-            basic_auth_password = "".join(
-                random.choice(string.ascii_letters + string.digits) for _ in range(24)
-            )
-
+        if enable_basic_auth:
             basic_auth_user = id
             env_vars["CUSTOM_USER"] = id
             env_vars["PASSWORD"] = basic_auth_password
@@ -231,7 +228,9 @@ class KubernetesProvider(DesktopProvider):
             kind="Pod",
             metadata=client.V1ObjectMeta(
                 name=pod_name,
-                labels={"provisioner": "agentdesk", "app": pod_name},
+                labels={
+                    "provisioner": "agentdesk",
+                },
                 annotations={
                     "owner": owner_id,
                     "desktop_name": name,
@@ -338,6 +337,7 @@ class KubernetesProvider(DesktopProvider):
             vnc_port_https=3001,
             agentd_port=8000,
             requires_proxy=True,
+            image=image,
             resource_name=pod_name,
             namespace=self.namespace,
             basic_auth_user=basic_auth_user,

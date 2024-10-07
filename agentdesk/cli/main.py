@@ -65,9 +65,9 @@ def create(
         False,
         help="Whether to reserve an IP address for the desktop.",
     ),
-    generate_password: bool = typer.Option(
+    enable_basic_auth: bool = typer.Option(
         False,
-        help="Whether to generate a password for the desktop.",
+        help="Whether to enable basic authentication for the desktop.",
     ),
 ):
     if not name:
@@ -85,7 +85,7 @@ def create(
             cpu=cpu,
             disk=disk,
             reserve_ip=reserve_ip,
-            generate_password=generate_password,
+            enable_basic_auth=enable_basic_auth,
         )
     except KeyboardInterrupt:
         print("Keyboard interrupt received, exiting...")

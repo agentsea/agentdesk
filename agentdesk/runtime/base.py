@@ -1,7 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List, Optional, TypeVar, Generic, Dict, Any
-import uuid
 import time
 import json
 import webbrowser
@@ -555,7 +554,7 @@ class DesktopProvider(ABC, Generic[DP]):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        generate_password: bool = False,
+        enable_basic_auth: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
@@ -563,17 +562,17 @@ class DesktopProvider(ABC, Generic[DP]):
         """Create a Desktop
 
         Args:
-            name (str, optional): Name of the VM. Defaults to random generation.
-            image (str, optional): Image of the VM. Defaults to Ubuntu Jammy.
+            name (str, optional): Name of the instance. Defaults to random generation.
+            image (str, optional): Image of the vm/container. Defaults to Ubuntu Jammy.
             memory (int): Memory allotment. Defaults to 4gb.
             cpu (int): CPU allotment. Defaults to 2.
             disk (str): Disk allotment. Defaults to 30gb.
-            tags (List[str], optional): Tags to apply to the VM. Defaults to None.
+            tags (List[str], optional): Tags to apply to the instance. Defaults to None.
             reserve_ip (bool, optional): Reserve an IP address. Defaults to False.
             ssh_key_pair (str, optional): SSH key pair name to use. Defaults to None.
-            owner_id (str, optional): Owner of the VM. Defaults to None.
-            metadata (Dict[str, Any], optional): Metadata to apply to the VM. Defaults to None.
-            generate_password (bool, optional): Generate a password for the VM. Defaults to False.
+            owner_id (str, optional): Owner of the instance. Defaults to None.
+            metadata (Dict[str, Any], optional): Metadata to apply to the instance. Defaults to None.
+            enable_basic_auth (bool, optional): Enable basic auth for the instance. Defaults to False.
             sub_folder (str, optional): Sub folder to use. Defaults to None.
             id (str, optional): ID of the instance. Defaults to None.
             ttl (int, optional): Time to live seconds for instance. Defaults to None.

@@ -69,7 +69,7 @@ class EC2Provider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        generate_password: bool = False,
+        enable_basic_auth: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
@@ -77,9 +77,9 @@ class EC2Provider(DesktopProvider):
         if id:
             raise ValueError("cannot set id for ec2 provider")
 
-        if generate_password:
+        if enable_basic_auth:
             raise NotImplementedError(
-                "generate_password not implemented for ec2 provider"
+                "enable_basic_auth not implemented for ec2 provider"
             )
         if sub_folder:
             raise NotImplementedError("sub_folder not implemented for ec2 provider")

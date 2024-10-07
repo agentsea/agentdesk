@@ -53,7 +53,7 @@ class QemuProvider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        generate_password: bool = False,
+        enable_basic_auth: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
@@ -65,9 +65,9 @@ class QemuProvider(DesktopProvider):
                 "qemu-system-x86_64 is not installed. Please install QEMU."
             )
 
-        if generate_password:
+        if enable_basic_auth:
             raise NotImplementedError(
-                "generating password is not supported yet for QEMU provider"
+                "basic auth is not supported yet for QEMU provider"
             )
         if sub_folder:
             raise NotImplementedError("sub_folder not implemented for qemu provider")

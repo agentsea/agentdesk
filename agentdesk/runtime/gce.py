@@ -56,7 +56,7 @@ class GCEProvider(DesktopProvider):
         ssh_key_pair: Optional[str] = None,
         owner_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        generate_password: bool = False,
+        enable_basic_auth: bool = False,
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
@@ -76,9 +76,9 @@ class GCEProvider(DesktopProvider):
         if DesktopInstance.name_exists(name):
             raise ValueError(f"VM name '{name}' already exists")
 
-        if generate_password:
+        if enable_basic_auth:
             raise NotImplementedError(
-                "generate_password not implemented for gce provider"
+                "enable_basic_auth not implemented for gce provider"
             )
 
         if not image:
