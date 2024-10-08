@@ -234,6 +234,7 @@ class KubernetesProvider(DesktopProvider):
                 name=pod_name,
                 labels={
                     "provisioner": "agentdesk",
+                    "app": pod_name,
                 },
                 annotations={
                     "owner": owner_id,
