@@ -473,7 +473,7 @@ class DesktopInstance(WithDB):
         ui_container: Optional[Container] = None
 
         for container in client.containers.list():
-            if container.image.tags[0] == UI_IMG:  # type: ignore
+            if container.image.tags and container.image.tags[0] == UI_IMG:  # type: ignore
                 print("found running UI container")
                 # Retrieve the host port for the existing container
                 host_port = container.attrs["NetworkSettings"]["Ports"]["3000/tcp"][0][  # type: ignore
