@@ -3,13 +3,15 @@ import atexit
 import base64
 import io
 from enum import Enum
+import json
 from typing import Any, List, Optional, Tuple, Type
 import urllib.parse
 
+from agentdesk.server.models import V1DesktopInstance
 import requests
 from devicebay import Action, Device, ReactComponent, action, observation
 from PIL import Image
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from .key import SSHKeyPair
@@ -50,7 +52,8 @@ class StorageStrategy(Enum):
 
 class ConnectConfig(BaseModel):
     agentd_url: Optional[str] = None
-    instance: Optional[str] = None
+    instance: Optional[V1DesktopInstance|str] = None #instance can be either a json stringified V1DesktopInstance or a searchable instance name
+    api_key: Optional[str] = None
     storage_uri: str = "file://.media"
     type_min_interval: float = 0.05
     type_max_interval: float = 0.25
@@ -94,6 +97,7 @@ class Desktop(Device):
         private_ssh_key: Optional[str] = None,
         ssh_port: int = 22,
         check_health: bool = True,
+        api_key: Optional[str] = None
     ) -> None:
         """Connect to an agent desktop
 
@@ -116,7 +120,7 @@ class Desktop(Device):
         super().__init__()
         self._instance = instance
         self._agentd_url = agentd_url
-
+        self.api_key = api_key
         self._key_pair_name = None
         if instance:
             if instance.requires_proxy:
@@ -345,7 +349,7 @@ class Desktop(Device):
     ) -> "Desktop":
         """Create a desktop VM on GCE"""
         config = ProvisionConfig(
-            provider=GCEProvider(
+            provider=GCEProvider( # type: ignore
                 project_id=project, zone=zone, region=region
             ).to_data(),  # type: ignore
             image=image,
@@ -383,10 +387,16 @@ class Desktop(Device):
     def connect(cls, config: ConnectConfig) -> "Desktop":
         instance = None
         if config.instance:
-            vms = DesktopInstance.find(name=config.instance)
-            if not vms:
-                raise ValueError(f"VM {config.instance} was not found")
-            instance = vms[0]
+            if isinstance(config.instance, V1DesktopInstance):
+                print("Valid instance of V1DesktopInstance", flush=True)
+                instance = DesktopInstance.from_v1(config.instance)
+                print("Successfully created DesktopInstance:", instance, flush=True)
+            else:
+                print("instance isn't a V1DesktopInstance", flush=True)
+                vms = DesktopInstance.find(name=config.instance)
+                if not vms:
+                    raise ValueError(f"VM {config.instance} was not found")
+                instance = vms[0]
         return cls(
             agentd_url=config.agentd_url,
             private_ssh_key=config.private_ssh_key,
@@ -401,6 +411,7 @@ class Desktop(Device):
             proxy_type=config.proxy_type,
             proxy_port=config.proxy_port,
             ssh_port=config.ssh_port,
+            api_key=config.api_key
         )
 
     def disconnect(self) -> None:
@@ -416,8 +427,14 @@ class Desktop(Device):
             key_pair = keys[0]
 
             ssh_private_key = key_pair.decrypt_private_key(key_pair.private_key)
+        instance = self._instance
+        if isinstance(instance, DesktopInstance):
+            instance = instance.to_v1_schema()
+        
+        requires_proxy = False if self._requires_proxy is None else self._requires_proxy
 
         return ConnectConfig(
+            instance=instance,
             agentd_url=self._agentd_url,
             storage_uri=self.storage_uri,
             type_min_interval=self._type_min_interval,
@@ -425,7 +442,7 @@ class Desktop(Device):
             move_mouse_duration=self._move_mouse_duration,
             mouse_tween=self._mouse_tween,
             store_img=self._store_img,
-            requires_proxy=self._requires_proxy,
+            requires_proxy=requires_proxy,
             proxy_type=self._proxy_type,
             proxy_port=self._proxy_port,
             private_ssh_key=ssh_private_key,
@@ -491,6 +508,13 @@ class Desktop(Device):
             list[DesktopInstance]: A list of desktop vms
         """
         return DesktopInstance.find(**kwargs)
+    
+    def _get_headers(self) -> dict:
+        """Helper to return headers with optional Authorization"""
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return headers
 
     def info(self) -> dict:
         """Get info on the desktop runtime
@@ -498,7 +522,7 @@ class Desktop(Device):
         Returns:
             dict: A dictionary of info
         """
-        response = requests.get(f"{self.base_url}/v1/info")
+        response = requests.get(f"{self.base_url}/v1/info", headers=self._get_headers())
         response.raise_for_status()
         return response.json()
 
@@ -521,7 +545,8 @@ class Desktop(Device):
             dict: Agentd health
         """
         url = f"{self.base_url}/health"
-        response = requests.get(url)
+
+        response = requests.get(url, headers=self._get_headers())
         response.raise_for_status()
         return response.json()
 
@@ -532,7 +557,7 @@ class Desktop(Device):
         Args:
             url (str): URL to open
         """
-        response = requests.post(f"{self.base_url}/v1/open_url", json={"url": url})
+        response = requests.post(f"{self.base_url}/v1/open_url", json={"url": url}, headers=self._get_headers())
         response.raise_for_status()
         return
 
@@ -551,7 +576,8 @@ class Desktop(Device):
                 "y": y,
                 "duration": self._move_mouse_duration,
                 "tween": self._mouse_tween,
-            },
+            }, 
+            headers=self._get_headers()
         )
         response.raise_for_status()
         return
@@ -571,7 +597,7 @@ class Desktop(Device):
         if x and y:
             body["location"] = {"x": x, "y": y}  # type: ignore
 
-        response = requests.post(f"{self.base_url}/v1/click", json=body)
+        response = requests.post(f"{self.base_url}/v1/click", json=body, headers=self._get_headers())
         response.raise_for_status()
         return
 
@@ -602,7 +628,7 @@ class Desktop(Device):
                 "volumeup", "win", "winleft", "winright", "yen", "command", "option",
                 "optionleft", "optionright" ]
         """
-        response = requests.post(f"{self.base_url}/v1/press_key", json={"key": key})
+        response = requests.post(f"{self.base_url}/v1/press_key", json={"key": key}, headers=self._get_headers())
         response.raise_for_status()
         return
 
@@ -633,7 +659,7 @@ class Desktop(Device):
                 "volumeup", "win", "winleft", "winright", "yen", "command", "option",
                 "optionleft", "optionright" ]
         """
-        response = requests.post(f"{self.base_url}/v1/hot_key", json={"keys": keys})
+        response = requests.post(f"{self.base_url}/v1/hot_key", json={"keys": keys}, headers=self._get_headers())
         response.raise_for_status()
         return
 
@@ -644,7 +670,7 @@ class Desktop(Device):
         Args:
             clicks (int, optional): Number of clicks, negative scrolls down, positive scrolls up. Defaults to -3.
         """
-        response = requests.post(f"{self.base_url}/v1/scroll", json={"clicks": clicks})
+        response = requests.post(f"{self.base_url}/v1/scroll", json={"clicks": clicks}, headers=self._get_headers())
         response.raise_for_status()
         return
 
@@ -657,7 +683,7 @@ class Desktop(Device):
             y (int): y coordinate
         """
         response = requests.post(
-            f"{self.base_url}/v1/drag_mouse", json={"x": x, "y": y}
+            f"{self.base_url}/v1/drag_mouse", json={"x": x, "y": y}, headers=self._get_headers()
         )
         response.raise_for_status()
         return
@@ -665,7 +691,7 @@ class Desktop(Device):
     @action
     def double_click(self) -> None:
         """Double click the mouse"""
-        response = requests.post(f"{self.base_url}/v1/double_click")
+        response = requests.post(f"{self.base_url}/v1/double_click", headers=self._get_headers())
         response.raise_for_status()
         return
 
@@ -682,7 +708,8 @@ class Desktop(Device):
                 "text": text,
                 "min_interval": self._type_min_interval,
                 "max_interval": self._type_max_interval,
-            },
+            }, 
+            headers=self._get_headers()
         )
         response.raise_for_status()
         return
@@ -695,7 +722,7 @@ class Desktop(Device):
             cmd (str): Command to execute
         """
         encoded_cmd = urllib.parse.quote(cmd)
-        response = requests.post(f"{self.base_url}/v1/exec?command={encoded_cmd}")
+        response = requests.post(f"{self.base_url}/v1/exec?command={encoded_cmd}", headers=self._get_headers())
         response.raise_for_status()
 
         return
@@ -709,7 +736,7 @@ class Desktop(Device):
         """
         params = {"count": count, "delay": delay}
         encoded_params = urllib.parse.urlencode(params)
-        response = requests.post(f"{self.base_url}/v1/screenshot?{encoded_params}")
+        response = requests.post(f"{self.base_url}/v1/screenshot?{encoded_params}", headers=self._get_headers())
         response.raise_for_status()
         jdict = response.json()
 
@@ -731,7 +758,7 @@ class Desktop(Device):
         Returns:
             Tuple[int, int]: x, y coordinates
         """
-        response = requests.get(f"{self.base_url}/v1/mouse_coordinates")
+        response = requests.get(f"{self.base_url}/v1/mouse_coordinates", headers=self._get_headers())
         response.raise_for_status()
         jdict = response.json()
 
@@ -762,7 +789,7 @@ class Desktop(Device):
             "owner_id": owner_id,
         }
 
-        response = requests.post(f"{self.base_url}/v1/start_recording", json=data)
+        response = requests.post(f"{self.base_url}/v1/start_recording", json=data, headers=self._get_headers())
         response.raise_for_status()
 
         jdict = response.json()
@@ -776,7 +803,7 @@ class Desktop(Device):
 
         input("Press enter to stop recording...")
         print("stopping recording...")
-        response = requests.post(f"{self.base_url}/v1/stop_recording")
+        response = requests.post(f"{self.base_url}/v1/stop_recording", headers=self._get_headers())
         response.raise_for_status()
 
         print("recording stopped")
