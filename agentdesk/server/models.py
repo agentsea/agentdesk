@@ -54,6 +54,7 @@ class V1DesktopInstance(BaseModel):
     resource_name: Optional[str] = None
     namespace: Optional[str] = None
     ttl: Optional[int] = None
+    requires_proxy: Optional[bool] = None
 
 
 class V1Desktops(BaseModel):

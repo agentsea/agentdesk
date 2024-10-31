@@ -408,7 +408,28 @@ class DesktopInstance(WithDB):
             resource_name=self.resource_name,
             namespace=self.namespace,
             ttl=self.ttl,
+            requires_proxy=self.requires_proxy
         )
+    
+    @classmethod
+    def from_v1(cls, v1_instance: V1DesktopInstance) -> DesktopInstance:
+        if v1_instance.name is not None and v1_instance.status is not None and v1_instance.reserved_ip is not None:
+            return cls(
+                name=v1_instance.name,
+                addr=v1_instance.addr,
+                id=v1_instance.id,
+                cpu=v1_instance.cpu,
+                memory=v1_instance.memory,
+                disk=v1_instance.disk,
+                status=v1_instance.status,
+                image=v1_instance.image,
+                reserved_ip=v1_instance.reserved_ip,
+                provider=v1_instance.provider,
+                requires_proxy=v1_instance.requires_proxy if v1_instance.requires_proxy is not None else True
+                # Map additional attributes as needed
+            )
+        else:
+            raise ValueError(f"required fieldnames not present all the following are required and got the following values name: {v1_instance.name}, status: {v1_instance.status}, reserved_ip: {v1_instance.reserved_ip}")
 
     def view(
         self,
