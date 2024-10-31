@@ -394,7 +394,7 @@ class Desktop(Device):
                 # Validate against the V1DesktopInstance model
                 v1_instance = V1DesktopInstance.model_validate(data)
                 print("Valid instance of V1DesktopInstance")
-                # Step 3: Use `from_v1_instance` to create a DesktopInstance from V1DesktopInstance
+                # create a DesktopInstance from V1DesktopInstance
                 instance = DesktopInstance.from_v1(v1_instance)
                 print("Successfully created DesktopInstance:", instance)
             except (json.JSONDecodeError, ValidationError) as e:
