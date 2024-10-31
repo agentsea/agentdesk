@@ -52,7 +52,7 @@ class StorageStrategy(Enum):
 
 class ConnectConfig(BaseModel):
     agentd_url: Optional[str] = None
-    instance: Optional[str] = None #instance can be either a json stringified V1DesktopInstance or a searchable instance name
+    instance: Optional[V1DesktopInstance|str] = None #instance can be either a json stringified V1DesktopInstance or a searchable instance name
     api_key: Optional[str] = None
     storage_uri: str = "file://.media"
     type_min_interval: float = 0.05
@@ -387,18 +387,12 @@ class Desktop(Device):
     def connect(cls, config: ConnectConfig) -> "Desktop":
         instance = None
         if config.instance:
-            try:
-                # Attempt to parse the JSON
-                data = json.loads(config.instance)
-                
-                # Validate against the V1DesktopInstance model
-                v1_instance = V1DesktopInstance.model_validate(data)
-                print("Valid instance of V1DesktopInstance")
-                # create a DesktopInstance from V1DesktopInstance
-                instance = DesktopInstance.from_v1(v1_instance)
-                print("Successfully created DesktopInstance:", instance)
-            except (json.JSONDecodeError, ValidationError) as e:
-                print("instance isn't valid Json or a V1DesktopInstance", e)
+            if isinstance(config.instance, V1DesktopInstance):
+                print("Valid instance of V1DesktopInstance", flush=True)
+                instance = DesktopInstance.from_v1(config.instance)
+                print("Successfully created DesktopInstance:", instance, flush=True)
+            else:
+                print("instance isn't a V1DesktopInstance", flush=True)
                 vms = DesktopInstance.find(name=config.instance)
                 if not vms:
                     raise ValueError(f"VM {config.instance} was not found")
@@ -435,7 +429,7 @@ class Desktop(Device):
             ssh_private_key = key_pair.decrypt_private_key(key_pair.private_key)
         instance = self._instance
         if isinstance(instance, DesktopInstance):
-            instance = instance.to_v1_schema().model_dump_json()
+            instance = instance.to_v1_schema()
         
         requires_proxy = False if self._requires_proxy is None else self._requires_proxy
 

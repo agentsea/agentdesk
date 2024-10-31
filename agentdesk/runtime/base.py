@@ -426,7 +426,6 @@ class DesktopInstance(WithDB):
                 reserved_ip=v1_instance.reserved_ip,
                 provider=v1_instance.provider,
                 requires_proxy=v1_instance.requires_proxy if v1_instance.requires_proxy is not None else True
-                # Map additional attributes as needed
             )
         else:
             raise ValueError(f"required fieldnames not present all the following are required and got the following values name: {v1_instance.name}, status: {v1_instance.status}, reserved_ip: {v1_instance.reserved_ip}")
