@@ -715,17 +715,18 @@ class Desktop(Device):
         return
 
     @action
-    def exec(self, cmd: str) -> None:
+    def exec(self, cmd: str) -> dict:
         """Execute a command
 
         Args:
             cmd (str): Command to execute
-        """
-        encoded_cmd = urllib.parse.quote(cmd)
-        response = requests.post(f"{self.base_url}/v1/exec?command={encoded_cmd}", headers=self._get_headers())
-        response.raise_for_status()
 
-        return
+        Returns:
+            dict: Command execution result containing status, output and return code if error
+        """
+        response = requests.post(f"{self.base_url}/v1/exec", json={"command": cmd})
+        response.raise_for_status()
+        return response.json()
 
     @observation
     def take_screenshots(self, count: int = 1, delay: float = 0.0) -> List[Image.Image]:
