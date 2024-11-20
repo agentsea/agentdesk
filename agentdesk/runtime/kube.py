@@ -1,41 +1,42 @@
-from typing import Optional, Dict, Any, TypeVar, List, Iterator, Tuple, Union, Type
 import atexit
 import base64
 import json
 import logging
 import os
+import random
 import signal
 import socket
+import string
 import subprocess
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-import random
-import string
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar, Union
 
-from agentdesk.util import find_open_port
+import shortuuid
 from google.auth.transport.requests import Request
 from google.cloud import container_v1
 from google.oauth2 import service_account
 from kubernetes import client, config
 from kubernetes.client import (
+    Configuration,
+    NetworkingV1Api,
+    V1IPBlock,
+    V1LabelSelector,
     V1NetworkPolicy,
-    V1NetworkPolicySpec,
     V1NetworkPolicyEgressRule,
     V1NetworkPolicyPeer,
-    V1LabelSelector,
-    V1IPBlock,
-    NetworkingV1Api,
+    V1NetworkPolicySpec,
 )
-from kubernetes.client import Configuration
 from kubernetes.client.api import core_v1_api
 from kubernetes.client.rest import ApiException
 from kubernetes.stream import portforward
 from namesgenerator import get_random_name
 from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_fixed
-import shortuuid
+
+from agentdesk.util import find_open_port
 
 from .base import DesktopInstance, DesktopProvider, V1ProviderData
 
@@ -403,6 +404,7 @@ class KubernetesProvider(DesktopProvider):
             name (str): Name of the desktop
             owner_id (str, optional): Owner of the desktop. Defaults to None
         """
+        errors = []
         try:
             pod_name = self._get_pod_name(name)
             # Delete the pod
@@ -414,7 +416,7 @@ class KubernetesProvider(DesktopProvider):
             print(f"Successfully deleted pod: {pod_name}")
         except ApiException as e:
             print(f"Failed to delete pod '{pod_name}': {e}")
-            raise
+            errors.append(e)
 
         # Attempt to delete the secret
         try:
@@ -427,11 +429,11 @@ class KubernetesProvider(DesktopProvider):
                 print(f"Secret '{pod_name}' not found, skipping deletion.")
             else:
                 print(f"Failed to delete secret '{pod_name}': {e}")
-                raise
+                errors.append(e)
 
         try:
             self.core_api.delete_namespaced_service(
-                name=self._get_pod_name(name),
+                name=pod_name,
                 namespace=self.namespace,
                 body=client.V1DeleteOptions(),
             )
@@ -443,7 +445,7 @@ class KubernetesProvider(DesktopProvider):
                 )
             else:
                 print(f"Failed to delete service '{self._get_pod_name(name)}': {e}")
-                raise
+                errors.append(e)
 
         try:
             self.networking_api.delete_namespaced_network_policy(
@@ -457,7 +459,10 @@ class KubernetesProvider(DesktopProvider):
                 print(f"NetworkPolicy '{pod_name}' not found, skipping deletion.")
             else:
                 print(f"Failed to delete NetworkPolicy '{pod_name}': {e}")
-                raise
+                errors.append(e)
+
+        if errors:
+            raise Exception(errors)
 
     def start(
         self,
