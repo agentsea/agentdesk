@@ -59,6 +59,7 @@ class DesktopInstance(WithDB):
         resource_name: Optional[str] = None,
         namespace: Optional[str] = None,
         ttl: Optional[int] = None,
+        assigned: Optional[float] = None,
     ) -> None:
         if not id:
             id = shortuuid.uuid()
@@ -70,6 +71,7 @@ class DesktopInstance(WithDB):
         self.pid = pid
         self.id = id
         self.created = time.time()
+        self.assigned = assigned
         self.status = status
         self.image = image
         self.provider = provider
@@ -158,6 +160,7 @@ class DesktopInstance(WithDB):
             addr=self.addr,
             cpu=self.cpu,
             created=self.created,
+            assigned=self.assigned,
             memory=self.memory,
             disk=self.disk,
             pid=self.pid,
@@ -199,6 +202,7 @@ class DesktopInstance(WithDB):
         out.addr = record.addr
         out.cpu = record.cpu
         out.created = record.created
+        out.assigned = record.assigned
         out.memory = record.memory
         out.disk = record.disk
         out.pid = record.pid
@@ -391,6 +395,7 @@ class DesktopInstance(WithDB):
             addr=self.addr,
             status=self.status,
             created=self.created,
+            assigned=self.assigned,
             memory=self.memory,  # type: ignore
             cpu=self.cpu,
             disk=self.disk,
