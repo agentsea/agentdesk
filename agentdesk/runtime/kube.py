@@ -353,11 +353,25 @@ class KubernetesProvider(DesktopProvider):
 
         return instance
     
-    def patch_meta_owner(self, owner_id, pod_name):
+    def patch_meta_owner(self, owner_id, pod_name) -> client.V1Pod:
+        """
+        Patch the metadata of a Kubernetes pod to update the owner annotation.
+
+        Args:
+            owner_id (str): The new owner ID to set in the annotations.
+            pod_name (str): The name of the pod to patch.
+
+        Returns:
+            V1Pod: The updated pod object.
+
+        Raises:
+            ApiException: If the patch request fails.
+        """
+
         patch = {
             "metadata": {
                 "annotations": {
-                    "owner": owner_id  # Update the "owner" annotation
+                    "owner": owner_id
                 }
             }
         }
@@ -368,9 +382,9 @@ class KubernetesProvider(DesktopProvider):
                 namespace=self.namespace,
                 body=patch,
             )
-            print(f"Pod {pod_name} updated successfully.")
+            print(f"Pod '{pod_name}' updated successfully with new owner '{owner_id}'.", flush=True)
         except ApiException as e:
-            print(f"Failed to update pod: {pod_name} with Error {e}")
+            print(f"Failed to update pod '{pod_name}' with Error: {e}", flush=True)
             raise
 
         return updated_pod
