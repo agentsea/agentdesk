@@ -352,6 +352,28 @@ class KubernetesProvider(DesktopProvider):
         )
 
         return instance
+    
+    def patch_meta_owner(self, owner_id, pod_name):
+        patch = {
+            "metadata": {
+                "annotations": {
+                    "owner": owner_id  # Update the "owner" annotation
+                }
+            }
+        }
+
+        try:
+            updated_pod = self.core_api.patch_namespaced_pod(
+                name=pod_name,
+                namespace=self.namespace,
+                body=patch,
+            )
+            print(f"Pod {pod_name} updated successfully.")
+        except ApiException as e:
+            print(f"Failed to update pod: {pod_name} with Error {e}")
+            raise
+
+        return updated_pod
 
     def create_network_policy(self, name: str) -> None:
         """
