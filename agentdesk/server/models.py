@@ -34,6 +34,7 @@ class V1DesktopInstance(BaseModel):
     addr: Optional[str] = None
     status: Optional[str] = None
     created: Optional[float] = None
+    assigned: Optional[float] = None
     image: Optional[str] = None
     memory: Optional[int] = None
     cpu: Optional[int] = None

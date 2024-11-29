@@ -19,6 +19,7 @@ class V1DesktopRecord(Base):
     addr = Column(String, nullable=True)
     status = Column(String)
     created = Column(Float)
+    assigned = Column(Float, nullable=True)
     cpu = Column(Integer, nullable=True)
     memory = Column(Integer, nullable=True)
     disk = Column(String, nullable=True)
