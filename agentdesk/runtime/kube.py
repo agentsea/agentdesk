@@ -378,7 +378,7 @@ class KubernetesProvider(DesktopProvider):
 
         try:
             updated_pod = self.core_api.patch_namespaced_pod(
-                name=pod_name,
+                name=self._get_pod_name(pod_name),
                 namespace=self.namespace,
                 body=patch,
             )
