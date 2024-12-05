@@ -1,5 +1,6 @@
 import atexit
 import base64
+import datetime
 import json
 import logging
 import os
@@ -13,6 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar, Union
+import copy
 import shortuuid
 from google.auth.transport.requests import Request
 from google.cloud import container_v1
@@ -129,6 +131,7 @@ class KubernetesProvider(DesktopProvider):
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
+        assigned: Optional[float] = None
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -351,6 +354,7 @@ class KubernetesProvider(DesktopProvider):
             basic_auth_user=basic_auth_user,
             basic_auth_password=basic_auth_password,
             ttl=ttl,
+            assigned=assigned
         )
 
         return instance
