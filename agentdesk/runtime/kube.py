@@ -13,7 +13,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar, Union
-
 import shortuuid
 from google.auth.transport.requests import Request
 from google.cloud import container_v1
@@ -60,6 +59,7 @@ class KubeConnectConfig(BaseModel):
     namespace: str = "default"
     gke_opts: Optional[GKEOpts] = None
     local_opts: Optional[LocalOpts] = None
+    branch: Optional[str] = None
 
 
 def gke_opts_from_env(
@@ -105,6 +105,7 @@ class KubernetesProvider(DesktopProvider):
         else:
             raise ValueError("Unsupported provider: " + cfg.provider)
 
+        self.branch = cfg.branch
         self.core_api = core_v1_api.CoreV1Api()
         self.networking_api = NetworkingV1Api()
         self.namespace = cfg.namespace
@@ -236,6 +237,7 @@ class KubernetesProvider(DesktopProvider):
                 labels={
                     "provisioner": "agentdesk",
                     "app": pod_name,
+                    "branch": self.branch if self.branch else "undefined"
                 },
                 annotations={
                     "owner": owner_id,
