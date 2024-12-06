@@ -9,7 +9,7 @@ packages = [{include = "agentdesk"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
-pillow = "^10.2.0"
+pillow = "^11.0.0"
 requests = "^2.31.0"
 fastapi = {extras = ["all"], version = "^0.109.0"}
 sqlalchemy = "^2.0.25"
