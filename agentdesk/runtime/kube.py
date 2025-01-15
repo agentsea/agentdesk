@@ -1,5 +1,6 @@
 import atexit
 import base64
+import copy
 import datetime
 import json
 import logging
@@ -14,7 +15,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar, Union
-import copy
+
 import shortuuid
 from google.auth.transport.requests import Request
 from google.cloud import container_v1
@@ -90,6 +91,7 @@ class KubernetesProvider(DesktopProvider):
 
     def __init__(self, cfg: Optional[KubeConnectConfig] = None) -> None:
         # Load the Kubernetes configuration, typically from ~/.kube/config
+        self.kubeconfig = None
         if not cfg:
             cfg = KubeConnectConfig()
         self.cfg = cfg
@@ -104,6 +106,7 @@ class KubernetesProvider(DesktopProvider):
                 opts = LocalOpts()
             if opts.path:
                 config.load_kube_config(opts.path)
+                self.kubeconfig = opts.path
         else:
             raise ValueError("Unsupported provider: " + cfg.provider)
 
@@ -131,7 +134,7 @@ class KubernetesProvider(DesktopProvider):
         sub_folder: Optional[str] = None,
         id: Optional[str] = None,
         ttl: Optional[int] = None,
-        assigned: Optional[float] = None
+        assigned: Optional[float] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -240,7 +243,7 @@ class KubernetesProvider(DesktopProvider):
                 labels={
                     "provisioner": "agentdesk",
                     "app": pod_name,
-                    "branch": self.branch if self.branch else "undefined"
+                    "branch": self.branch if self.branch else "undefined",
                 },
                 annotations={
                     "owner": owner_id,
@@ -354,11 +357,11 @@ class KubernetesProvider(DesktopProvider):
             basic_auth_user=basic_auth_user,
             basic_auth_password=basic_auth_password,
             ttl=ttl,
-            assigned=assigned
+            assigned=assigned,
         )
 
         return instance
-    
+
     def patch_meta_owner(self, owner_id, pod_name) -> client.V1Pod:
         """
         Patch the metadata of a Kubernetes pod to update the owner annotation.
@@ -374,13 +377,7 @@ class KubernetesProvider(DesktopProvider):
             ApiException: If the patch request fails.
         """
 
-        patch = {
-            "metadata": {
-                "annotations": {
-                    "owner": owner_id
-                }
-            }
-        }
+        patch = {"metadata": {"annotations": {"owner": owner_id}}}
 
         try:
             updated_pod = self.core_api.patch_namespaced_pod(
@@ -388,7 +385,10 @@ class KubernetesProvider(DesktopProvider):
                 namespace=self.namespace,
                 body=patch,
             )
-            print(f"Pod '{pod_name}' updated successfully with new owner '{owner_id}'.", flush=True)
+            print(
+                f"Pod '{pod_name}' updated successfully with new owner '{owner_id}'.",
+                flush=True,
+            )
         except ApiException as e:
             print(f"Failed to update pod '{pod_name}' with Error: {e}", flush=True)
             raise
@@ -636,7 +636,7 @@ class KubernetesProvider(DesktopProvider):
         return cls(cfg)
 
     @retry(stop=stop_after_attempt(15))
-    def connect_to_gke(self, opts: GKEOpts) -> Tuple[client.CoreV1Api, str, str]:
+    def connect_to_gke(self, opts: GKEOpts) -> Tuple[client.CoreV1Api, str, str, dict]:
         """
         Sets up and returns a configured Kubernetes client (CoreV1Api) and cluster details.
 
@@ -710,12 +710,13 @@ class KubernetesProvider(DesktopProvider):
                 }
             ],
         }
+        self.kubeconfig = kubeconfig
 
         config.load_kube_config_from_dict(config_dict=kubeconfig)
         v1_client = client.CoreV1Api()
         logger.debug("K8s returning client...")
 
-        return v1_client, project_id, cluster_name
+        return v1_client, project_id, cluster_name, kubeconfig
 
     @retry(stop=stop_after_attempt(200), wait=wait_fixed(2))
     def wait_for_http_200(self, name: str, path: str = "/", port: int = 8000):
@@ -978,28 +979,45 @@ class KubernetesProvider(DesktopProvider):
             owner_id (Optional[str], optional): Owner ID. Defaults to None.
 
         Returns:
-            Optional[int]: An optional PID of the proxy
+            Tuple[int, Optional[int]]: The local port being forwarded, and optionally the PID of the subprocess.
         """
         if local_port is None:
             local_port = find_open_port(container_port, container_port + 1000)
             if not local_port:
                 raise RuntimeError("Failed to find an open port")
 
+        # Prepare environment variables for the subprocess
+        env = os.environ.copy()
+        if self.kubeconfig:
+            # Write kubeconfig to a temporary file
+            import tempfile
+
+            import yaml
+
+            kubeconfig_file = tempfile.NamedTemporaryFile(delete=False, mode="w")
+            yaml.dump(self.kubeconfig, kubeconfig_file)
+            kubeconfig_file.close()
+            env["KUBECONFIG"] = kubeconfig_file.name
+
         cmd = f"kubectl port-forward pod/{self._get_pod_name(name)} {local_port}:{container_port} -n {self.namespace}"
 
-        print("executing command: ", cmd)
+        print("Executing command:", cmd)
         if background:
-            print("running in background")
+            print("Running in background")
             proc = subprocess.Popen(
-                cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                cmd,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,  # Pass the environment variables to the subprocess
             )
-            print("proc.pid: ", proc.pid)
+            print("Process PID:", proc.pid)
             self._register_cleanup(proc)
+            # Store the PID of the process in the class
             return (local_port, proc.pid)  # Return the PID of the subprocess
-
         else:
             try:
-                subprocess.run(cmd, shell=True, check=True)
+                subprocess.run(cmd, shell=True, check=True, env=env)
                 return (
                     local_port,
                     None,
