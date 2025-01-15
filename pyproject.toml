@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agentdesk"
-version = "0.2.112"
+version = "0.2.113"
 description = "A desktop for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "MIT"
@@ -48,6 +48,13 @@ mypy-boto3-ec2 = "^1.34.52"
 
 [tool.poetry.group.demo.dependencies]
 openai = "^1.12.0"
+
+[tool.pyright]
+reportUnknownParameterType = false
+reportMissingTypeArgument = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
 
 [tool.poetry.scripts]
 agentdesk = "agentdesk.cli.main:app"
