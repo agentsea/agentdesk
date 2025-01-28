@@ -259,36 +259,50 @@ class DesktopInstance(WithDB):
             return cls.from_record(record)
 
     @classmethod
-    def find(cls, **kwargs) -> List[DesktopInstance]:
+    def find(
+        cls, owners: Optional[List[str]] = None, **kwargs
+    ) -> List[DesktopInstance]:
         """Find desktops by given keyword arguments.
 
-        For 'in' queries, pass a tuple with ('in', list_of_values) as the value.
-        Example: find(owner_id=('in', ['user1', 'user2', 'user3']))
+        Args:
+            owners (Optional[List[str]]): List of owner IDs to filter by.
+            **kwargs: Additional keyword arguments to filter by exact matches.
+
+        Returns:
+            List[DesktopInstance]: A list of matching desktop instances.
         """
         out = []
         for db in cls.get_db():
             query = db.query(V1DesktopRecord)
+            if owners is not None:
+                query = query.filter(V1DesktopRecord.owner_id.in_(owners))
             for key, value in kwargs.items():
-                if isinstance(value, tuple) and len(value) == 2 and value[0] == "in":
-                    query = query.filter(getattr(V1DesktopRecord, key).in_(value[1]))
-                else:
-                    query = query.filter(getattr(V1DesktopRecord, key) == value)
+                query = query.filter(getattr(V1DesktopRecord, key) == value)
             records = query.all()
             for record in records:
                 out.append(cls.from_record(record))
         return out
 
     @classmethod
-    def find_v1(cls, **kwargs) -> List[V1DesktopInstance]:
-        """Find desktops by given keyword arguments."""
+    def find_v1(
+        cls, owners: Optional[List[str]] = None, **kwargs
+    ) -> List[DesktopInstance]:
+        """Find desktops by given keyword arguments.
+
+        Args:
+            owners (Optional[List[str]]): List of owner IDs to filter by.
+            **kwargs: Additional keyword arguments to filter by exact matches.
+
+        Returns:
+            List[DesktopInstance]: A list of matching desktop instances.
+        """
         out = []
         for db in cls.get_db():
             query = db.query(V1DesktopRecord)
+            if owners is not None:
+                query = query.filter(V1DesktopRecord.owner_id.in_(owners))
             for key, value in kwargs.items():
-                if isinstance(value, tuple) and len(value) == 2 and value[0] == "in":
-                    query = query.filter(getattr(V1DesktopRecord, key).in_(value[1]))
-                else:
-                    query = query.filter(getattr(V1DesktopRecord, key) == value)
+                query = query.filter(getattr(V1DesktopRecord, key) == value)
             records = query.all()
             for record in records:
                 out.append(cls.from_record(record).to_v1_schema())
