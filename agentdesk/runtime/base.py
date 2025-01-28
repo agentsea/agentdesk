@@ -283,7 +283,13 @@ class DesktopInstance(WithDB):
         """Find desktops by given keyword arguments."""
         out = []
         for db in cls.get_db():
-            records = db.query(V1DesktopRecord).filter_by(**kwargs).all()
+            query = db.query(V1DesktopRecord)
+            for key, value in kwargs.items():
+                if isinstance(value, tuple) and len(value) == 2 and value[0] == "in":
+                    query = query.filter(getattr(V1DesktopRecord, key).in_(value[1]))
+                else:
+                    query = query.filter(getattr(V1DesktopRecord, key) == value)
+            records = query.all()
             for record in records:
                 out.append(cls.from_record(record).to_v1_schema())
         return out
