@@ -2,7 +2,6 @@
 import atexit
 import base64
 import io
-import json
 import urllib.parse
 from enum import Enum
 from typing import Any, List, Optional, Tuple, Type
@@ -10,7 +9,7 @@ from typing import Any, List, Optional, Tuple, Type
 import requests
 from devicebay import Action, Device, ReactComponent, action, observation
 from PIL import Image
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from agentdesk.server.models import V1DesktopInstance
@@ -57,8 +56,8 @@ class ConnectConfig(BaseModel):
     )
     api_key: Optional[str] = None
     storage_uri: str = "file://.media"
-    type_min_interval: float = 0.05
-    type_max_interval: float = 0.25
+    type_min_interval: float = 0.02
+    type_max_interval: float = 0.5
     move_mouse_duration: float = 1.0
     mouse_tween: str = "easeInOutQuad"
     store_img: bool = False
@@ -88,8 +87,8 @@ class Desktop(Device):
         agentd_url: Optional[str] = None,
         instance: Optional[DesktopInstance] = None,
         storage_uri: str = "file://.media",
-        type_min_interval: float = 0.05,
-        type_max_interval: float = 0.25,
+        type_min_interval: float = 0.02,
+        type_max_interval: float = 0.5,
         move_mouse_duration: float = 1.0,
         mouse_tween: str = "easeInOutQuad",
         store_img: bool = False,
