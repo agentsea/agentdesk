@@ -602,10 +602,6 @@ class KubernetesProvider(DesktopProvider):
         """Refresh state"""
 
         label_selector = "provisioner=agentdesk"
-
-        if self.branch:
-            label_selector = label_selector + ",branch=" + self.branch
-
         running_pods = self.core_api.list_namespaced_pod(
             namespace=self.namespace, label_selector=label_selector
         ).items
@@ -615,9 +611,6 @@ class KubernetesProvider(DesktopProvider):
 
         # Create a mapping of pod names to pods
         running_pods_map = {pod.metadata.name: pod for pod in running_pods}  # type: ignore
-        remaining_pods_map = {}
-        if self.branch:
-            remaining_pods_map = copy.deepcopy(running_pods_map)
 
         # Create a mapping of instance names to instances
         db_instances_map = {instance.name: instance for instance in db_instances}
@@ -629,20 +622,6 @@ class KubernetesProvider(DesktopProvider):
                     f"Instance '{instance_name}' is in the database but not running. Removing from database."
                 )
                 instance.delete(force=True)
-            elif self.branch:
-                del remaining_pods_map[self._get_pod_name(instance_name)]
-
-        if self.branch:
-            print("checking for pods that aren't in database")
-            current_time = datetime.datetime.now(datetime.timezone.utc)
-            for pod_name, pod in remaining_pods_map.items():
-                # Calculate how long the pod has been alive
-                start_time = pod.status.start_time
-                if start_time:
-                    pod_age = current_time - start_time
-                    print(f"Pod '{pod_name}' has been alive for {pod_age}.")
-                else:
-                    print(f"Pod '{pod_name}' does not have a start time.")
 
         logger.debug(
             "Refresh complete. State synchronized between Kubernetes and the database."
