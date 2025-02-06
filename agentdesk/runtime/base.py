@@ -1,31 +1,31 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar, Generic, Dict, Any
-import time
-import json
-import webbrowser
-import random
-import os
+
 import atexit
-from pathlib import Path
 import base64
+import json
+import os
+import random
+import time
+import webbrowser
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 import docker
-from docker.models.containers import Container
-from cryptography.fernet import Fernet
 import shortuuid
+from cryptography.fernet import Fernet
+from docker.models.containers import Container
 
 from agentdesk.db.conn import WithDB
 from agentdesk.db.models import V1DesktopRecord
+from agentdesk.key import SSHKeyPair
+from agentdesk.proxy import cleanup_proxy, ensure_ssh_proxy
 from agentdesk.server.models import V1DesktopInstance, V1ProviderData
 from agentdesk.util import (
-    get_docker_host,
     check_command_availability,
     check_port_in_use,
+    get_docker_host,
 )
-from agentdesk.proxy import ensure_ssh_proxy, cleanup_proxy
-from agentdesk.key import SSHKeyPair
-
 
 UI_IMG = "us-central1-docker.pkg.dev/agentsea-dev/agentdesk/ui:634820941cbbba4b3cd51149b25d0a4c8d1a35f4"
 
@@ -259,21 +259,51 @@ class DesktopInstance(WithDB):
             return cls.from_record(record)
 
     @classmethod
-    def find(cls, **kwargs) -> List[DesktopInstance]:
-        """Find desktops by given keyword arguments."""
+    def find(
+        cls, owners: Optional[List[str]] = None, **kwargs
+    ) -> List[DesktopInstance]:
+        """Find desktops by given keyword arguments.
+
+        Args:
+            owners (Optional[List[str]]): List of owner IDs to filter by.
+            **kwargs: Additional keyword arguments to filter by exact matches.
+
+        Returns:
+            List[DesktopInstance]: A list of matching desktop instances.
+        """
         out = []
         for db in cls.get_db():
-            records = db.query(V1DesktopRecord).filter_by(**kwargs).all()
+            query = db.query(V1DesktopRecord)
+            if owners is not None:
+                query = query.filter(V1DesktopRecord.owner_id.in_(owners))
+            for key, value in kwargs.items():
+                query = query.filter(getattr(V1DesktopRecord, key) == value)
+            records = query.all()
             for record in records:
                 out.append(cls.from_record(record))
         return out
 
     @classmethod
-    def find_v1(cls, **kwargs) -> List[V1DesktopInstance]:
-        """Find desktops by given keyword arguments."""
+    def find_v1(
+        cls, owners: Optional[List[str]] = None, **kwargs
+    ) -> List[DesktopInstance]:
+        """Find desktops by given keyword arguments.
+
+        Args:
+            owners (Optional[List[str]]): List of owner IDs to filter by.
+            **kwargs: Additional keyword arguments to filter by exact matches.
+
+        Returns:
+            List[DesktopInstance]: A list of matching desktop instances.
+        """
         out = []
         for db in cls.get_db():
-            records = db.query(V1DesktopRecord).filter_by(**kwargs).all()
+            query = db.query(V1DesktopRecord)
+            if owners is not None:
+                query = query.filter(V1DesktopRecord.owner_id.in_(owners))
+            for key, value in kwargs.items():
+                query = query.filter(getattr(V1DesktopRecord, key) == value)
+            records = query.all()
             for record in records:
                 out.append(cls.from_record(record).to_v1_schema())
         return out
@@ -284,7 +314,7 @@ class DesktopInstance(WithDB):
                 raise ValueError(f"Desktop with id {self.id} not found")
 
             if self.provider.type == "kube":
-                from .kube import KubernetesProvider, KubeConnectConfig
+                from .kube import KubeConnectConfig, KubernetesProvider
 
                 if not self.provider.args:
                     raise ValueError(
@@ -297,7 +327,7 @@ class DesktopInstance(WithDB):
                 provider.delete(self.name)
 
             elif self.provider.type == "docker":
-                from .docker import DockerProvider, DockerConnectConfig
+                from .docker import DockerConnectConfig, DockerProvider
 
                 if not self.provider.args:
                     raise ValueError(
@@ -413,12 +443,16 @@ class DesktopInstance(WithDB):
             resource_name=self.resource_name,
             namespace=self.namespace,
             ttl=self.ttl,
-            requires_proxy=self.requires_proxy
+            requires_proxy=self.requires_proxy,
         )
-    
+
     @classmethod
     def from_v1(cls, v1_instance: V1DesktopInstance) -> DesktopInstance:
-        if v1_instance.name is not None and v1_instance.status is not None and v1_instance.reserved_ip is not None:
+        if (
+            v1_instance.name is not None
+            and v1_instance.status is not None
+            and v1_instance.reserved_ip is not None
+        ):
             return cls(
                 name=v1_instance.name,
                 addr=v1_instance.addr,
@@ -430,10 +464,14 @@ class DesktopInstance(WithDB):
                 image=v1_instance.image,
                 reserved_ip=v1_instance.reserved_ip,
                 provider=v1_instance.provider,
-                requires_proxy=v1_instance.requires_proxy if v1_instance.requires_proxy is not None else True
+                requires_proxy=v1_instance.requires_proxy
+                if v1_instance.requires_proxy is not None
+                else True,
             )
         else:
-            raise ValueError(f"required fieldnames not present all the following are required and got the following values name: {v1_instance.name}, status: {v1_instance.status}, reserved_ip: {v1_instance.reserved_ip}")
+            raise ValueError(
+                f"required fieldnames not present all the following are required and got the following values name: {v1_instance.name}, status: {v1_instance.status}, reserved_ip: {v1_instance.reserved_ip}"
+            )
 
     def view(
         self,
@@ -449,7 +487,7 @@ class DesktopInstance(WithDB):
 
         elif self.provider and self.provider.type in ["kube"]:
             # TODO: add support for kube
-            from .kube import KubernetesProvider, KubeConnectConfig
+            from .kube import KubeConnectConfig, KubernetesProvider
 
             if not self.provider.args:
                 raise ValueError(f"No args for kube provider while deleting {self.id}")

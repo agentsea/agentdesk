@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agentdesk"
-version = "0.2.111"
+version = "0.2.118"
 description = "A desktop for AI agents"
 authors = ["Patrick Barker <patrickbarkerco@gmail.com>"]
 license = "MIT"
@@ -9,7 +9,6 @@ packages = [{include = "agentdesk"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
-pillow = "^10.2.0"
 requests = "^2.31.0"
 fastapi = {extras = ["all"], version = "^0.109.0"}
 sqlalchemy = "^2.0.25"
@@ -33,6 +32,7 @@ toolfuse = "^0.1.13"
 devicebay = "^0.1.28"
 kubernetes = "^31.0.0"
 shortuuid = "^1.0.13"
+pillow = "10.4.0"
 
 
 [tool.poetry.group.gcp.dependencies]
@@ -48,6 +48,13 @@ mypy-boto3-ec2 = "^1.34.52"
 
 [tool.poetry.group.demo.dependencies]
 openai = "^1.12.0"
+
+[tool.pyright]
+reportUnknownParameterType = false
+reportMissingTypeArgument = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
 
 [tool.poetry.scripts]
 agentdesk = "agentdesk.cli.main:app"

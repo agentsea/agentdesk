@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Float
+from sqlalchemy import Boolean, Column, Float, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -15,7 +15,7 @@ class V1DesktopRecord(Base):
     __tablename__ = "v1_desktops"
 
     id = Column(String, primary_key=True)
-    name = Column(String)
+    name = Column(String, unique=True)
     addr = Column(String, nullable=True)
     status = Column(String)
     created = Column(Float)
