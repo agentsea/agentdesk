@@ -224,6 +224,9 @@ class KubernetesProvider(DesktopProvider):
             ],
             resources=resources,
             env_from=env_from,  # Using envFrom to source env vars from the secret
+            env=[
+                client.V1EnvVar(name="CONTAINER_NAME", value=name)
+            ],
             image_pull_policy="Always",
         )
 
