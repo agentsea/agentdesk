@@ -52,7 +52,7 @@ desktop.open_url("https://google.com")
 # Take actions on the desktop
 desktop.move_mouse(500, 500)
 desktop.click()
-img = desktop.take_screenshot()
+img = desktop.take_screenshots()
 ```
 
 ## Usage
@@ -151,7 +151,7 @@ desktop.press_key('Enter')
 
 desktop.scroll()
 
-img = desktop.take_screenshot()
+img = desktop.take_screenshots()
 ```
 
 ### Processors
@@ -165,7 +165,7 @@ Add a coordinate grid on top of the image
 ```python
 from agentdesk.processors import GridProcessor
 
-img = desktop.take_screenshot()
+img = desktop.take_screenshots()
 
 processor = GridProcessor()
 grid_img = processor.process_b64(img)
