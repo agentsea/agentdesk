@@ -82,26 +82,6 @@ desktop = Desktop.kube()
 $ agentdesk create --provider kube
 ```
 
-### Create a remote desktop on GCE
-
-```python
-desktop = Desktop.gce()
-```
-
-```bash
-$ agentdesk create --provider gce
-```
-
-### Create a remote desktop on EC2
-
-```python
-desktop = Desktop.ec2()
-```
-
-```bash
-$ agentdesk create --provider ec2
-```
-
 ### View the desktop in the UI
 
 ```python
@@ -170,16 +150,6 @@ img = desktop.take_screenshots()
 processor = GridProcessor()
 grid_img = processor.process_b64(img)
 ```
-
-## Examples
-
-### Drawing Bot
-
-See how to use a web-based drawing app with AgentDesk in our [notebook](./examples/drawing/demo.ipynb).
-
-### GPT-4V
-
-See how to use GPT-4V with AgentDesk in our [notebook](./examples/gpt4v/note.ipynb) or [agent](./examples/gpt4v/main.py).
 
 ## Community
 
