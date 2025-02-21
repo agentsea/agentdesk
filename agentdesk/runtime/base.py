@@ -464,9 +464,11 @@ class DesktopInstance(WithDB):
                 image=v1_instance.image,
                 reserved_ip=v1_instance.reserved_ip,
                 provider=v1_instance.provider,
-                requires_proxy=v1_instance.requires_proxy
-                if v1_instance.requires_proxy is not None
-                else True,
+                requires_proxy=(
+                    v1_instance.requires_proxy
+                    if v1_instance.requires_proxy is not None
+                    else True
+                ),
             )
         else:
             raise ValueError(
