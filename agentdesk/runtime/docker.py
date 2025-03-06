@@ -45,6 +45,8 @@ class DockerProvider(DesktopProvider):
             user = os.environ.get("USER")
             if os.path.exists(f"/Users/{user}/.docker/run/docker.sock"):
                 docker_socket = f"unix:///Users/{user}/.docker/run/docker.sock"
+            elif platform.system() == "Windows":
+                docker_socket = "npipe:////./pipe/docker_engine"
             else:
                 raise FileNotFoundError(
                     (
