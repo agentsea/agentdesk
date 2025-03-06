@@ -33,6 +33,7 @@ def b64_to_image(base64_str: str) -> Image.Image:
     image = Image.open(BytesIO(image_data))
     return image
 
+
 def extract_file_path(uri):
     """Extracts the file path from a URI"""
     parsed_uri = urlparse(uri)
