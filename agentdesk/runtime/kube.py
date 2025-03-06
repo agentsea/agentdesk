@@ -129,6 +129,8 @@ class KubernetesProvider(DesktopProvider):
         id: Optional[str] = None,
         ttl: Optional[int] = None,
         assigned: Optional[float] = None,
+        node_selector: Optional[Dict[str, str]] = None,
+        tolerations: Optional[List[client.V1Toleration]] = None,
     ) -> DesktopInstance:
         """Create a Desktop
 
@@ -227,15 +229,8 @@ class KubernetesProvider(DesktopProvider):
             containers=[container],
             restart_policy="Never",
             automount_service_account_token=False,
-            node_selector={"workload": "desktop"},
-            tolerations=[
-                client.V1Toleration(
-                    key="workload",
-                    operator="Equal",
-                    value="desktop",
-                    effect="NoSchedule",
-                )
-            ],
+            node_selector=node_selector,
+            tolerations=tolerations,
         )
 
         # Pod creation
