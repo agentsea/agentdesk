@@ -229,6 +229,7 @@ class KubernetesProvider(DesktopProvider):
             containers=[container],
             restart_policy="Never",
             automount_service_account_token=False,
+            enable_service_links=False,
             node_selector=node_selector,
             tolerations=tolerations,
         )
