@@ -39,18 +39,19 @@ class DockerProvider(DesktopProvider):
             self.client = docker.from_env()
 
     def _configure_docker_socket(self):
+        docker_socket = None
         if os.path.exists("/var/run/docker.sock"):
             docker_socket = "unix:///var/run/docker.sock"
+        elif platform.system() == "Windows":
+            docker_socket = "npipe:////./pipe/docker_engine"
         else:
             user = os.environ.get("USER")
             if os.path.exists(f"/Users/{user}/.docker/run/docker.sock"):
                 docker_socket = f"unix:///Users/{user}/.docker/run/docker.sock"
-            elif platform.system() == "Windows":
-                docker_socket = "npipe:////./pipe/docker_engine"
-            else:
+        if not docker_socket:
                 raise FileNotFoundError(
                     (
-                        "Neither '/var/run/docker.sock' nor '/Users/<USER>/.docker/run/docker.sock' are available."
+                        "Neither  '/var/run/docker.sock'nor 'npipe:////./pipe/docker_engine' nor '/Users/<USER>/.docker/run/docker.sock' are available."
                         "Please make sure you have Docker installed and running."
                     )
                 )
