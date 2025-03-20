@@ -249,7 +249,7 @@ class KubernetesProvider(DesktopProvider):
                 annotations={
                     "owner": owner_id,
                     "desktop_name": name,
-                    "openmeter.io/subject":owner_id,
+                    "openmeter.io/subject": owner_id,
                     "data.openmeter.io/desktop_id": id,
                     "data.openmeter.io/workload": "desktop",
                     "data.openmeter.io/branch": self.branch if self.branch else "undefined",
