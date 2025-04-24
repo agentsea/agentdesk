@@ -45,6 +45,9 @@ class GKEOpts(BaseModel):
     region: str
     service_account_json: str
 
+class VPNOpts(BaseModel):
+    config_file: str
+    username_password: str
 
 class LocalOpts(BaseModel):
     path: Optional[str] = os.getenv("KUBECONFIG", os.path.expanduser("~/.kube/config"))
@@ -82,9 +85,9 @@ DP = TypeVar("DP", bound="KubernetesProvider")
 class KubernetesProvider(DesktopProvider):
     """A provider of desktop virtual machines"""
 
-    def __init__(self, cfg: Optional[KubeConnectConfig] = None) -> None:
+    def __init__(self, cfg: Optional[KubeConnectConfig] = None, vpn: Optional[VPNOpts] = None) -> None:
         self.cfg = cfg or KubeConnectConfig()
-
+        self.vpn = vpn
         self.kubeconfig = None
         if cfg.provider == "gke":
             opts = cfg.gke_opts
@@ -209,8 +212,8 @@ class KubernetesProvider(DesktopProvider):
 
         pod_name = self._get_pod_name(name)
 
-        # Container configuration
-        container = client.V1Container(
+        # Desktop Container configuration
+        desktop = client.V1Container(
             name=name,
             image=image,
             ports=[
@@ -219,20 +222,63 @@ class KubernetesProvider(DesktopProvider):
                 client.V1ContainerPort(container_port=3001),
             ],
             resources=resources,
+            security_context=client.V1SecurityContext(
+                capabilities=client.V1Capabilities(drop=["NET_ADMIN", "NET_RAW"]),
+            ),
             env_from=env_from,  # Using envFrom to source env vars from the secret
             env=[client.V1EnvVar(name="CONTAINER_NAME", value=name)],
             image_pull_policy="Always",
         )
+        if self.vpn:
+            # 3. vpn sidecar
+            vpn_container = client.V1Container(
+                name="vpn-sidecar",
+                image="us-docker.pkg.dev/agentsea-dev/agentd/vpn-sidecar:latest",
+                env=[
+                    client.V1EnvVar(name="CONFIG_OVPN", value=self.vpn.config_file),
+                    client.V1EnvVar(name="VPN_AUTH",  value=self.vpn.username_password),
+                ],
+                security_context=client.V1SecurityContext(
+                    capabilities=client.V1Capabilities(add=["NET_ADMIN"]),
+                ),
+                volume_mounts=[
+                    client.V1VolumeMount(name="dev-net-tun", mount_path="/dev/net/tun"),
+                ],
+                resources=client.V1ResourceRequirements(
+                    requests={"cpu": "100m", "memory": "128Mi"},
+                    limits={"cpu": "500m", "memory": "256Mi"},
+                ),
+            )
 
-        # Pod specification
-        pod_spec = client.V1PodSpec(
-            containers=[container],
-            restart_policy="Never",
-            automount_service_account_token=False,
-            enable_service_links=False,
-            node_selector=node_selector,
-            tolerations=tolerations,
-        )
+            volumes = [
+                client.V1Volume(
+                    name="dev-net-tun",
+                    host_path=client.V1HostPathVolumeSource(
+                        path="/dev/net/tun",
+                        type="CharDevice"
+                    )
+                ),
+            ]
+            # Pod specification
+            pod_spec = client.V1PodSpec(
+                containers=[desktop, vpn_container],
+                restart_policy="Never",
+                volumes=volumes,
+                automount_service_account_token=False,
+                enable_service_links=False,
+                node_selector=node_selector,
+                tolerations=tolerations,
+            )
+        else:
+            # Pod specification
+            pod_spec = client.V1PodSpec(
+                containers=[desktop],
+                restart_policy="Never",
+                automount_service_account_token=False,
+                enable_service_links=False,
+                node_selector=node_selector,
+                tolerations=tolerations,
+            )
 
         # Pod creation
         pod = client.V1Pod(
