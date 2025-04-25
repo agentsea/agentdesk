@@ -345,7 +345,7 @@ class KubernetesProvider(DesktopProvider):
                 if not created_pod.metadata:
                     raise ValueError("expected pod metadata to be set")
                 for secret in secrets:
-                    if not secret or secret.metadata:
+                    if not secret or not secret.metadata:
                         raise ValueError("expected secret metadata to be set or None secret")
                     secret.metadata.owner_references = [
                         client.V1OwnerReference(
