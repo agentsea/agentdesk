@@ -188,12 +188,12 @@ class KubernetesProvider(DesktopProvider):
 
         if not image:
             image = "us-docker.pkg.dev/agentsea-dev/agentd/desktop-webtop:latest"
-
-        secret = None
+        secrets: List[client.V1Secret] = []
         if env_vars:
             # Create a secret for the environment variables
             print("creating secret...")
             secret: Optional[client.V1Secret] = self.create_secret(name, env_vars)
+            secrets.append(secret)
             env_from = [
                 client.V1EnvFromSource(
                     secret_ref=client.V1SecretEnvSource(name=secret.metadata.name)  # type: ignore
@@ -201,6 +201,30 @@ class KubernetesProvider(DesktopProvider):
             ]
         else:
             env_from = []
+
+        # -------- VPN Secret (only if self.vpn present) ---------
+        vpn_secret_name = None
+        if self.vpn:
+            vpn_secret_name = f"{self._get_pod_name(name)}-vpn"
+            print("creating vpn secret …")
+            vpn_secret_body = client.V1Secret(
+                api_version="v1",
+                kind="Secret",
+                metadata=client.V1ObjectMeta(
+                    name=vpn_secret_name,
+                    namespace=self.namespace,
+                    labels={"provisioner": "agentdesk"},
+                ),
+                string_data={
+                    "config.ovpn": self.vpn.config_file,
+                    "auth.txt":    self.vpn.username_password,
+                },
+                type="Opaque",
+            )
+            self.core_api.create_namespaced_secret(
+                namespace=self.namespace, body=vpn_secret_body
+            )
+            secrets.append(vpn_secret_body)
 
         # Resource configurations as before
         resources = client.V1ResourceRequirements(
@@ -234,15 +258,12 @@ class KubernetesProvider(DesktopProvider):
             vpn_container = client.V1Container(
                 name="vpn-sidecar",
                 image="us-docker.pkg.dev/agentsea-dev/agentd/vpn-sidecar:latest",
-                env=[
-                    client.V1EnvVar(name="CONFIG_OVPN", value=self.vpn.config_file),
-                    client.V1EnvVar(name="VPN_AUTH",  value=self.vpn.username_password),
-                ],
                 security_context=client.V1SecurityContext(
                     capabilities=client.V1Capabilities(add=["NET_ADMIN"]),
                 ),
                 volume_mounts=[
                     client.V1VolumeMount(name="dev-net-tun", mount_path="/dev/net/tun"),
+                    client.V1VolumeMount(name="vpn-secret",  mount_path="/vpn-secret", read_only=True),
                 ],
                 resources=client.V1ResourceRequirements(
                     requests={"cpu": "100m", "memory": "128Mi"},
@@ -258,6 +279,13 @@ class KubernetesProvider(DesktopProvider):
                         type="CharDevice"
                     )
                 ),
+                client.V1Volume(
+                    name="vpn-secret",
+                    secret=client.V1SecretVolumeSource(
+                        secret_name=vpn_secret_name,
+                        default_mode=0o600,
+                    )
+                )
             ]
             # Pod specification
             pod_spec = client.V1PodSpec(
@@ -311,25 +339,27 @@ class KubernetesProvider(DesktopProvider):
             print(f"Pod created with name '{pod_name}'")
             # print("created pod: ", created_pod.__dict__)
             # Update secret's owner reference UID to newly created pod's UID
-            if secret:
+            if secrets:
                 print("updating secret refs...")
-                if not secret.metadata:
-                    raise ValueError("expected secret metadata to be set")
+
                 if not created_pod.metadata:
                     raise ValueError("expected pod metadata to be set")
-                secret.metadata.owner_references = [
-                    client.V1OwnerReference(
-                        api_version="v1",
-                        kind="Pod",
-                        name=pod_name,
-                        uid=created_pod.metadata.uid,  # This should be set dynamically after pod creation
+                for secret in secrets:
+                    if not secret or secret.metadata:
+                        raise ValueError("expected secret metadata to be set or None secret")
+                    secret.metadata.owner_references = [
+                        client.V1OwnerReference(
+                            api_version="v1",
+                            kind="Pod",
+                            name=pod_name,
+                            uid=created_pod.metadata.uid,  # This should be set dynamically after pod creation
+                        )
+                    ]
+                    self.core_api.patch_namespaced_secret(
+                        name=secret.metadata.name,
+                        namespace=self.namespace,
+                        body=secret,  # type: ignore
                     )
-                ]
-                self.core_api.patch_namespaced_secret(
-                    name=secret.metadata.name,
-                    namespace=self.namespace,
-                    body=secret,  # type: ignore
-                )
                 print("secret refs updated")
         except ApiException as e:
             print(f"Exception when creating pod: {e}")
