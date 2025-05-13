@@ -8,6 +8,7 @@ import signal
 import string
 import subprocess
 import sys
+import ssl
 import httpx
 from typing import (
     Any,
@@ -876,9 +877,9 @@ class KubernetesProvider(DesktopProvider):
             client_key = os.getenv("WORKLOAD_PROXY_CLIENT_KEY")
             ca_cert = os.getenv("WORKLOAD_PROXY_CA_CERT")
 
-            workload_proxy_client = httpx.Client(
-                verify=ca_cert, cert=(client_cert, client_key)
-            )
+            context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=ca_cert)
+            context.load_cert_chain(certfile=client_cert, keyfile=client_key)
+            workload_proxy_client = httpx.Client(verify=context)
 
             merged_headers = {
                 **headers,
