@@ -821,7 +821,7 @@ class KubernetesProvider(DesktopProvider):
             name=name, path=path, method="GET", port=port
         )
         if status_code != 200:
-            logger.debug(f"Received status code {status_code}, retrying...")
+            logger.info(f"Received status code {status_code}, with text: {response_text}, retrying...")
             raise Exception(
                 f"Pod {pod_name} at path {path} is not ready. Status code: {status_code}"
             )
