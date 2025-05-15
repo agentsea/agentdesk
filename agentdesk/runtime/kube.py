@@ -980,7 +980,7 @@ class KubernetesProvider(DesktopProvider):
             yaml.dump(self.kubeconfig, kubeconfig_file)
             kubeconfig_file.close()
             env["KUBECONFIG"] = kubeconfig_file.name
-
+        print(f"setting up port forward proxy with pod name: {self._get_pod_name(name)} local_port: {local_port} container_port: {container_port} and namespace {self.namespace}", flush=True)
         cmd = f"kubectl port-forward pod/{self._get_pod_name(name)} {local_port}:{container_port} -n {self.namespace}"
 
         print("Executing command:", cmd)

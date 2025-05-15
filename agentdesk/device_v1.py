@@ -546,7 +546,7 @@ class Desktop(Device):
             dict: Agentd health
         """
         url = f"{self.base_url}/health"
-
+        print(f"checking desktop device health at url: {url}")
         response = requests.get(url, headers=self._get_headers())
         response.raise_for_status()
         return response.json()
