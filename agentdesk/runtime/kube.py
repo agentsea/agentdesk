@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import signal
 import string
 import subprocess
@@ -976,10 +977,15 @@ class KubernetesProvider(DesktopProvider):
 
             import yaml
 
-            kubeconfig_file = tempfile.NamedTemporaryFile(delete=False, mode="w")
-            yaml.dump(self.kubeconfig, kubeconfig_file)
-            kubeconfig_file.close()
-            env["KUBECONFIG"] = kubeconfig_file.name
+            temp_kubeconfig = tempfile.NamedTemporaryFile(delete=False, mode="w")
+            if isinstance(self.kubeconfig, str) and os.path.isfile(self.kubeconfig):
+                temp_kubeconfig.close()
+                shutil.copyfile(self.kubeconfig, temp_kubeconfig.name)
+            else:
+                yaml.safe_dump(self.kubeconfig, temp_kubeconfig)
+                temp_kubeconfig.close()
+
+            env["KUBECONFIG"] = temp_kubeconfig.name
         print(env["KUBECONFIG"])
         print(f"setting up port forward proxy with pod name: {self._get_pod_name(name)} local_port: {local_port} container_port: {container_port} and namespace {self.namespace}", flush=True)
         cmd = f"kubectl port-forward pod/{self._get_pod_name(name)} {local_port}:{container_port} -n {self.namespace}"
