@@ -682,6 +682,9 @@ class KubernetesProvider(DesktopProvider):
         """Refresh state"""
 
         label_selector = "provisioner=agentdesk"
+        if self.branch:
+            label_selector += f",branch={self.branch}"
+
         running_pods = self.core_api.list_namespaced_pod(
             namespace=self.namespace, label_selector=label_selector
         ).items
@@ -691,7 +694,7 @@ class KubernetesProvider(DesktopProvider):
 
         # Create a mapping of pod names to pods
         running_pods_map = {pod.metadata.name: pod for pod in running_pods}  # type: ignore
-
+        print("running_pods", running_pods_map, flush=True)
         # Create a mapping of instance names to instances
         db_instances_map = {instance.name: instance for instance in db_instances}
 
