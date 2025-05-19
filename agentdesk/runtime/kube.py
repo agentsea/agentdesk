@@ -694,7 +694,7 @@ class KubernetesProvider(DesktopProvider):
 
         # Create a mapping of pod names to pods
         running_pods_map = {pod.metadata.name: pod for pod in running_pods}  # type: ignore
-        print("running_pods", running_pods_map, flush=True)
+        print("running_pods", list(running_pods_map), flush=True)
         # Create a mapping of instance names to instances
         db_instances_map = {instance.name: instance for instance in db_instances}
 
