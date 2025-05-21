@@ -545,10 +545,15 @@ class KubernetesProvider(DesktopProvider):
 
         # Attempt to delete the secret
         try:
+            pod_name = self._get_pod_name(name)
             self.core_api.delete_namespaced_secret(
                 name=pod_name, namespace=self.namespace
             )
             print(f"Successfully deleted secret: {pod_name}")
+            self.core_api.delete_namespaced_secret(
+                name=(pod_name + '-vpn'), namespace=self.namespace
+            )
+            print(f"Successfully deleted secret: {(pod_name + '-vpn')}")
         except ApiException as e:
             if e.status == 404:
                 print(f"Secret '{pod_name}' not found, skipping deletion.")
