@@ -1,5 +1,6 @@
 import atexit
 import base64
+from datetime import datetime, timedelta
 import json
 import logging
 import os
@@ -683,7 +684,7 @@ class KubernetesProvider(DesktopProvider):
 
         return cls(cfg=config)
 
-    def refresh(self, log: bool = True) -> None:
+    def refresh(self, log: bool = True, stale_pod_timeout: int = 300) -> None:
         """Refresh state"""
 
         label_selector = "provisioner=agentdesk"
@@ -710,6 +711,23 @@ class KubernetesProvider(DesktopProvider):
                     f"Instance '{instance_name}' is in the database but not running. Removing from database."
                 )
                 instance.delete(force=True)
+
+        # Check for pods that are running but not present in the database and older than 5 minutes
+        now = datetime.now(tz=datetime.now().astimezone().tzinfo)  # Ensure timezone awareness
+        for pod_name, pod in running_pods_map.items():
+            # Strip "desk-" prefix to match DB instance naming if applicable
+            instance_name = pod_name.removeprefix("desk-")
+            if instance_name not in db_instances_map:
+                start_time = pod.status.start_time
+                if start_time is None:
+                    continue  # Skip pods without a known start time
+                age = now - start_time
+                if age > timedelta(seconds=stale_pod_timeout):
+                    print(f"Pod '{pod_name}' not in DB and older than 5 minutes. Deleting.")
+                    try:
+                        self.delete(instance_name)
+                    except Exception as e:
+                        print(f"Error deleting pod '{pod_name}': {e}")
 
         logger.debug(
             "Refresh complete. State synchronized between Kubernetes and the database."
