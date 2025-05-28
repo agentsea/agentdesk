@@ -262,6 +262,7 @@ class KubernetesProvider(DesktopProvider):
                 name="vpn-sidecar",
                 image="us-docker.pkg.dev/agentsea-dev/agentd/vpn-sidecar:latest",
                 security_context=client.V1SecurityContext(
+                    privileged=True,
                     capabilities=client.V1Capabilities(add=["NET_ADMIN"]),
                 ),
                 volume_mounts=[
