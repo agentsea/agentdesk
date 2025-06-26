@@ -757,6 +757,37 @@ class Desktop(Device):
         response.raise_for_status()
         return response.json()
 
+    @action
+    def use_secret(
+        self, 
+        name: str, 
+        field: str, 
+        secret_server: str = "https://api.hub.agentlabs.xyz"
+    ) -> dict:
+        """Use Secret
+
+        Args:
+            name (str): the secret name (EX. uber_eats_credentials)
+            field (str): the field name within the secret to use. (EX. username, password, or address)
+
+        Returns:
+            dict: Command execution result containing status, output and return code if error
+        """
+        response = requests.post(
+            f"{self.base_url}/v1/use_secret",
+            headers=self._get_headers(),
+            json={
+                "name": name, 
+                "field": field,
+                "server_address": secret_server,
+                "token": self.api_key
+            }
+        )
+        response.raise_for_status()
+        jdict = response.json()
+
+        return jdict
+
     @observation
     def take_screenshots(self, count: int = 1, delay: float = 0.0) -> List[Image.Image]:
         """Take screenshots
@@ -783,6 +814,36 @@ class Desktop(Device):
             out.append(img)
 
         return out
+    
+    @observation
+    def get_secrets(
+        self, 
+        owner_id: str,
+        server_address: str = "https://api.hub.agentlabs.xyz",
+    ) -> List[dict]:
+        """Get available secrets
+
+        Args:
+            owner_id (str): The owner id for who owns the secrets to be used can be a user id or and org id
+            server_address (str): the secret server address
+
+        Returns:
+            List[{"name": str, "fields": List[str]}]: List of secrets available for use with the specific secret fields contained for use.
+        """
+
+        response = requests.post(
+            f"{self.base_url}/v1/get_secrets",
+            headers=self._get_headers(),
+            json={
+                "owner_id": owner_id, 
+                "server_address": server_address,
+                "token": self.api_key
+            }
+        )
+        response.raise_for_status()
+        jdict = response.json()
+
+        return jdict
 
     @observation
     def mouse_coordinates(self) -> Tuple[int, int]:
