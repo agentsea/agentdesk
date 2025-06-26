@@ -931,6 +931,40 @@
         <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span></div>
 
 
+<div class="viewcode-block" id="Desktop.use_secret">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.use_secret">[docs]</a>
+    <span class="nd">@action</span>
+    <span class="k">def</span> <span class="nf">use_secret</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+        <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+        <span class="n">secret_server</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;https://api.hub.agentlabs.xyz&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Use Secret</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): the secret name (EX. uber_eats_credentials)</span>
+<span class="sd">            field (str): the field name within the secret to use. (EX. username, password, or address)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Command execution result containing status, output and return code if error</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/use_secret&quot;</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_headers</span><span class="p">(),</span>
+            <span class="n">json</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span> 
+                <span class="s2">&quot;field&quot;</span><span class="p">:</span> <span class="n">field</span><span class="p">,</span>
+                <span class="s2">&quot;server_address&quot;</span><span class="p">:</span> <span class="n">secret_server</span><span class="p">,</span>
+                <span class="s2">&quot;token&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_key</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+        <span class="n">jdict</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">jdict</span></div>
+
+
 <div class="viewcode-block" id="Desktop.take_screenshots">
 <a class="viewcode-back" href="../../api.html#agentdesk.Desktop.take_screenshots">[docs]</a>
     <span class="nd">@observation</span>
@@ -959,6 +993,39 @@
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">out</span></div>
+
+    
+<div class="viewcode-block" id="Desktop.get_secrets">
+<a class="viewcode-back" href="../../api.html#agentdesk.Desktop.get_secrets">[docs]</a>
+    <span class="nd">@observation</span>
+    <span class="k">def</span> <span class="nf">get_secrets</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">owner_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">server_address</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;https://api.hub.agentlabs.xyz&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get available secrets</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            owner_id (str): The owner id for who owns the secrets to be used can be a user id or and org id</span>
+<span class="sd">            server_address (str): the secret server address</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[{&quot;name&quot;: str, &quot;fields&quot;: List[str]}]: List of secrets available for use with the specific secret fields contained for use.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/v1/get_secrets&quot;</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_headers</span><span class="p">(),</span>
+            <span class="n">json</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;owner_id&quot;</span><span class="p">:</span> <span class="n">owner_id</span><span class="p">,</span> 
+                <span class="s2">&quot;server_address&quot;</span><span class="p">:</span> <span class="n">server_address</span><span class="p">,</span>
+                <span class="s2">&quot;token&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">api_key</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+        <span class="n">jdict</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">jdict</span></div>
 
 
 <div class="viewcode-block" id="Desktop.mouse_coordinates">

@@ -83,6 +83,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.from_instance"><code class="docutils literal notranslate"><span class="pre">Desktop.from_instance()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.gce"><code class="docutils literal notranslate"><span class="pre">Desktop.gce()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.get"><code class="docutils literal notranslate"><span class="pre">Desktop.get()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.get_secrets"><code class="docutils literal notranslate"><span class="pre">Desktop.get_secrets()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.health"><code class="docutils literal notranslate"><span class="pre">Desktop.health()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.hot_key"><code class="docutils literal notranslate"><span class="pre">Desktop.hot_key()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.info"><code class="docutils literal notranslate"><span class="pre">Desktop.info()</span></code></a></li>
@@ -97,6 +98,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.scroll"><code class="docutils literal notranslate"><span class="pre">Desktop.scroll()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.take_screenshots"><code class="docutils literal notranslate"><span class="pre">Desktop.take_screenshots()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.type_text"><code class="docutils literal notranslate"><span class="pre">Desktop.type_text()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.use_secret"><code class="docutils literal notranslate"><span class="pre">Desktop.use_secret()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#agentdesk.Desktop.view"><code class="docutils literal notranslate"><span class="pre">Desktop.view()</span></code></a></li>
 </ul>
 </li>
@@ -490,6 +492,26 @@ when the tool is no longer needed.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="agentdesk.Desktop.get_secrets">
+<span class="sig-name descname"><span class="pre">get_secrets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">owner_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">server_address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'https://api.hub.agentlabs.xyz'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/agentdesk/device_v1.html#Desktop.get_secrets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#agentdesk.Desktop.get_secrets" title="Link to this definition"></a></dt>
+<dd><p>Get available secrets</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>owner_id</strong> (<em>str</em>) – The owner id for who owns the secrets to be used can be a user id or and org id</p></li>
+<li><p><strong>server_address</strong> (<em>str</em>) – the secret server address</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, “fields”: List[str]}]: List of secrets available for use with the specific secret fields contained for use.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[{“name”</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="agentdesk.Desktop.health">
 <span class="sig-name descname"><span class="pre">health</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/agentdesk/device_v1.html#Desktop.health"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#agentdesk.Desktop.health" title="Link to this definition"></a></dt>
 <dd><p>Health of agentd</p>
@@ -705,6 +727,26 @@ when the tool is no longer needed.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>text</strong> (<em>str</em>) – Text to type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentdesk.Desktop.use_secret">
+<span class="sig-name descname"><span class="pre">use_secret</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">field</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secret_server</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'https://api.hub.agentlabs.xyz'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/agentdesk/device_v1.html#Desktop.use_secret"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#agentdesk.Desktop.use_secret" title="Link to this definition"></a></dt>
+<dd><p>Use Secret</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>) – the secret name (EX. uber_eats_credentials)</p></li>
+<li><p><strong>field</strong> (<em>str</em>) – the field name within the secret to use. (EX. username, password, or address)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Command execution result containing status, output and return code if error</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
 </dd>
 </dl>
 </dd></dl>
