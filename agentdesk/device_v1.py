@@ -2,6 +2,7 @@
 import atexit
 import base64
 import io
+import os
 import urllib.parse
 from enum import Enum
 from typing import Any, List, Optional, Tuple, Type
@@ -161,9 +162,28 @@ class Desktop(Device):
         self._private_ssh_key = private_ssh_key
         self._ssh_port = ssh_port
         self._proxy_type = proxy_type
-
+        self.provider = None
+        self.resource_name = None
         if self._requires_proxy:
             if (
+                instance and instance.provider and instance.provider.type == "kube" and os.getenv("WORKLOAD_PROXY_URL") and instance.resource_name
+            ):  # TODO: use `provider.proxy` for everything
+                if not instance.provider.args:
+                    raise ValueError(f"No args for intance {instance.id}")
+
+                cfg = KubeConnectConfig.model_validate_json(
+                    instance.provider.args["cfg"]
+                )
+                provider = KubernetesProvider(cfg=cfg)
+                self.provider = KubernetesProvider(cfg=cfg)
+                self.resource_name = instance.resource_name
+                provider.call(name=instance.resource_name, path="/health", method="GET", port=8000)
+                status_code, response_text = provider.call(name=instance.resource_name, path="/health", method="GET", port=8000)
+                if status_code != 200:
+                    raise Exception(
+                        f"Pod {instance.resource_name} at path /health is not ready. Status code: {status_code}, response: {response_text}"
+                    )
+            elif (
                 instance and instance.provider and instance.provider.type == "kube"
             ):  # TODO: use `provider.proxy` for everything
                 if not instance.provider.args:
