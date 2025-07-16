@@ -78,6 +78,7 @@
 <span class="kn">import</span> <span class="nn">atexit</span>
 <span class="kn">import</span> <span class="nn">base64</span>
 <span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">urllib.parse</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
@@ -245,9 +246,28 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_private_ssh_key</span> <span class="o">=</span> <span class="n">private_ssh_key</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ssh_port</span> <span class="o">=</span> <span class="n">ssh_port</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_proxy_type</span> <span class="o">=</span> <span class="n">proxy_type</span>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">provider</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resource_name</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_requires_proxy</span><span class="p">:</span>
             <span class="k">if</span> <span class="p">(</span>
+                <span class="n">instance</span> <span class="ow">and</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span> <span class="ow">and</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;kube&quot;</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;WORKLOAD_PROXY_URL&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">instance</span><span class="o">.</span><span class="n">resource_name</span>
+            <span class="p">):</span>  <span class="c1"># TODO: use `provider.proxy` for everything</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No args for intance </span><span class="si">{</span><span class="n">instance</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="n">cfg</span> <span class="o">=</span> <span class="n">KubeConnectConfig</span><span class="o">.</span><span class="n">model_validate_json</span><span class="p">(</span>
+                    <span class="n">instance</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;cfg&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">provider</span> <span class="o">=</span> <span class="n">KubernetesProvider</span><span class="p">(</span><span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">provider</span> <span class="o">=</span> <span class="n">KubernetesProvider</span><span class="p">(</span><span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">resource_name</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">resource_name</span>
+                <span class="n">provider</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">instance</span><span class="o">.</span><span class="n">resource_name</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/health&quot;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
+                <span class="n">status_code</span><span class="p">,</span> <span class="n">response_text</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">instance</span><span class="o">.</span><span class="n">resource_name</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/health&quot;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Pod </span><span class="si">{</span><span class="n">instance</span><span class="o">.</span><span class="n">resource_name</span><span class="si">}</span><span class="s2"> at path /health is not ready. Status code: </span><span class="si">{</span><span class="n">status_code</span><span class="si">}</span><span class="s2">, response: </span><span class="si">{</span><span class="n">response_text</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">elif</span> <span class="p">(</span>
                 <span class="n">instance</span> <span class="ow">and</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span> <span class="ow">and</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;kube&quot;</span>
             <span class="p">):</span>  <span class="c1"># TODO: use `provider.proxy` for everything</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">instance</span><span class="o">.</span><span class="n">provider</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
